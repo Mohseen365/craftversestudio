@@ -44,7 +44,7 @@ DATABASE_URL="postgresql://..."
 ADMIN_PASSWORD="your-secure-password"
 ADMIN_EMAIL="you@example.com"
 RESEND_API_KEY=""  # optional for dev
-NEXT_PUBLIC_APP_URL="http://localhost:3000"
+
 ```
 
 ### 3. Push schema and seed
@@ -61,8 +61,8 @@ This creates tables and seeds sample products plus 30 days of capacity.
 npm run dev
 ```
 
-- Storefront: http://localhost:3000
-- Admin: http://localhost:3000/admin (password from `ADMIN_PASSWORD`)
+- Storefront: [http://localhost:3000](http://localhost:3000)
+- Admin: [http://localhost:3000/admin](http://localhost:3000/admin) (password from `ADMIN_PASSWORD`)
 
 ## Deployment (Vercel)
 
@@ -105,12 +105,14 @@ prisma/
 
 ## Monthly cost
 
-| Service   | Free tier        |
-|-----------|------------------|
-| Vercel    | Hobby            |
-| Supabase  | 500MB DB         |
-| Neon      | 0.5GB            |
-| Resend    | 3,000 emails/mo  |
+
+| Service  | Free tier       |
+| -------- | --------------- |
+| Vercel   | Hobby           |
+| Supabase | 500MB DB        |
+| Neon     | 0.5GB           |
+| Resend   | 3,000 emails/mo |
+
 
 **₹0 initially** for low-volume validation.
 
@@ -120,3 +122,4 @@ prisma/
 - Instagram automation bot
 - Customer login
 - Coupons, reviews, CRM
+

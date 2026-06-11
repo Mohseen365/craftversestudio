@@ -7,7 +7,8 @@ const resend = process.env.RESEND_API_KEY
 
 const adminEmail = process.env.ADMIN_EMAIL;
 const fromEmail = process.env.FROM_EMAIL ?? "Bouquet Orders <onboarding@resend.dev>";
-const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+const appUrl =  process.env.URL ||
+  process.env.DEPLOY_PRIME_URL;
 
 async function sendEmail({
   to,
