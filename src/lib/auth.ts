@@ -1,0 +1,39 @@
+import { cookies } from "next/headers";
+import bcrypt from "bcryptjs";
+
+const COOKIE_NAME = "bouquet_admin_session";
+const SESSION_VALUE = "authenticated";
+
+export async function verifyAdminPassword(password: string): Promise<boolean> {
+  const adminPassword = process.env.ADMIN_PASSWORD;
+  if (!adminPassword) return false;
+  if (adminPassword.startsWith("$2")) {
+    return bcrypt.compare(password, adminPassword);
+  }
+  return password === adminPassword;
+}
+
+export async function createAdminSession(): Promise<void> {
+  const cookieStore = await cookies();
+  cookieStore.set(COOKIE_NAME, SESSION_VALUE, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 7,
+  });
+}
+
+export async function destroyAdminSession(): Promise<void> {
+  const cookieStore = await cookies();
+  cookieStore.delete(COOKIE_NAME);
+}
+
+export async function isAdminAuthenticated(): Promise<boolean> {
+  const cookieStore = await cookies();
+  return cookieStore.get(COOKIE_NAME)?.value === SESSION_VALUE;
+}
+
+export async function requireAdmin(): Promise<boolean> {
+  return isAdminAuthenticated();
+}
