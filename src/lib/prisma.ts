@@ -1,5 +1,13 @@
 import { PrismaClient } from "@prisma/client";
+console.log(
+  "DATABASE_URL HOST:",
+  process.env.DATABASE_URL?.split("@")[1]
+);
 
+console.log(
+  "DIRECT_URL HOST:",
+  process.env.DIRECT_URL?.split("@")[1]
+);
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
 
 export const prisma =
