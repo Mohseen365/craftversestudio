@@ -7,8 +7,12 @@ const resend = process.env.RESEND_API_KEY
 
 const adminEmail = process.env.ADMIN_EMAIL;
 const fromEmail = process.env.FROM_EMAIL ?? "Bouquet Orders <onboarding@resend.dev>";
+<<<<<<< HEAD
 const appUrl =  process.env.URL ||
   process.env.DEPLOY_PRIME_URL;
+=======
+const appUrl =  process.env.URL ||  process.env.DEPLOY_PRIME_URL;
+>>>>>>> d91c9a14bfa5da77857e5332f32a21b679d2a61f
 
 async function sendEmail({
   to,
