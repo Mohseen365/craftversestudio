@@ -44,7 +44,7 @@ DATABASE_URL="postgresql://..."
 ADMIN_PASSWORD="your-secure-password"
 ADMIN_EMAIL="you@example.com"
 RESEND_API_KEY=""  # optional for dev
-NEXT_PUBLIC_APP_URL="http://localhost:3000"
+
 ```
 
 ### 3. Push schema and seed
