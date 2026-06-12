@@ -41,7 +41,7 @@ export async function requireAdmin(): Promise<boolean> {
   return isAdminAuthenticated();
 }
 
-export async function createCustomerSession(userId: string): Promise<void> {
+export async function createCustomerSession(userId: string) {
   const cookieStore = await cookies();
 
   cookieStore.set(CUSTOMER_COOKIE, userId, {
