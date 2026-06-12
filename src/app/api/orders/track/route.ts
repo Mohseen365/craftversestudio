@@ -3,19 +3,19 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET(req: NextRequest) {
   const orderNumber = req.nextUrl.searchParams.get("orderNumber");
-  const phone = req.nextUrl.searchParams.get("phone");
+  const mobileNo = req.nextUrl.searchParams.get("mobileNo");
 
-  if (!orderNumber && !phone) {
+  if (!orderNumber && !mobileNo) {
     return NextResponse.json(
-      { error: "Provide order number or phone" },
-      { status: 400 },
+      { error: "Provide order number or Mobile No" },
+      { status: 400 }
     );
   }
 
   const order = await prisma.order.findFirst({
     where: orderNumber
       ? { orderNumber: orderNumber.toUpperCase() }
-      : { user: { phone: phone! } },
+      : { user: { phone: mobileNo! } },
     include: {
       items: { include: { product: { select: { name: true } } } },
       user: { select: { phone: true } },

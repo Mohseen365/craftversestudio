@@ -58,13 +58,22 @@ export default async function ProductPage({
           </div>
 
           <div>
-            <p className="text-sm uppercase tracking-wide text-rose-600">{product.category}</p>
-            <h1 className="mt-2 font-serif text-3xl text-stone-900">{product.name}</h1>
-            <p className="mt-4 text-2xl font-medium">{formatPrice(product.price)}</p>
-            <p className="mt-6 text-stone-600 leading-relaxed">{product.description}</p>
+            <p className="text-sm uppercase tracking-wide text-rose-600">
+              {product.category}
+            </p>
+            <h1 className="mt-2 font-serif text-3xl text-stone-900">
+              {product.name}
+            </h1>
+            <p className="mt-4 text-2xl font-medium">
+              {formatPrice(product.price)}
+            </p>
+            <p className="mt-6 text-stone-600 leading-relaxed">
+              {product.description}
+            </p>
+            {/*             
             <p className="mt-4 text-sm text-stone-500">
               Production time: {product.productionDays} day(s) before delivery
-            </p>
+            </p> 
 
             <div className="mt-8 rounded-2xl border border-rose-100 bg-rose-50/50 p-6">
               <h2 className="font-medium text-stone-900">Available delivery dates</h2>
@@ -85,7 +94,7 @@ export default async function ProductPage({
                 </ul>
               )}
             </div>
-
+                     */}
             <Link
               href={`/order/${product.slug}`}
               className="mt-8 inline-flex rounded-full bg-rose-700 px-8 py-3 text-sm font-medium text-white hover:bg-rose-800 transition"

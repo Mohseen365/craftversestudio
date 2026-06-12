@@ -15,7 +15,7 @@ export default async function TrackPage({
       <main className="mx-auto max-w-lg px-4 py-10">
         <h1 className="font-serif text-3xl text-stone-900">Track your order</h1>
         <p className="mt-2 text-stone-500">
-          Enter your order number or phone number to see status updates
+          Enter your order number or Mobile number to see status updates
         </p>
         <div className="mt-8">
           <TrackForm initialOrderNumber={params.orderNumber} />

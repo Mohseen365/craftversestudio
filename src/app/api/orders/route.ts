@@ -9,7 +9,7 @@ const orderSchema = z.object({
   productId: z.string(),
   fullName: z.string().min(2),
   instagramUsername: z.string().optional(),
-  phone: z.string().min(10),
+  mobileNo: z.string().min(10),
   email: z.string().email().optional().or(z.literal("")),
   address: z.string().min(5),
   city: z.string().min(2),
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
     if (!available) {
       return NextResponse.json(
         { error: "Selected date is full. Please choose another date." },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
         data: {
           name: data.fullName,
           instagramUsername: data.instagramUsername || null,
-          phone: data.phone,
+          phone: data.mobileNo,
           email: data.email || null,
         },
       });
@@ -108,10 +108,14 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return NextResponse.json({ error: "Invalid order data" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid order data" },
+        { status: 400 }
+      );
     }
     console.error(err);
-    const message = err instanceof Error ? err.message : "Failed to create order";
+    const message =
+      err instanceof Error ? err.message : "Failed to create order";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

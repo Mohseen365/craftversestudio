@@ -14,9 +14,13 @@ type OrderResult = {
   items: Array<{ product: { name: string }; quantity: number }>;
 };
 
-export function TrackForm({ initialOrderNumber }: { initialOrderNumber?: string }) {
+export function TrackForm({
+  initialOrderNumber,
+}: {
+  initialOrderNumber?: string;
+}) {
   const [orderNumber, setOrderNumber] = useState(initialOrderNumber ?? "");
-  const [phone, setPhone] = useState("");
+  const [mobileNo, setMobileNo] = useState("");
   const [result, setResult] = useState<OrderResult | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -29,7 +33,7 @@ export function TrackForm({ initialOrderNumber }: { initialOrderNumber?: string 
 
     const params = new URLSearchParams();
     if (orderNumber.trim()) params.set("orderNumber", orderNumber.trim());
-    if (phone.trim()) params.set("phone", phone.trim());
+    if (mobileNo.trim()) params.set("mobileNo", mobileNo.trim());
 
     try {
       const res = await fetch(`/api/orders/track?${params}`);
@@ -47,7 +51,9 @@ export function TrackForm({ initialOrderNumber }: { initialOrderNumber?: string 
     <div>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-stone-700">Order number</label>
+          <label className="block text-sm font-medium text-stone-700">
+            Order number
+          </label>
           <input
             value={orderNumber}
             onChange={(e) => setOrderNumber(e.target.value)}
@@ -56,10 +62,12 @@ export function TrackForm({ initialOrderNumber }: { initialOrderNumber?: string 
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-stone-700">Or phone number</label>
+          <label className="block text-sm font-medium text-stone-700">
+            Or mobile number
+          </label>
           <input
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
+            value={mobileNo}
+            onChange={(e) => setMobileNo(e.target.value)}
             type="tel"
             className="mt-1 w-full rounded-xl border border-stone-200 px-4 py-2 text-sm"
           />
@@ -67,7 +75,7 @@ export function TrackForm({ initialOrderNumber }: { initialOrderNumber?: string 
         {error && <p className="text-sm text-red-600">{error}</p>}
         <button
           type="submit"
-          disabled={loading || (!orderNumber.trim() && !phone.trim())}
+          disabled={loading || (!orderNumber.trim() && !mobileNo.trim())}
           className="rounded-full bg-rose-700 px-6 py-2 text-sm font-medium text-white hover:bg-rose-800 disabled:opacity-50"
         >
           {loading ? "Searching..." : "Track order"}
@@ -79,7 +87,9 @@ export function TrackForm({ initialOrderNumber }: { initialOrderNumber?: string 
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-sm text-stone-500">Order</p>
-              <p className="font-mono text-lg font-medium">{result.orderNumber}</p>
+              <p className="font-mono text-lg font-medium">
+                {result.orderNumber}
+              </p>
             </div>
             <OrderStatusBadge status={result.status} />
           </div>

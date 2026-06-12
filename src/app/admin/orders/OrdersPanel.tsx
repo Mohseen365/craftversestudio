@@ -11,7 +11,7 @@ type Order = {
   deliveryDate: string;
   total: number;
   trackingNumber: string | null;
-  user: { name: string; phone: string; email: string | null };
+  user: { name: string; mobileNo: string; email: string | null };
   items: Array<{ product: { name: string }; quantity: number }>;
   payments: Array<{ screenshotUrl: string | null; status: string }>;
 };
@@ -90,43 +90,53 @@ export function OrdersPanel() {
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
                   <p className="font-mono font-medium">{order.orderNumber}</p>
-                  <p className="text-sm text-stone-600">{order.user.name} · {order.user.phone}</p>
+                  <p className="text-sm text-stone-600">
+                    {order.user.name} · {order.user.mobileNo}
+                  </p>
                   <p className="text-sm text-stone-500">
-                    Delivery: {formatDate(order.deliveryDate)} · {formatPrice(order.total)}
+                    Delivery: {formatDate(order.deliveryDate)} ·{" "}
+                    {formatPrice(order.total)}
                   </p>
                   <ul className="mt-2 text-sm text-stone-600">
                     {order.items.map((item, i) => (
-                      <li key={i}>{item.product.name} × {item.quantity}</li>
+                      <li key={i}>
+                        {item.product.name} × {item.quantity}
+                      </li>
                     ))}
                   </ul>
                 </div>
                 <OrderStatusBadge status={order.status} />
               </div>
 
-              {order.payments[0]?.screenshotUrl && tab === "PAYMENT_VERIFICATION" && (
-                <div className="mt-4">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={order.payments[0].screenshotUrl}
-                    alt="Payment proof"
-                    className="max-h-48 rounded-lg border"
-                  />
-                  <div className="mt-3 flex gap-2">
-                    <button
-                      onClick={() => updateOrder(order.id, { verifyPayment: true })}
-                      className="rounded-lg bg-emerald-600 px-4 py-2 text-sm text-white"
-                    >
-                      Approve payment
-                    </button>
-                    <button
-                      onClick={() => updateOrder(order.id, { rejectPayment: true })}
-                      className="rounded-lg border border-red-200 px-4 py-2 text-sm text-red-600"
-                    >
-                      Reject
-                    </button>
+              {order.payments[0]?.screenshotUrl &&
+                tab === "PAYMENT_VERIFICATION" && (
+                  <div className="mt-4">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={order.payments[0].screenshotUrl}
+                      alt="Payment proof"
+                      className="max-h-48 rounded-lg border"
+                    />
+                    <div className="mt-3 flex gap-2">
+                      <button
+                        onClick={() =>
+                          updateOrder(order.id, { verifyPayment: true })
+                        }
+                        className="rounded-lg bg-emerald-600 px-4 py-2 text-sm text-white"
+                      >
+                        Approve payment
+                      </button>
+                      <button
+                        onClick={() =>
+                          updateOrder(order.id, { rejectPayment: true })
+                        }
+                        className="rounded-lg border border-red-200 px-4 py-2 text-sm text-red-600"
+                      >
+                        Reject
+                      </button>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
               {NEXT_STATUS[order.status] && (
                 <button

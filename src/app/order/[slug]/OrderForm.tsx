@@ -36,7 +36,7 @@ export function OrderForm({ product, availableDates }: OrderFormProps) {
   const [error, setError] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [deliveryDate, setDeliveryDate] = useState(
-    availableDates.find((d) => d.available)?.date ?? "",
+    availableDates.find((d) => d.available)?.date ?? ""
   );
 
   const subtotal = product.price * quantity;
@@ -57,7 +57,7 @@ export function OrderForm({ product, availableDates }: OrderFormProps) {
           productId: product.id,
           fullName: formData.get("fullName"),
           instagramUsername: formData.get("instagramUsername"),
-          phone: formData.get("phone"),
+          mobileNo: formData.get("mobileNo"),
           email: formData.get("email"),
           address: formData.get("address"),
           city: formData.get("city"),
@@ -74,7 +74,9 @@ export function OrderForm({ product, availableDates }: OrderFormProps) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to create order");
 
-      router.push(`/order/${product.slug}/payment?orderId=${data.orderId}&orderNumber=${data.orderNumber}`);
+      router.push(
+        `/order/${product.slug}/payment?orderId=${data.orderId}&orderNumber=${data.orderNumber}`
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
       setLoading(false);
@@ -84,13 +86,19 @@ export function OrderForm({ product, availableDates }: OrderFormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {error && (
-        <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+        <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
       )}
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Full name" name="fullName" required />
-        <Field label="Instagram username" name="instagramUsername" placeholder="@username" />
-        <Field label="Phone" name="phone" type="tel" required />
+        <Field
+          label="Instagram username"
+          name="instagramUsername"
+          placeholder="@username"
+        />
+        <Field label="mobileNo" name="mobileNo" type="tel" required />
         <Field label="Email" name="email" type="email" />
       </div>
 
@@ -102,22 +110,32 @@ export function OrderForm({ product, availableDates }: OrderFormProps) {
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <label className="block text-sm font-medium text-stone-700">Occasion type</label>
+          <label className="block text-sm font-medium text-stone-700">
+            Occasion type
+          </label>
           <select
             name="occasionType"
             className="mt-1 w-full rounded-xl border border-stone-200 px-4 py-2 text-sm"
           >
             {OCCASIONS.map((o) => (
-              <option key={o} value={o}>{o}</option>
+              <option key={o} value={o}>
+                {o}
+              </option>
             ))}
           </select>
         </div>
-        <Field label="Occasion date (optional)" name="occasionDate" type="date" />
+        <Field
+          label="Occasion date (optional)"
+          name="occasionDate"
+          type="date"
+        />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <label className="block text-sm font-medium text-stone-700">Delivery date</label>
+          <label className="block text-sm font-medium text-stone-700">
+            Delivery date
+          </label>
           <select
             value={deliveryDate}
             onChange={(e) => setDeliveryDate(e.target.value)}
@@ -127,13 +145,16 @@ export function OrderForm({ product, availableDates }: OrderFormProps) {
             <option value="">Select a date</option>
             {availableDates.map((d) => (
               <option key={d.date} value={d.date} disabled={!d.available}>
-                {formatDate(d.date)} — {d.available ? `${d.remaining} left` : "Full"}
+                {formatDate(d.date)} —{" "}
+                {d.available ? `${d.remaining} left` : "Full"}
               </option>
             ))}
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-stone-700">Quantity</label>
+          <label className="block text-sm font-medium text-stone-700">
+            Quantity
+          </label>
           <input
             type="number"
             min={1}
@@ -149,7 +170,9 @@ export function OrderForm({ product, availableDates }: OrderFormProps) {
       <Field label="Notes" name="notes" />
 
       <div className="rounded-2xl border border-rose-100 bg-rose-50/50 p-6">
-        <p className="text-sm text-stone-600">{product.name} × {quantity}</p>
+        <p className="text-sm text-stone-600">
+          {product.name} × {quantity}
+        </p>
         <p className="mt-2 text-xl font-medium">{formatPrice(subtotal)}</p>
         <p className="mt-2 text-xs text-stone-500">
           You&apos;ll upload payment proof on the next step.
@@ -182,7 +205,9 @@ function Field({
 }) {
   return (
     <div>
-      <label className="block text-sm font-medium text-stone-700">{label}</label>
+      <label className="block text-sm font-medium text-stone-700">
+        {label}
+      </label>
       <input
         name={name}
         type={type}
