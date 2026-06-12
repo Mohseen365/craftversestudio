@@ -104,7 +104,7 @@ export default async function CatalogPage({
           </button>
           {q || priceFilter !== "all" || sort !== "newest" ? (
             <Link
-              href="/catalog"
+              href="/protected/catalog"
               className="px-4 py-2 text-sm text-stone-500 hover:text-stone-800"
             >
               Clear

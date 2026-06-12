@@ -10,10 +10,16 @@ type ProductCardProps = {
   imageUrl?: string | null;
 };
 
-export function ProductCard({ name, slug, price, category, imageUrl }: ProductCardProps) {
+export function ProductCard({
+  name,
+  slug,
+  price,
+  category,
+  imageUrl,
+}: ProductCardProps) {
   return (
     <Link
-      href={`/products/${slug}`}
+      href={`/protected/products/${slug}`}
       className="group overflow-hidden rounded-2xl border border-rose-100 bg-white shadow-sm transition hover:shadow-md hover:border-rose-200"
     >
       <div className="aspect-[4/5] bg-gradient-to-br from-rose-50 to-stone-100 overflow-hidden">
@@ -31,7 +37,9 @@ export function ProductCard({ name, slug, price, category, imageUrl }: ProductCa
         )}
       </div>
       <div className="p-4">
-        <p className="text-xs uppercase tracking-wide text-rose-500">{category}</p>
+        <p className="text-xs uppercase tracking-wide text-rose-500">
+          {category}
+        </p>
         <h3 className="mt-1 font-serif text-lg text-stone-800 group-hover:text-rose-800">
           {name}
         </h3>

@@ -11,10 +11,16 @@ export function Header() {
           </span>
         </Link>
         <nav className="flex items-center gap-6 text-sm font-medium text-stone-600">
-          <Link href="/catalog" className="hover:text-rose-700 transition-colors">
+          <Link
+            href="/protected/catalog"
+            className="hover:text-rose-700 transition-colors"
+          >
             Catalog
           </Link>
-          <Link href="/track" className="hover:text-rose-700 transition-colors">
+          <Link
+            href="/protected/track"
+            className="hover:text-rose-700 transition-colors"
+          >
             Track Order
           </Link>
         </nav>

@@ -40,13 +40,13 @@ export default async function HomePage() {
               </p>
               <div className="mt-8 flex flex-wrap gap-4">
                 <Link
-                  href="/catalog"
+                  href="/protected/catalog"
                   className="rounded-full bg-rose-700 px-6 py-3 text-sm font-medium text-white shadow-sm hover:bg-rose-800 transition"
                 >
                   Browse Catalog
                 </Link>
                 <Link
-                  href="/track"
+                  href="/protected/track"
                   className="rounded-full border border-rose-200 bg-white px-6 py-3 text-sm font-medium text-rose-800 hover:bg-rose-50 transition"
                 >
                   Track Order
@@ -63,7 +63,7 @@ export default async function HomePage() {
                 Popular bouquets
               </h2>
               <Link
-                href="/catalog"
+                href="/protected/catalog"
                 className="text-sm text-rose-700 hover:underline"
               >
                 View all
