@@ -14,6 +14,7 @@ export default async function PaymentPage({
   if (!user) {
     redirect("/login");
   }
+
   const params = await searchParams;
   const orderId = params.orderId ?? "";
   const orderNumber = params.orderNumber ?? "";

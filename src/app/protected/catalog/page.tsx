@@ -6,8 +6,6 @@ import { ProductCard } from "@/components/ProductCard";
 import { prisma } from "@/lib/prisma";
 import { PRICE_FILTERS } from "@/lib/utils";
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth";
 
 type SearchParams = Promise<{
   q?: string;
@@ -20,11 +18,6 @@ export default async function CatalogPage({
 }: {
   searchParams: SearchParams;
 }) {
-  const user = await getCurrentUser();
-
-  if (!user) {
-    redirect("/login");
-  }
   const params = await searchParams;
   const q = params.q?.trim() ?? "";
   const priceFilter = params.price ?? "all";

@@ -1,19 +1,12 @@
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { TrackForm } from "./TrackForm";
-import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth";
 
 export default async function TrackPage({
   searchParams,
 }: {
   searchParams: Promise<{ orderNumber?: string }>;
 }) {
-  const user = await getCurrentUser();
-
-  if (!user) {
-    redirect("/login");
-  }
   const params = await searchParams;
 
   return (
