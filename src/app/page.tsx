@@ -5,8 +5,15 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { prisma } from "@/lib/prisma";
 import { ProductCard } from "@/components/ProductCard";
+import { redirect } from "next/navigation";
+import { getCurrentUser } from "@/lib/auth";
 
 export default async function HomePage() {
+  const user = await getCurrentUser();
+
+  if (!user) {
+    redirect("/login");
+  }
   const featured = await prisma.product.findMany({
     where: { active: true },
     include: { images: { orderBy: { sortOrder: "asc" }, take: 1 } },
@@ -28,8 +35,8 @@ export default async function HomePage() {
                 Bouquets crafted with care, delivered on your date
               </h1>
               <p className="mt-6 text-lg text-stone-600">
-                Browse our catalog, pick your delivery date, upload payment, and track
-                your order — no endless DMs required.
+                Browse our catalog, pick your delivery date, upload payment, and
+                track your order — no endless DMs required.
               </p>
               <div className="mt-8 flex flex-wrap gap-4">
                 <Link
@@ -52,8 +59,13 @@ export default async function HomePage() {
         {featured.length > 0 && (
           <section className="mx-auto max-w-6xl px-4 py-16">
             <div className="flex items-end justify-between">
-              <h2 className="font-serif text-2xl text-stone-900">Popular bouquets</h2>
-              <Link href="/catalog" className="text-sm text-rose-700 hover:underline">
+              <h2 className="font-serif text-2xl text-stone-900">
+                Popular bouquets
+              </h2>
+              <Link
+                href="/catalog"
+                className="text-sm text-rose-700 hover:underline"
+              >
                 View all
               </Link>
             </div>
@@ -78,14 +90,37 @@ export default async function HomePage() {
             <h2 className="font-serif text-2xl text-stone-900">How it works</h2>
             <ol className="mt-8 grid gap-6 md:grid-cols-4">
               {[
-                { step: "1", title: "Browse", desc: "Search and filter bouquets by price" },
-                { step: "2", title: "Pick a date", desc: "System checks daily capacity automatically" },
-                { step: "3", title: "Pay & upload", desc: "Upload payment screenshot for verification" },
-                { step: "4", title: "Track", desc: "Follow status from production to delivery" },
+                {
+                  step: "1",
+                  title: "Browse",
+                  desc: "Search and filter bouquets by price",
+                },
+                {
+                  step: "2",
+                  title: "Pick a date",
+                  desc: "System checks daily capacity automatically",
+                },
+                {
+                  step: "3",
+                  title: "Pay & upload",
+                  desc: "Upload payment screenshot for verification",
+                },
+                {
+                  step: "4",
+                  title: "Track",
+                  desc: "Follow status from production to delivery",
+                },
               ].map((item) => (
-                <li key={item.step} className="rounded-2xl border border-rose-100 p-6">
-                  <span className="text-sm font-bold text-rose-600">{item.step}</span>
-                  <h3 className="mt-2 font-medium text-stone-900">{item.title}</h3>
+                <li
+                  key={item.step}
+                  className="rounded-2xl border border-rose-100 p-6"
+                >
+                  <span className="text-sm font-bold text-rose-600">
+                    {item.step}
+                  </span>
+                  <h3 className="mt-2 font-medium text-stone-900">
+                    {item.title}
+                  </h3>
                   <p className="mt-1 text-sm text-stone-500">{item.desc}</p>
                 </li>
               ))}

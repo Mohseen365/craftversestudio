@@ -1,5 +1,8 @@
 import { cookies } from "next/headers";
 import bcrypt from "bcryptjs";
+import { prisma } from "@/lib/prisma";
+
+const CUSTOMER_COOKIE = "bouquet_customer";
 
 const COOKIE_NAME = "bouquet_admin_session";
 const SESSION_VALUE = "authenticated";
@@ -36,4 +39,34 @@ export async function isAdminAuthenticated(): Promise<boolean> {
 
 export async function requireAdmin(): Promise<boolean> {
   return isAdminAuthenticated();
+}
+
+export async function createCustomerSession(userId: string): Promise<void> {
+  const cookieStore = await cookies();
+
+  cookieStore.set(CUSTOMER_COOKIE, userId, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 365,
+  });
+}
+
+export async function getCurrentUser() {
+  const cookieStore = await cookies();
+
+  const userId = cookieStore.get(CUSTOMER_COOKIE)?.value;
+
+  if (!userId) return null;
+
+  return prisma.user.findUnique({
+    where: { id: userId },
+  });
+}
+
+export async function destroyCustomerSession() {
+  const cookieStore = await cookies();
+
+  cookieStore.delete(CUSTOMER_COOKIE);
 }
