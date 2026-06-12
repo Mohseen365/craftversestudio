@@ -28,6 +28,33 @@ enum PaymentStatus {
   REJECTED
 }
 
+model Event {
+  id         String   @id @default(cuid())
+
+  userId     String?  @map("user_id")
+  productId  String?  @map("product_id")
+  orderId    String?  @map("order_id")
+  paymentId  String?  @map("payment_id")
+
+  eventType  String   @map("event_type")
+  metadata   Json?
+
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  product    Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  order      Order?   @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  payment    Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([productId])
+  @@index([orderId])
+  @@index([paymentId])
+  @@index([eventType])
+
+  @@map("events")
+}
+
 model User {
   id                 String   @id @default(cuid())
 
@@ -43,6 +70,7 @@ model User {
 
   addresses          Address[]
   orders             Order[]
+  events             Event[]
 
   @@map("users")
 }
@@ -74,6 +102,7 @@ model Product {
 
   images     ProductImage[]
   orderItems OrderItem[]
+  events Event[]
 
   @@index([active, category])
   @@map("products")
@@ -110,6 +139,7 @@ model Order {
   items                OrderItem[]
   payments             Payment[]
   capacityReservations CapacityReservation[]
+  events Event[]
 
   @@index([status])
   @@index([deliveryDate])
@@ -140,6 +170,8 @@ model Payment {
   createdAt     DateTime      @default(now()) @map("created_at")
 
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  events Event[]
 
   @@map("payments")
 }
