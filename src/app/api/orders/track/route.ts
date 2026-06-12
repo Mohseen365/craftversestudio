@@ -15,10 +15,10 @@ export async function GET(req: NextRequest) {
   const order = await prisma.order.findFirst({
     where: orderNumber
       ? { orderNumber: orderNumber.toUpperCase() }
-      : { user: { phone: mobileNo! } },
+      : { user: { mobileNo: mobileNo! } },
     include: {
       items: { include: { product: { select: { name: true } } } },
-      user: { select: { phone: true } },
+      user: { select: { mobileNo: true } },
     },
     orderBy: { createdAt: "desc" },
   });

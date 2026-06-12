@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
         data: {
           name: data.fullName,
           instagramUsername: data.instagramUsername || null,
-          phone: data.mobileNo,
+          mobileNo: data.mobileNo,
           email: data.email || null,
         },
       });
