@@ -7,12 +7,19 @@ import { Footer } from "@/components/Footer";
 import { prisma } from "@/lib/prisma";
 import { formatPrice, formatDate } from "@/lib/utils";
 import { getAvailableDates } from "@/lib/capacity";
+import { redirect } from "next/navigation";
+import { getCurrentUser } from "@/lib/auth";
 
 export default async function ProductPage({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
+  const user = await getCurrentUser();
+
+  if (!user) {
+    redirect("/login");
+  }
   const { slug } = await params;
 
   const product = await prisma.product.findUnique({

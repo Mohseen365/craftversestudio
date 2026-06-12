@@ -6,6 +6,8 @@ import { ProductCard } from "@/components/ProductCard";
 import { prisma } from "@/lib/prisma";
 import { PRICE_FILTERS } from "@/lib/utils";
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { getCurrentUser } from "@/lib/auth";
 
 type SearchParams = Promise<{
   q?: string;
@@ -18,6 +20,11 @@ export default async function CatalogPage({
 }: {
   searchParams: SearchParams;
 }) {
+  const user = await getCurrentUser();
+
+  if (!user) {
+    redirect("/login");
+  }
   const params = await searchParams;
   const q = params.q?.trim() ?? "";
   const priceFilter = params.price ?? "all";
@@ -31,7 +38,10 @@ export default async function CatalogPage({
   const products = await prisma.product.findMany({
     where: {
       active: true,
-      price: { gte: priceRange.min, ...(priceRange.max !== Infinity ? { lte: priceRange.max } : {}) },
+      price: {
+        gte: priceRange.min,
+        ...(priceRange.max !== Infinity ? { lte: priceRange.max } : {}),
+      },
       ...(q
         ? {
             OR: [
@@ -47,10 +57,10 @@ export default async function CatalogPage({
       sort === "price-low"
         ? { price: "asc" }
         : sort === "price-high"
-          ? { price: "desc" }
-          : sort === "best"
-            ? { orderCount: "desc" }
-            : { createdAt: "desc" },
+        ? { price: "desc" }
+        : sort === "best"
+        ? { orderCount: "desc" }
+        : { createdAt: "desc" },
   });
 
   return (
@@ -58,7 +68,9 @@ export default async function CatalogPage({
       <Header />
       <main className="mx-auto max-w-6xl px-4 py-10">
         <h1 className="font-serif text-3xl text-stone-900">Catalog</h1>
-        <p className="mt-2 text-stone-500">Find the perfect bouquet for your occasion</p>
+        <p className="mt-2 text-stone-500">
+          Find the perfect bouquet for your occasion
+        </p>
 
         <form className="mt-8 flex flex-wrap gap-4" method="GET">
           <input
@@ -73,7 +85,10 @@ export default async function CatalogPage({
             className="rounded-xl border border-stone-200 px-4 py-2 text-sm focus:border-rose-300 focus:outline-none"
           >
             {PRICE_FILTERS.map((p) => (
-              <option key={p.label} value={p.label === "All prices" ? "all" : p.label}>
+              <option
+                key={p.label}
+                value={p.label === "All prices" ? "all" : p.label}
+              >
                 {p.label}
               </option>
             ))}
@@ -95,14 +110,19 @@ export default async function CatalogPage({
             Apply
           </button>
           {q || priceFilter !== "all" || sort !== "newest" ? (
-            <Link href="/catalog" className="px-4 py-2 text-sm text-stone-500 hover:text-stone-800">
+            <Link
+              href="/catalog"
+              className="px-4 py-2 text-sm text-stone-500 hover:text-stone-800"
+            >
               Clear
             </Link>
           ) : null}
         </form>
 
         {products.length === 0 ? (
-          <p className="mt-12 text-center text-stone-500">No bouquets match your filters.</p>
+          <p className="mt-12 text-center text-stone-500">
+            No bouquets match your filters.
+          </p>
         ) : (
           <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {products.map((product) => (
