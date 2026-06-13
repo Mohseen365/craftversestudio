@@ -3,21 +3,29 @@ import { Footer } from "@/components/Footer";
 import { PaymentUpload } from "./PaymentUpload";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
+import { trackEvent } from "@/lib/eventLogger";
 
 export default async function PaymentPage({
   searchParams,
 }: {
   searchParams: Promise<{ orderId?: string; orderNumber?: string }>;
 }) {
+  const params = await searchParams;
+  const orderId = params.orderId ?? "";
+  const orderNumber = params.orderNumber ?? "";
   const user = await getCurrentUser();
 
   if (!user) {
     redirect("/login");
   }
-
-  const params = await searchParams;
-  const orderId = params.orderId ?? "";
-  const orderNumber = params.orderNumber ?? "";
+  void trackEvent({
+    userId: user.id,
+    eventType: "PAYMENT_Page",
+    metadata: {
+      orderId: orderId,
+      totalAmount: orderNumber,
+    },
+  });
 
   return (
     <>

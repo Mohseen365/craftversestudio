@@ -1,13 +1,26 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
-export function LoginForm() {
+// import { getOrCreateCustomer } from "@/lib/auth"; //cannot use in client side
+type LoginFormProps = {
+  order: {
+    id: string;
+    number: string;
+    slug: string;
+  };
+};
+export function LoginForm({ order }: LoginFormProps) {
+  const router = useRouter();
   const [mobileNo, setMobileNo] = useState("");
   const [email, setEmail] = useState("");
   const [instagramUsername, setInstagramUsername] = useState("");
 
   async function handleLogin() {
+    // const user = await getOrCreateCustomer();
+    // const id = user.id;
+
     const res = await fetch("/api/customer/login", {
       method: "POST",
       headers: {
@@ -17,23 +30,30 @@ export function LoginForm() {
         mobileNo,
         email,
         instagramUsername,
+        // id,
       }),
     });
 
-    if (res.ok) {
-      window.location.href = "/";
-    }
+    // router.push(
+    //   `/order/${order.slug}/payment?orderId=${order.id}&orderNumber=${order.number}`
+    // );
+
+    router.push(`/track?orderNumber=${order.number}`);
+
+    // if (res.ok) {
+    //   window.location.href = "/";
+    // }
   }
 
-  async function continueGuest() {
-    const res = await fetch("/api/customer/guest", {
-      method: "POST",
-    });
+  // async function continueGuest() {
+  //   const res = await fetch("/api/customer/guest", {
+  //     method: "POST",
+  //   });
 
-    if (res.ok) {
-      window.location.href = "/";
-    }
-  }
+  //   if (res.ok) {
+  //     window.location.href = "/";
+  //   }
+  // }
 
   return (
     <div className="mt-8 space-y-4">
@@ -65,9 +85,9 @@ export function LoginForm() {
         Continue
       </button>
 
-      <button onClick={continueGuest} className="w-full rounded-lg border p-3">
+      {/* <button onClick={continueGuest} className="w-full rounded-lg border p-3">
         Continue as Guest
-      </button>
+      </button> */}
     </div>
   );
 }

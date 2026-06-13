@@ -74,8 +74,11 @@ export function OrderForm({ product, availableDates }: OrderFormProps) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to create order");
 
+      // router.push(
+      //   `/order/${product.slug}/payment?orderId=${data.orderId}&orderNumber=${data.orderNumber}`
+      // );
       router.push(
-        `/order/${product.slug}/payment?orderId=${data.orderId}&orderNumber=${data.orderNumber}`
+        `/login/?orderId=${data.orderId}&slug${product.slug}&orderNumber=${data.orderNumber}`
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");

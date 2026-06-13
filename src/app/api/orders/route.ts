@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
         data: {
           orderNumber,
           userId: user.id,
-          status: "PAYMENT_PENDING",
+          status: "PENDING_REVIEW",
           occasionType: data.occasionType,
           occasionDate: data.occasionDate ? new Date(data.occasionDate) : null,
           deliveryDate,

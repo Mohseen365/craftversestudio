@@ -7,18 +7,21 @@ import { prisma } from "@/lib/prisma";
 import { getAvailableDates } from "@/lib/capacity";
 import { OrderForm } from "./OrderForm";
 import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth";
+// import { getCurrentUser } from "@/lib/auth";
+import { getOrCreateCustomer } from "@/lib/auth";
+import { trackEvent } from "@/lib/eventLogger";
 
 export default async function OrderPage({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
-  const user = await getCurrentUser();
+  // const user = await getCurrentUser();
 
-  if (!user) {
-    redirect("/login");
-  }
+  // if (!user) {
+  //   redirect("/login");
+  // }
+
   const { slug } = await params;
 
   const product = await prisma.product.findUnique({
@@ -27,6 +30,19 @@ export default async function OrderPage({
 
   if (!product) notFound();
 
+  void getOrCreateCustomer()
+    .then((user) =>
+      trackEvent({
+        userId: user.id,
+        eventType: "ORDER_Page",
+        metadata: {
+          productName: product.name,
+          category: product.category,
+          price: product.price,
+        },
+      })
+    )
+    .catch((err) => console.error("Customer creation failed:", err));
   const dates = await getAvailableDates(45);
   const availableDates = dates.map((d) => ({
     date: d.date.toISOString(),

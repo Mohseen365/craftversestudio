@@ -6,8 +6,12 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { prisma } from "@/lib/prisma";
 import { formatPrice, formatDate } from "@/lib/utils";
-import { getAvailableDates } from "@/lib/capacity";
+//import { getAvailableDates } from "@/lib/capacity";
+import { trackEvent } from "@/lib/eventLogger";
+// import { getCurrentUser } from "@/lib/auth";
+import { getOrCreateCustomer } from "@/lib/auth";
 
+// const user = await getCurrentUser();
 export default async function ProductPage({
   params,
 }: {
@@ -22,7 +26,22 @@ export default async function ProductPage({
 
   if (!product) notFound();
 
-  const availableDates = await getAvailableDates(45);
+  void getOrCreateCustomer()
+    .then((user) =>
+      trackEvent({
+        userId: user?.id,
+        productId: product.id,
+        eventType: "PRODUCT_VIEW",
+        metadata: {
+          productName: product.name,
+          category: product.category,
+          price: product.price,
+        },
+      })
+    )
+    .catch((err) => console.error("Customer creation failed:", err));
+
+  //const availableDates = await getAvailableDates(45);
 
   return (
     <>

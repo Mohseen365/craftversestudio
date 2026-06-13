@@ -12,15 +12,12 @@ export function Header() {
         </Link>
         <nav className="flex items-center gap-6 text-sm font-medium text-stone-600">
           <Link
-            href="/protected/catalog"
+            href="/catalog"
             className="hover:text-rose-700 transition-colors"
           >
             Catalog
           </Link>
-          <Link
-            href="/protected/track"
-            className="hover:text-rose-700 transition-colors"
-          >
+          <Link href="/track" className="hover:text-rose-700 transition-colors">
             Track Order
           </Link>
         </nav>

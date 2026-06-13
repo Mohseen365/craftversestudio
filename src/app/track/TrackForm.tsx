@@ -3,10 +3,13 @@
 import { useState } from "react";
 import { OrderStatusBadge } from "@/components/OrderStatusBadge";
 import { formatDate } from "@/lib/utils";
+import Link from "next/link";
 
 type OrderResult = {
+  id: string;
   orderNumber: string;
   status: string;
+  paymentStatus: string;
   createdAt: string;
   deliveryDate: string;
   trackingNumber: string | null;
@@ -36,6 +39,7 @@ export function TrackForm({
     if (mobileNo.trim()) params.set("mobileNo", mobileNo.trim());
 
     try {
+      //add payment status in data from res
       const res = await fetch(`/api/orders/track?${params}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Order not found");
@@ -91,6 +95,26 @@ export function TrackForm({
                 {result.orderNumber}
               </p>
             </div>
+            <div>
+              <p className="text-sm text-stone-500">Payment Status</p>
+              <p className="font-mono text-lg font-medium">
+                {result.paymentStatus}
+              </p>
+            </div>
+            {result.status === "ACCEPTED" && (
+              <Link
+                href={`/order/payment?orderId=${result.id}&orderNumber=${result.orderNumber}`}
+              >
+                Proceed to Payment
+              </Link>
+            )}
+            {result.status === "PAYMENT_PENDING" && (
+              <Link
+                href={`/order/payment?orderId=${result.id}&orderNumber=${result.orderNumber}`}
+              >
+                Proceed to Payment
+              </Link>
+            )}
             <OrderStatusBadge status={result.status} />
           </div>
           <dl className="mt-6 grid gap-3 text-sm sm:grid-cols-2">

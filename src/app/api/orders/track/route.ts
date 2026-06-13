@@ -17,6 +17,7 @@ export async function GET(req: NextRequest) {
       ? { orderNumber: orderNumber.toUpperCase() }
       : { user: { mobileNo: mobileNo! } },
     include: {
+      payments: true,
       items: { include: { product: { select: { name: true } } } },
       user: { select: { mobileNo: true } },
     },

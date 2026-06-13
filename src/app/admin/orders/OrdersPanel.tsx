@@ -58,6 +58,16 @@ export function OrdersPanel() {
     loadOrders(tab);
   }
 
+  async function acceptOrder(orderId: string) {
+    const res = await fetch(`/api/admin/orders/${orderId}/accept`, {
+      method: "POST",
+    });
+
+    if (res.ok) {
+      window.location.reload();
+    }
+  }
+
   return (
     <div>
       <div className="flex flex-wrap gap-2">
@@ -104,6 +114,14 @@ export function OrdersPanel() {
                       </li>
                     ))}
                   </ul>
+                  {order.status === "PENDING_REVIEW" && (
+                    <button
+                      onClick={() => acceptOrder(order.id)}
+                      className="rounded bg-green-600 px-3 py-1 text-white"
+                    >
+                      Accept Order
+                    </button>
+                  )}
                 </div>
                 <OrderStatusBadge status={order.status} />
               </div>

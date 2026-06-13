@@ -41,6 +41,24 @@ export async function requireAdmin(): Promise<boolean> {
   return isAdminAuthenticated();
 }
 
+export async function getOrCreateCustomer() {
+  const existingUser = await getCurrentUser();
+
+  if (existingUser) {
+    return existingUser;
+  }
+
+  const guestUser = await prisma.user.create({
+    data: {
+      isGuest: true,
+    },
+  });
+
+  await createCustomerSession(guestUser.id);
+
+  return guestUser;
+}
+
 export async function createCustomerSession(userId: string) {
   const cookieStore = await cookies();
 

@@ -6,20 +6,34 @@ import { Footer } from "@/components/Footer";
 import { prisma } from "@/lib/prisma";
 import { ProductCard } from "@/components/ProductCard";
 import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth";
+// import { getCurrentUser } from "@/lib/auth";
+import { getOrCreateCustomer } from "@/lib/auth";
+import { trackEvent } from "@/lib/eventLogger";
 
 export default async function HomePage() {
-  const user = await getCurrentUser();
+  // const user = await getCurrentUser();
 
-  if (!user) {
-    redirect("/login");
-  }
+  // if (!user) {
+  //   redirect("/login");
+  // }
+
   const featured = await prisma.product.findMany({
     where: { active: true },
     include: { images: { orderBy: { sortOrder: "asc" }, take: 1 } },
     orderBy: { orderCount: "desc" },
     take: 4,
   });
+  void getOrCreateCustomer()
+    .then((user) =>
+      trackEvent({
+        userId: user?.id,
+        eventType: "WEBSITE_OPENED",
+        metadata: {
+          source: "homepage",
+        },
+      })
+    )
+    .catch((err) => console.error("Customer creation failed:", err));
 
   return (
     <>
@@ -40,13 +54,13 @@ export default async function HomePage() {
               </p>
               <div className="mt-8 flex flex-wrap gap-4">
                 <Link
-                  href="/protected/catalog"
+                  href="/catalog"
                   className="rounded-full bg-rose-700 px-6 py-3 text-sm font-medium text-white shadow-sm hover:bg-rose-800 transition"
                 >
                   Browse Catalog
                 </Link>
                 <Link
-                  href="/protected/track"
+                  href="/track"
                   className="rounded-full border border-rose-200 bg-white px-6 py-3 text-sm font-medium text-rose-800 hover:bg-rose-50 transition"
                 >
                   Track Order
@@ -63,7 +77,7 @@ export default async function HomePage() {
                 Popular bouquets
               </h2>
               <Link
-                href="/protected/catalog"
+                href="/catalog"
                 className="text-sm text-rose-700 hover:underline"
               >
                 View all
