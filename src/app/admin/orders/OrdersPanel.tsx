@@ -17,6 +17,13 @@ type Order = {
 };
 
 const TABS = [
+  { key: "PENDING_REVIEW", label: "Review Orders to Accept" },
+  { key: "ACCEPTED", label: "ACCEPTED Orders" },
+  { key: "REJECTED", label: "REJECTED Orders" },
+  { key: "PAYMENT_PENDING", label: "PAYMENT IS PENDING" },
+  { key: "PAYMENT_SUBMITTED", label: "PAYMENT SUBMITTED" },
+  { key: "REFUNDED", label: "REFUNDED" },
+
   { key: "PAYMENT_VERIFICATION", label: "Pending Verification" },
   { key: "CONFIRMED", label: "Confirmed" },
   { key: "IN_PRODUCTION", label: "Production" },
@@ -114,18 +121,17 @@ export function OrdersPanel() {
                       </li>
                     ))}
                   </ul>
-                  {order.status === "PENDING_REVIEW" && (
-                    <button
-                      onClick={() => acceptOrder(order.id)}
-                      className="rounded bg-green-600 px-3 py-1 text-white"
-                    >
-                      Accept Order
-                    </button>
-                  )}
                 </div>
                 <OrderStatusBadge status={order.status} />
               </div>
-
+              {order.status === "PENDING_REVIEW" && (
+                <button
+                  onClick={() => acceptOrder(order.id)}
+                  className="rounded bg-green-600 px-3 py-1 text-white"
+                >
+                  Accept Order
+                </button>
+              )}
               {order.payments[0]?.screenshotUrl &&
                 tab === "PAYMENT_VERIFICATION" && (
                   <div className="mt-4">
