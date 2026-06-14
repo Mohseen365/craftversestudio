@@ -144,7 +144,7 @@ export function OrderForm({
             ))}
           </select>
         </div>
-        <Field label="Occasion date" name="occasionDate" type="date" required />
+        <Field label="Delivery date" name="occasionDate" type="date" required />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">

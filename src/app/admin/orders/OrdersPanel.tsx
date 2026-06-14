@@ -16,7 +16,17 @@ type Order = {
   total: number;
   trackingNumber: string | null;
   quantity: number;
-  user: { name: string; mobileNo: string; email: string | null };
+  user: {
+    name: string;
+    mobileNo: string;
+    email: string | null;
+    addresses: Array<{
+      address: string;
+      city: string;
+      state: string;
+      pincode: string;
+    }>;
+  };
   items: Array<{ product: { name: string }; quantity: number }>;
   payments: Array<{ screenshotUrl: string | null; status: string }>;
 };
@@ -179,14 +189,16 @@ export function OrdersPanel() {
             >
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <p className="font-mono font-medium">{order.orderNumber}</p>
+                  <p className="font-mono font-medium">
+                    orderNumber: {order.orderNumber}
+                  </p>
                   <p className="text-sm text-stone-600">
-                    {order.user.name} · {order.user.mobileNo}
+                    Name: {order.user.name}, Mobile No: {order.user.mobileNo}
                   </p>
                   <p className="text-sm text-stone-500">
                     Delivery:{" "}
-                    {order.deliveryDate
-                      ? formatDate(order.deliveryDate)
+                    {order.occasionDate
+                      ? formatDate(order.occasionDate)
                       : "Not set"}{" "}
                     · {formatPrice(order.total)}
                   </p>
@@ -228,11 +240,33 @@ export function OrdersPanel() {
                           : "Not set"}
                       </td>
                       <td className="py-3 pr-4">
-                        {order.deliveryDate
-                          ? formatDate(order.deliveryDate)
+                        {order.occasionDate
+                          ? formatDate(order.occasionDate)
                           : "Not set"}
                       </td>
                     </tr>
+                  </tbody>
+                </table>
+                <table className="w-full min-w-[560px] border-collapse text-left text-sm">
+                  <thead className="border-b border-stone-100 text-stone-500">
+                    <tr>
+                      <th className="py-2 pr-4 font-medium">Address</th>
+                      <th className="py-2 pr-4 font-medium">City</th>
+                      <th className="py-2 pr-4 font-medium">State</th>
+                      <th className="py-2 pr-4 font-medium">Pincode</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {order.user.addresses.map((addr, index) => (
+                      <tr key={index} className="border-b border-stone-50">
+                        <td className="py-3 pr-4 font-mono text-xs">
+                          {addr.address}
+                        </td>
+                        <td className="py-3 pr-4">{addr.city}</td>
+                        <td className="py-3 pr-4">{addr.state}</td>
+                        <td className="py-3 pr-4">{addr.pincode}</td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
