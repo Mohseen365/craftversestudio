@@ -6,9 +6,13 @@ import { useRouter } from "next/navigation";
 export function PaymentUpload({
   orderId,
   orderNumber,
+  userId,
+  mobileNo,
 }: {
   orderId: string;
   orderNumber: string;
+  userId: string;
+  mobileNo: string;
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -31,7 +35,10 @@ export function PaymentUpload({
       const uploadData = new FormData();
       uploadData.append("file", file);
 
-      const uploadRes = await fetch("/api/upload", { method: "POST", body: uploadData });
+      const uploadRes = await fetch("/api/upload", {
+        method: "POST",
+        body: uploadData,
+      });
       const uploadJson = await uploadRes.json();
       if (!uploadRes.ok) throw new Error(uploadJson.error ?? "Upload failed");
 
@@ -41,9 +48,10 @@ export function PaymentUpload({
         body: JSON.stringify({ screenshotUrl: uploadJson.url }),
       });
       const paymentJson = await paymentRes.json();
-      if (!paymentRes.ok) throw new Error(paymentJson.error ?? "Payment upload failed");
+      if (!paymentRes.ok)
+        throw new Error(paymentJson.error ?? "Payment upload failed");
 
-      router.push(`/track?orderNumber=${orderNumber}`);
+      router.push(`/track?orderNumber=${orderNumber}&mobileNo=${mobileNo}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
       setLoading(false);
@@ -53,19 +61,25 @@ export function PaymentUpload({
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {error && (
-        <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+        <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
       )}
 
       <div className="rounded-2xl border border-rose-100 bg-rose-50/50 p-6">
         <p className="text-sm text-stone-600">Order number</p>
         <p className="mt-1 font-mono text-lg font-medium">{orderNumber}</p>
+        <p className="text-sm text-stone-600">Mobile number</p>
+        <p className="mt-1 font-mono text-lg font-medium">{mobileNo}</p>
         <p className="mt-4 text-sm text-stone-500">
           Pay via UPI/bank transfer, then upload your payment screenshot below.
         </p>
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-stone-700">Payment screenshot</label>
+        <label className="block text-sm font-medium text-stone-700">
+          Payment screenshot
+        </label>
         <input
           name="screenshot"
           type="file"

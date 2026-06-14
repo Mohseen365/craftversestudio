@@ -15,18 +15,18 @@ import { getOrCreateCustomer } from "@/lib/auth";
 export default async function ProductPage({
   params,
 }: {
-  params: Promise<{ slug: string }>;
+  params: Promise<{ id: string }>;
 }) {
-  const { slug } = await params;
+  const { id } = await params;
 
   const product = await prisma.product.findUnique({
-    where: { slug, active: true },
-    include: { images: { orderBy: { sortOrder: "asc" } } },
+    where: { id, active: true },
+    // include: { images: { orderBy: { sortOrder: "asc" } } },
   });
 
   if (!product) notFound();
 
-  void getOrCreateCustomer()
+  getOrCreateCustomer()
     .then((user) =>
       trackEvent({
         userId: user?.id,
@@ -49,10 +49,10 @@ export default async function ProductPage({
       <main className="mx-auto max-w-6xl px-4 py-10">
         <div className="grid gap-10 lg:grid-cols-2">
           <div className="overflow-hidden rounded-2xl border border-rose-100 bg-white">
-            {product.images[0] ? (
+            {product.imageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={product.images[0].imageUrl}
+                src={product.imageUrl}
                 alt={product.name}
                 className="aspect-square w-full object-cover"
               />
@@ -61,7 +61,7 @@ export default async function ProductPage({
                 🌸
               </div>
             )}
-            {product.images.length > 1 && (
+            {/* {product.images.length > 1 && (
               <div className="grid grid-cols-4 gap-2 p-4">
                 {product.images.slice(1).map((img) => (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -73,7 +73,7 @@ export default async function ProductPage({
                   />
                 ))}
               </div>
-            )}
+            )} */}
           </div>
 
           <div>
@@ -89,6 +89,16 @@ export default async function ProductPage({
             <p className="mt-6 text-stone-600 leading-relaxed">
               {product.description}
             </p>
+            {product.instagramUrl && (
+              <a
+                href={product.instagramUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-pink-600"
+              >
+                Watch Video on Instagram
+              </a>
+            )}
             {/*             
             <p className="mt-4 text-sm text-stone-500">
               Production time: {product.productionDays} day(s) before delivery
@@ -115,7 +125,7 @@ export default async function ProductPage({
             </div>
                      */}
             <Link
-              href={`/order/${product.slug}`}
+              href={`/order/${product.id}`}
               className="mt-8 inline-flex rounded-full bg-rose-700 px-8 py-3 text-sm font-medium text-white hover:bg-rose-800 transition"
             >
               Order this bouquet

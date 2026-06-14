@@ -2,23 +2,25 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { generateOrderNumber, toDateOnly } from "@/lib/utils";
-import { isDateAvailable, reserveCapacity } from "@/lib/capacity";
-import { notifyAdminNewOrder } from "@/lib/email";
+// import { isDateAvailable, reserveCapacity } from "@/lib/capacity";
+// import { notifyAdminNewOrder } from "@/lib/email";
 
 const orderSchema = z.object({
+  userId: z.string(),
   productId: z.string(),
-  fullName: z.string().min(2),
-  instagramUsername: z.string().optional(),
-  mobileNo: z.string().min(10),
-  email: z.string().email().optional().or(z.literal("")),
+  // fullName: z.string().min(2),
+  // instagramUsername: z.string().optional(),
+  // mobileNo: z.string().min(10),
+  // email: z.string().email().optional().or(z.literal("")),
   address: z.string().min(5),
   city: z.string().min(2),
   pincode: z.string().min(4),
+  state: z.string().min(2),
   occasionType: z.string().optional(),
   occasionDate: z.string().nullable().optional(),
-  deliveryDate: z.string(),
+  // deliveryDate: z.string(),
   quantity: z.number().int().min(1).max(10),
-  giftMessage: z.string().optional(),
+  // giftMessage: z.string().optional(),
   notes: z.string().optional(),
 });
 
@@ -37,49 +39,50 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 });
     }
 
-    const deliveryDate = toDateOnly(new Date(data.deliveryDate));
-    const available = await isDateAvailable(deliveryDate, data.quantity);
-    if (!available) {
-      return NextResponse.json(
-        { error: "Selected date is full. Please choose another date." },
-        { status: 400 }
-      );
-    }
+    // const deliveryDate = toDateOnly(new Date(data.deliveryDate));
+    // const available = await isDateAvailable(deliveryDate, data.quantity);
+    // if (!available) {
+    //   return NextResponse.json(
+    //     { error: "Selected date is full. Please choose another date." },
+    //     { status: 400 }
+    //   );
+    // }
 
     const subtotal = product.price * data.quantity;
     const orderNumber = generateOrderNumber();
 
     const order = await prisma.$transaction(async (tx) => {
-      const user = await tx.user.create({
-        data: {
-          name: data.fullName,
-          instagramUsername: data.instagramUsername || null,
-          mobileNo: data.mobileNo,
-          email: data.email || null,
-        },
-      });
+      // const user = await tx.user.create({
+      //   data: {
+      //     name: data.fullName,
+      //     instagramUsername: data.instagramUsername || null,
+      //     mobileNo: data.mobileNo,
+      //     email: data.email || null,
+      //   },
+      // });
 
       await tx.address.create({
         data: {
-          userId: user.id,
+          userId: data.userId,
           address: data.address,
           city: data.city,
           pincode: data.pincode,
+          state: data.state,
         },
       });
 
       const newOrder = await tx.order.create({
         data: {
           orderNumber,
-          userId: user.id,
+          userId: data.userId,
           status: "PENDING_REVIEW",
           occasionType: data.occasionType,
           occasionDate: data.occasionDate ? new Date(data.occasionDate) : null,
-          deliveryDate,
+          // deliveryDate,
           quantity: data.quantity,
           subtotal,
           total: subtotal,
-          giftMessage: data.giftMessage,
+          // giftMessage: data.giftMessage,
           notes: data.notes,
           items: {
             create: {
@@ -99,12 +102,13 @@ export async function POST(req: NextRequest) {
       return newOrder;
     });
 
-    await reserveCapacity(deliveryDate, order.id, data.quantity);
-    await notifyAdminNewOrder(orderNumber, data.fullName);
+    // await reserveCapacity(deliveryDate, order.id, data.quantity);
+    // await notifyAdminNewOrder(orderNumber, data.fullName);
 
     return NextResponse.json({
       orderId: order.id,
       orderNumber: order.orderNumber,
+      userId: data.userId,
     });
   } catch (err) {
     if (err instanceof z.ZodError) {

@@ -22,14 +22,16 @@ const TABS = [
   { key: "REJECTED", label: "REJECTED Orders" },
   { key: "PAYMENT_PENDING", label: "PAYMENT IS PENDING" },
   { key: "PAYMENT_SUBMITTED", label: "PAYMENT SUBMITTED" },
-  { key: "REFUNDED", label: "REFUNDED" },
-
   { key: "PAYMENT_VERIFICATION", label: "Pending Verification" },
+  { key: "PAYMENT_REJECTED", label: "PAYMENT REJECTED" },
+  { key: "REFUNDED", label: "REFUNDED" },
   { key: "CONFIRMED", label: "Confirmed" },
   { key: "IN_PRODUCTION", label: "Production" },
   { key: "READY_TO_SHIP", label: "Ready to Ship" },
   { key: "SHIPPED", label: "Shipped" },
   { key: "DELIVERED", label: "Delivered" },
+  { key: "WAITLISTED", label: "WAITLISTED" },
+  { key: "CANCELLED", label: "CANCELLED" },
 ];
 
 const NEXT_STATUS: Record<string, string> = {

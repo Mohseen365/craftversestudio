@@ -2,11 +2,34 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createCustomerSession, getCurrentUser } from "@/lib/auth";
 import { Prisma } from "@prisma/client";
+import { z } from "zod";
+
+const loginSchema = z.object({
+  userId: z.string(),
+  // productId: z.string(),
+  name: z.string().min(2),
+  instagramUsername: z.string().optional(),
+  mobileNo: z.string().min(10),
+  email: z.string().email().optional().or(z.literal("")),
+  // address: z.string().min(5),
+  // city: z.string().min(2),
+  // pincode: z.string().min(4),
+  // state: z.string().min(2),
+  // occasionType: z.string().optional(),
+  // occasionDate: z.string().nullable().optional(),
+  // deliveryDate: z.string(),
+  // quantity: z.number().int().min(1).max(10),
+  // giftMessage: z.string().optional(),
+  // notes: z.string().optional(),
+});
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
+  const data = loginSchema.parse({
+    ...body,
+  });
 
-  const { mobileNo, email, instagramUsername } = body;
+  const { mobileNo, email, instagramUsername, userId, name } = data;
 
   if (!mobileNo && !email && !instagramUsername) {
     return NextResponse.json(
@@ -17,6 +40,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const currentUserId = userId;
   const currentUser = await getCurrentUser();
   const conditions: Prisma.UserWhereInput[] = [];
 
@@ -44,6 +68,7 @@ export async function POST(req: NextRequest) {
           email: email || existingUser.email,
           instagramUsername:
             instagramUsername || existingUser.instagramUsername,
+          name: name || existingUser.name,
           isGuest: false,
         },
       });
@@ -69,6 +94,7 @@ export async function POST(req: NextRequest) {
           mobileNo: mobileNo || currentUser.mobileNo,
           email: email || currentUser.email,
           instagramUsername: instagramUsername || currentUser.instagramUsername,
+          name: name || currentUser.name,
           isGuest: false,
         },
       });
@@ -91,6 +117,7 @@ export async function POST(req: NextRequest) {
           mobileNo: mobileNo || null,
           email: email || null,
           instagramUsername: instagramUsername || null,
+          name: name || null,
           isGuest: false,
         },
       });

@@ -10,18 +10,25 @@ import {
 import { ORDER_STATUS_LABELS } from "@/lib/utils";
 
 const updateSchema = z.object({
-  status: z.enum([
-    "PAYMENT_PENDING",
-    "PAYMENT_VERIFICATION",
-    "CONFIRMED",
-    "IN_PRODUCTION",
-    "READY_TO_SHIP",
-    "SHIPPED",
-    "DELIVERED",
-    "WAITLISTED",
-    "CANCELLED",
-    "REFUNDED",
-  ]).optional(),
+  status: z
+    .enum([
+      "PENDING_REVIEW",
+      "ACCEPTED",
+      "REJECTED",
+      "PAYMENT_PENDING",
+      "PAYMENT_SUBMITTED",
+      "PAYMENT_VERIFICATION",
+      "PAYMENT_REJECTED",
+      "CONFIRMED",
+      "IN_PRODUCTION",
+      "READY_TO_SHIP",
+      "SHIPPED",
+      "DELIVERED",
+      "WAITLISTED",
+      "CANCELLED",
+      "REFUNDED",
+    ])
+    .optional(),
   trackingNumber: z.string().optional(),
   verifyPayment: z.boolean().optional(),
   rejectPayment: z.boolean().optional(),
@@ -29,7 +36,7 @@ const updateSchema = z.object({
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
   if (!(await requireAdmin())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -41,7 +48,10 @@ export async function PATCH(
 
     const order = await prisma.order.findUnique({
       where: { id },
-      include: { user: true, payments: { orderBy: { createdAt: "desc" }, take: 1 } },
+      include: {
+        user: true,
+        payments: { orderBy: { createdAt: "desc" }, take: 1 },
+      },
     });
 
     if (!order) {
@@ -60,13 +70,13 @@ export async function PATCH(
         }),
       ]);
 
-      if (order.user.email) {
-        await notifyCustomerOrderConfirmed(
-          order.user.email,
-          order.orderNumber,
-          order.deliveryDate,
-        );
-      }
+      // if (order.user.email) {
+      //   await notifyCustomerOrderConfirmed(
+      //     order.user.email,
+      //     order.orderNumber,
+      //     order.deliveryDate
+      //   );
+      // }
 
       return NextResponse.json({ success: true, status: "CONFIRMED" });
     }
@@ -79,10 +89,10 @@ export async function PATCH(
         }),
         prisma.order.update({
           where: { id },
-          data: { status: "PAYMENT_PENDING" },
+          data: { status: "PAYMENT_REJECTED" },
         }),
       ]);
-      return NextResponse.json({ success: true, status: "PAYMENT_PENDING" });
+      return NextResponse.json({ success: true, status: "PAYMENT_REJECTED" });
     }
 
     if (body.status === "CANCELLED" || body.status === "REFUNDED") {
@@ -97,10 +107,14 @@ export async function PATCH(
       },
     });
 
-    if (body.status && order.user.email && body.status !== order.status) {
-      const label = ORDER_STATUS_LABELS[body.status] ?? body.status;
-      await notifyCustomerStatusUpdate(order.user.email, order.orderNumber, label);
-    }
+    // if (body.status && order.user.email && body.status !== order.status) {
+    //   const label = ORDER_STATUS_LABELS[body.status] ?? body.status;
+    //   await notifyCustomerStatusUpdate(
+    //     order.user.email,
+    //     order.orderNumber,
+    //     label
+    //   );
+    // }
 
     return NextResponse.json({ order: updated });
   } catch (err) {

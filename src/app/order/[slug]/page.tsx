@@ -14,7 +14,7 @@ import { trackEvent } from "@/lib/eventLogger";
 export default async function OrderPage({
   params,
 }: {
-  params: Promise<{ slug: string }>;
+  params: Promise<{ id: string }>;
 }) {
   // const user = await getCurrentUser();
 
@@ -22,33 +22,32 @@ export default async function OrderPage({
   //   redirect("/login");
   // }
 
-  const { slug } = await params;
+  const { id } = await params;
 
   const product = await prisma.product.findUnique({
-    where: { slug, active: true },
+    where: { id, active: true },
   });
 
   if (!product) notFound();
 
-  void getOrCreateCustomer()
-    .then((user) =>
-      trackEvent({
-        userId: user.id,
-        eventType: "ORDER_Page",
-        metadata: {
-          productName: product.name,
-          category: product.category,
-          price: product.price,
-        },
-      })
-    )
-    .catch((err) => console.error("Customer creation failed:", err));
-  const dates = await getAvailableDates(45);
-  const availableDates = dates.map((d) => ({
-    date: d.date.toISOString(),
-    remaining: d.remaining,
-    available: d.available,
-  }));
+  const user = await getOrCreateCustomer();
+
+  void trackEvent({
+    userId: user.id,
+    eventType: "ORDER_Page",
+    metadata: {
+      id: id,
+      productName: product.name,
+      category: product.category,
+      price: product.price,
+    },
+  });
+  // const dates = await getAvailableDates(45);
+  // const availableDates = dates.map((d) => ({
+  //   date: d.date.toISOString(),
+  //   remaining: d.remaining,
+  //   available: d.available,
+  // }));
 
   return (
     <>
@@ -68,7 +67,8 @@ export default async function OrderPage({
               slug: product.slug,
               price: product.price,
             }}
-            availableDates={availableDates}
+            // availableDates={availableDates}
+            userId={user.id}
           />
         </div>
       </main>

@@ -10,7 +10,8 @@ const productSchema = z.object({
   description: z.string().min(10),
   price: z.number().int().positive(),
   productionDays: z.number().int().min(1).default(1),
-  imageUrl: z.string().optional(),
+  imageUrl: z.string(),
+  instagramUrl: z.string().optional(),
   active: z.boolean().default(true),
 });
 
@@ -20,7 +21,7 @@ export async function GET() {
   }
 
   const products = await prisma.product.findMany({
-    include: { images: { orderBy: { sortOrder: "asc" } } },
+    // include: { images: { orderBy: { sortOrder: "asc" } } },
     orderBy: { createdAt: "desc" },
   });
 
@@ -48,18 +49,22 @@ export async function POST(req: NextRequest) {
         price: body.price,
         productionDays: body.productionDays,
         active: body.active,
-        images: body.imageUrl
-          ? { create: { imageUrl: body.imageUrl, sortOrder: 0 } }
-          : undefined,
+        imageUrl: body.imageUrl,
+        instagramUrl: body.instagramUrl,
       },
-      include: { images: true },
     });
 
     return NextResponse.json({ product });
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return NextResponse.json({ error: "Invalid product data" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid product data" },
+        { status: 400 }
+      );
     }
-    return NextResponse.json({ error: "Failed to create product" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to create product" },
+      { status: 500 }
+    );
   }
 }

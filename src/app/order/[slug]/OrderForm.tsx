@@ -4,11 +4,11 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatDate, formatPrice } from "@/lib/utils";
 
-type AvailableDate = {
-  date: string;
-  remaining: number;
-  available: boolean;
-};
+// type AvailableDate = {
+//   date: string;
+//   remaining: number;
+//   available: boolean;
+// };
 
 type OrderFormProps = {
   product: {
@@ -17,7 +17,8 @@ type OrderFormProps = {
     slug: string;
     price: number;
   };
-  availableDates: AvailableDate[];
+  // availableDates: AvailableDate[];
+  userId: string;
 };
 
 const OCCASIONS = [
@@ -30,14 +31,17 @@ const OCCASIONS = [
   "Other",
 ];
 
-export function OrderForm({ product, availableDates }: OrderFormProps) {
+export function OrderForm({
+  product,
+  /*availableDates*/ userId,
+}: OrderFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [quantity, setQuantity] = useState(1);
-  const [deliveryDate, setDeliveryDate] = useState(
-    availableDates.find((d) => d.available)?.date ?? ""
-  );
+  // const [deliveryDate, setDeliveryDate] = useState(
+  //   availableDates.find((d) => d.available)?.date ?? ""
+  // );
 
   const subtotal = product.price * quantity;
 
@@ -54,20 +58,22 @@ export function OrderForm({ product, availableDates }: OrderFormProps) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          userId: userId,
           productId: product.id,
-          fullName: formData.get("fullName"),
-          instagramUsername: formData.get("instagramUsername"),
-          mobileNo: formData.get("mobileNo"),
-          email: formData.get("email"),
+          // fullName: formData.get("fullName"),
+          // instagramUsername: formData.get("instagramUsername"),
+          // mobileNo: formData.get("mobileNo"),
+          // email: formData.get("email"),
           address: formData.get("address"),
           city: formData.get("city"),
           pincode: formData.get("pincode"),
+          state: formData.get("state"),
           occasionType: formData.get("occasionType"),
-          occasionDate: formData.get("occasionDate") || null,
-          deliveryDate,
+          occasionDate: formData.get("occasionDate"),
+          // deliveryDate,
           quantity,
-          giftMessage: formData.get("giftMessage"),
-          notes: formData.get("notes"),
+          // giftMessage: formData.get("giftMessage"),
+          notes: formData.get("Configuration"),
         }),
       });
 
@@ -78,7 +84,7 @@ export function OrderForm({ product, availableDates }: OrderFormProps) {
       //   `/order/${product.slug}/payment?orderId=${data.orderId}&orderNumber=${data.orderNumber}`
       // );
       router.push(
-        `/login/?orderId=${data.orderId}&slug${product.slug}&orderNumber=${data.orderNumber}`
+        `/login/?orderId=${data.orderId}&productId${product.id}&orderNumber=${data.orderNumber}&userId=&{userId}`
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
@@ -95,21 +101,22 @@ export function OrderForm({ product, availableDates }: OrderFormProps) {
       )}
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Full name" name="fullName" required />
+        {/* <Field label="Full name" name="fullName" required />
         <Field
           label="Instagram username"
           name="instagramUsername"
           placeholder="@username"
         />
         <Field label="mobileNo" name="mobileNo" type="tel" required />
-        <Field label="Email" name="email" type="email" />
+        <Field label="Email" name="email" type="email" /> */}
       </div>
 
-      <Field label="Address" name="address" required />
       <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="State" name="state" required />
         <Field label="City" name="city" required />
         <Field label="Pincode" name="pincode" required />
       </div>
+      <Field label="Address" name="address" required />
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
@@ -131,11 +138,12 @@ export function OrderForm({ product, availableDates }: OrderFormProps) {
           label="Occasion date (optional)"
           name="occasionDate"
           type="date"
+          required
         />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <div>
+        {/* <div>
           <label className="block text-sm font-medium text-stone-700">
             Delivery date
           </label>
@@ -153,7 +161,7 @@ export function OrderForm({ product, availableDates }: OrderFormProps) {
               </option>
             ))}
           </select>
-        </div>
+        </div> */}
         <div>
           <label className="block text-sm font-medium text-stone-700">
             Quantity
@@ -169,22 +177,22 @@ export function OrderForm({ product, availableDates }: OrderFormProps) {
         </div>
       </div>
 
-      <Field label="Gift message" name="giftMessage" />
-      <Field label="Notes" name="notes" />
+      {/* <Field label="Gift message" name="giftMessage" /> */}
+      <Field label="Configuration" name="Configuration" />
 
       <div className="rounded-2xl border border-rose-100 bg-rose-50/50 p-6">
         <p className="text-sm text-stone-600">
           {product.name} × {quantity}
         </p>
         <p className="mt-2 text-xl font-medium">{formatPrice(subtotal)}</p>
-        <p className="mt-2 text-xs text-stone-500">
+        {/* <p className="mt-2 text-xs text-stone-500">
           You&apos;ll upload payment proof on the next step.
-        </p>
+        </p> */}
       </div>
 
       <button
         type="submit"
-        disabled={loading || !deliveryDate}
+        disabled={loading /*|| !deliveryDate*/}
         className="w-full rounded-full bg-rose-700 py-3 text-sm font-medium text-white hover:bg-rose-800 disabled:opacity-50"
       >
         {loading ? "Creating order..." : "Continue to payment"}

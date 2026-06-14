@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
     include: {
       payments: true,
       items: { include: { product: { select: { name: true } } } },
-      user: { select: { mobileNo: true } },
+      user: { select: { mobileNo: true, id: true } },
     },
     orderBy: { createdAt: "desc" },
   });

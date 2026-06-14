@@ -50,7 +50,7 @@ export default async function CatalogPage({
           }
         : {}),
     },
-    include: { images: { orderBy: { sortOrder: "asc" }, take: 1 } },
+    // include: { images: { orderBy: { sortOrder: "asc" }, take: 1 } },
     orderBy:
       sort === "price-low"
         ? { price: "asc" }
@@ -143,7 +143,7 @@ export default async function CatalogPage({
                 slug={product.slug}
                 price={product.price}
                 category={product.category}
-                imageUrl={product.images[0]?.imageUrl}
+                imageUrl={product.imageUrl}
               />
             ))}
           </div>

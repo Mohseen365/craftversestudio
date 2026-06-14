@@ -8,18 +8,21 @@ type ProductCardProps = {
   price: number;
   category: string;
   imageUrl?: string | null;
+  // instagramUrl?: string | null;
 };
 
 export function ProductCard({
+  id,
   name,
   slug,
   price,
   category,
   imageUrl,
-}: ProductCardProps) {
+}: // instagramUrl,
+ProductCardProps) {
   return (
     <Link
-      href={`/products/${slug}`}
+      href={`/products/${id}`}
       className="group overflow-hidden rounded-2xl border border-rose-100 bg-white shadow-sm transition hover:shadow-md hover:border-rose-200"
     >
       <div className="aspect-[4/5] bg-gradient-to-br from-rose-50 to-stone-100 overflow-hidden">

@@ -8,25 +8,24 @@ export default async function LoginPage({
   searchParams: Promise<{
     orderId?: string;
     orderNumber?: string;
-    slug?: string;
+    productId?: string;
+    userId?: string;
   }>;
 }) {
   const params = await searchParams;
   const orderId = params.orderId ?? "";
   const orderNumber = params.orderNumber ?? "";
-  const slug = params.slug ?? "";
-  getCurrentUser()
-    .then((user) =>
-      trackEvent({
-        userId: user?.id,
-        eventType: "LOGIN",
-        metadata: {
-          orderId: orderId,
-          totalAmount: orderNumber,
-        },
-      })
-    )
-    .catch((err) => console.error("Customer creation failed:", err));
+  const productId = params.productId ?? "";
+  const userId = params.userId ?? "";
+
+  void trackEvent({
+    userId: userId,
+    eventType: "LOGIN",
+    metadata: {
+      orderId: orderId,
+      totalAmount: orderNumber,
+    },
+  });
 
   return (
     <main className="mx-auto max-w-md px-4 py-20">
@@ -39,15 +38,16 @@ export default async function LoginPage({
         then we will confirm your order and send you payment information
       </p>
       <p className="mt-2 text-stone-600">
-        Enter any one contact detail from Mobile Number, Email, Instagram
-        Username
+        Entering Full Name and Mobile Number is must Entering Email, Instagram
+        Username is optional
       </p>
 
       <LoginForm
         order={{
           id: orderId,
           number: orderNumber,
-          slug: slug,
+          productId: productId,
+          userId: userId,
         }}
       />
     </main>

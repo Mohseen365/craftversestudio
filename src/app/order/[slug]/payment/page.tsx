@@ -2,28 +2,36 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { PaymentUpload } from "./PaymentUpload";
 import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth";
+// import { getCurrentUser } from "@/lib/auth";
 import { trackEvent } from "@/lib/eventLogger";
 
 export default async function PaymentPage({
   searchParams,
 }: {
-  searchParams: Promise<{ orderId?: string; orderNumber?: string }>;
+  searchParams: Promise<{
+    orderId?: string;
+    orderNumber?: string;
+    mobileNo?: string;
+    userId?: string;
+  }>;
 }) {
   const params = await searchParams;
   const orderId = params.orderId ?? "";
   const orderNumber = params.orderNumber ?? "";
-  const user = await getCurrentUser();
+  // const user = await getCurrentUser();
+  const userId = params.userId ?? "";
+  const mobileNo = params.mobileNo ?? "";
 
-  if (!user) {
+  if (!mobileNo) {
     redirect("/login");
   }
   void trackEvent({
-    userId: user.id,
+    userId: userId,
     eventType: "PAYMENT_Page",
     metadata: {
       orderId: orderId,
       totalAmount: orderNumber,
+      mobileNo: mobileNo,
     },
   });
 
@@ -39,7 +47,12 @@ export default async function PaymentPage({
         </p>
         <div className="mt-8">
           {orderId && orderNumber ? (
-            <PaymentUpload orderId={orderId} orderNumber={orderNumber} />
+            <PaymentUpload
+              orderId={orderId}
+              orderNumber={orderNumber}
+              userId={userId}
+              mobileNo={mobileNo}
+            />
           ) : (
             <p className="text-stone-500">
               Invalid order. Please start again from the catalog.

@@ -7,7 +7,7 @@ const schema = z.object({ screenshotUrl: z.string().url() });
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
@@ -16,6 +16,13 @@ export async function POST(
     const order = await prisma.order.findUnique({ where: { id } });
     if (!order) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
+    }
+
+    if (order.status === "REJECTED") {
+      return NextResponse.json(
+        { error: "Rejected orders cannot submit payment" },
+        { status: 400 }
+      );
     }
 
     await prisma.$transaction([
@@ -40,6 +47,9 @@ export async function POST(
     if (err instanceof z.ZodError) {
       return NextResponse.json({ error: "Invalid data" }, { status: 400 });
     }
-    return NextResponse.json({ error: "Failed to upload payment" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to upload payment" },
+      { status: 500 }
+    );
   }
 }

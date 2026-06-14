@@ -10,12 +10,13 @@ const updateSchema = z.object({
   price: z.number().int().positive().optional(),
   productionDays: z.number().int().min(1).optional(),
   active: z.boolean().optional(),
-  imageUrl: z.string().optional(),
+  imageUrl: z.string(),
+  instagramUrl: z.string(),
 });
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
   if (!(await requireAdmin())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -34,15 +35,17 @@ export async function PATCH(
         price: body.price,
         productionDays: body.productionDays,
         active: body.active,
+        imageUrl: body.imageUrl,
+        instagramUrl: body.instagramUrl,
       },
     });
 
-    if (body.imageUrl) {
-      await prisma.productImage.deleteMany({ where: { productId: id } });
-      await prisma.productImage.create({
-        data: { productId: id, imageUrl: body.imageUrl, sortOrder: 0 },
-      });
-    }
+    // if (body.imageUrl) {
+    //   await prisma.productImage.deleteMany({ where: { productId: id } });
+    //   await prisma.productImage.create({
+    //     data: { productId: id, imageUrl: body.imageUrl, sortOrder: 0 },
+    //   });
+    // }
 
     return NextResponse.json({ product });
   } catch (err) {
@@ -55,7 +58,7 @@ export async function PATCH(
 
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
   if (!(await requireAdmin())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

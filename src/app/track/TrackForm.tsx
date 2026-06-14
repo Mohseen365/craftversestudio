@@ -11,19 +11,27 @@ type OrderResult = {
   status: string;
   paymentStatus: string;
   createdAt: string;
-  deliveryDate: string;
+  // deliveryDate: string;
+  occasionDate: string;
   trackingNumber: string | null;
   total: number;
   items: Array<{ product: { name: string }; quantity: number }>;
+  user: {
+    mobileNo: string;
+    id: string;
+  };
 };
 
-export function TrackForm({
-  initialOrderNumber,
-}: {
-  initialOrderNumber?: string;
-}) {
-  const [orderNumber, setOrderNumber] = useState(initialOrderNumber ?? "");
-  const [mobileNo, setMobileNo] = useState("");
+type TrackFormProps = {
+  contact: {
+    mobileNo: string;
+    orderNumber: string;
+  };
+};
+
+export function TrackForm({ contact }: TrackFormProps) {
+  const [orderNumber, setOrderNumber] = useState(contact.orderNumber ?? "");
+  const [mobileNo, setMobileNo] = useState(contact.mobileNo ?? "");
   const [result, setResult] = useState<OrderResult | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -67,7 +75,7 @@ export function TrackForm({
         </div>
         <div>
           <label className="block text-sm font-medium text-stone-700">
-            Or mobile number
+            Mobile number
           </label>
           <input
             value={mobileNo}
@@ -103,17 +111,33 @@ export function TrackForm({
             </div>
             {result.status === "ACCEPTED" && (
               <Link
-                href={`/order/payment?orderId=${result.id}&orderNumber=${result.orderNumber}`}
+                href={`/order/payment?orderId=${result.id}&orderNumber=${result.orderNumber}&mobileNo=${result.user.mobileNo}&userId=${result.user.id}`}
               >
                 Proceed to Payment
               </Link>
             )}
+            {result.status === "REJECTED" && (
+              // <Link
+              //   href={`/order/payment?orderId=${result.id}&orderNumber=${result.orderNumber}`}
+              // >
+              <p>Sorry we cant accept your order at that date we are full</p>
+              // </Link>
+            )}
             {result.status === "PAYMENT_PENDING" && (
               <Link
-                href={`/order/payment?orderId=${result.id}&orderNumber=${result.orderNumber}`}
+                href={`/order/payment?orderId=${result.id}&orderNumber=${result.orderNumber}&userId=${result.user.id}`}
               >
                 Proceed to Payment
               </Link>
+            )}
+            {result.status === "PAYMENT_SUBMITTED" && (
+              <p>We will verify your payment</p>
+            )}
+            {result.status === "PAYMENT_VERIFICATION" && (
+              <p>Payment is under Verification</p>
+            )}
+            {result.status === "PAYMENT_REJECTED" && (
+              <p>Payment is REJECTED. We will contact you</p>
             )}
             <OrderStatusBadge status={result.status} />
           </div>
@@ -124,7 +148,7 @@ export function TrackForm({
             </div>
             <div>
               <dt className="text-stone-500">Delivery date</dt>
-              <dd className="font-medium">{formatDate(result.deliveryDate)}</dd>
+              <dd className="font-medium">{formatDate(result.occasionDate)}</dd>
             </div>
             {result.trackingNumber && (
               <div>

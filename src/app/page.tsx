@@ -23,7 +23,7 @@ export default async function HomePage() {
     orderBy: { orderCount: "desc" },
     take: 4,
   });
-  void getOrCreateCustomer()
+  getOrCreateCustomer()
     .then((user) =>
       trackEvent({
         userId: user?.id,

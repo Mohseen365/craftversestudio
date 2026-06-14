@@ -8,7 +8,8 @@ type LoginFormProps = {
   order: {
     id: string;
     number: string;
-    slug: string;
+    productId: string;
+    userId: string;
   };
 };
 export function LoginForm({ order }: LoginFormProps) {
@@ -16,6 +17,7 @@ export function LoginForm({ order }: LoginFormProps) {
   const [mobileNo, setMobileNo] = useState("");
   const [email, setEmail] = useState("");
   const [instagramUsername, setInstagramUsername] = useState("");
+  const [name, setName] = useState("");
 
   async function handleLogin() {
     // const user = await getOrCreateCustomer();
@@ -30,15 +32,16 @@ export function LoginForm({ order }: LoginFormProps) {
         mobileNo,
         email,
         instagramUsername,
-        // id,
+        userId: order.userId,
+        name,
       }),
     });
 
     // router.push(
-    //   `/order/${order.slug}/payment?orderId=${order.id}&orderNumber=${order.number}`
+    //   `/order/${order.productId}/payment?orderId=${order.id}&orderNumber=${order.number}`
     // );
 
-    router.push(`/track?orderNumber=${order.number}`);
+    router.push(`/track?orderNumber=${order.number}&mobileNo=${mobileNo}`);
 
     // if (res.ok) {
     //   window.location.href = "/";
@@ -58,10 +61,18 @@ export function LoginForm({ order }: LoginFormProps) {
   return (
     <div className="mt-8 space-y-4">
       <input
+        placeholder="Full Name"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        className="w-full rounded-lg border p-3"
+        required
+      />
+      <input
         placeholder="Mobile Number"
         value={mobileNo}
         onChange={(e) => setMobileNo(e.target.value)}
         className="w-full rounded-lg border p-3"
+        required
       />
 
       <input

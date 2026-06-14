@@ -42,9 +42,14 @@ export const PRICE_FILTERS = [
 ] as const;
 
 export const ORDER_STATUS_LABELS: Record<string, string> = {
-  DRAFT: "Draft",
-  PAYMENT_PENDING: "Payment Pending",
+  PENDING_REVIEW: "Order is in Review to accept or reject",
+  ACCEPTED: "Order is ACCEPTED",
+  REJECTED: "Order is REJECTED",
+  PAYMENT_PENDING: "Payment is Pending",
+  PAYMENT_SUBMITTED: "PAYMENT is SUBMITTED",
   PAYMENT_VERIFICATION: "Payment Verification",
+  PAYMENT_REJECTED: "PAYMENT is REJECTED",
+  REFUNDED: "Refunded",
   CONFIRMED: "Confirmed",
   IN_PRODUCTION: "In Production",
   READY_TO_SHIP: "Ready to Ship",
@@ -52,5 +57,4 @@ export const ORDER_STATUS_LABELS: Record<string, string> = {
   DELIVERED: "Delivered",
   WAITLISTED: "Waitlisted",
   CANCELLED: "Cancelled",
-  REFUNDED: "Refunded",
 };

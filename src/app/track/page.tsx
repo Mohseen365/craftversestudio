@@ -9,9 +9,11 @@ import { getCurrentUser } from "@/lib/auth";
 export default async function TrackPage({
   searchParams,
 }: {
-  searchParams: Promise<{ orderNumber?: string }>;
+  searchParams: Promise<{ orderNumber?: string; mobileNo?: string }>;
 }) {
   const params = await searchParams;
+  const orderNumber = params.orderNumber ?? "";
+  const mobileNo = params.mobileNo ?? "";
 
   getCurrentUser()
     .then((user) => trackEvent({ userId: user?.id, eventType: "TRACK_ORDER" }))
@@ -26,7 +28,12 @@ export default async function TrackPage({
           Enter your order number or Mobile number to see status updates
         </p>
         <div className="mt-8">
-          <TrackForm initialOrderNumber={params.orderNumber} />
+          <TrackForm
+            contact={{
+              mobileNo: mobileNo,
+              orderNumber: orderNumber,
+            }}
+          />
         </div>
       </main>
       <Footer />
