@@ -40,20 +40,25 @@ export function addDays(date: Date | string, days: number): Date {
 }
 
 export function getOrderDeadlines(
-  deliveryDate: Date | string | null,
-  productionDays: number
+  occasionDate: Date | string | null,
+  shippingDurationDays: number | null | undefined
 ) {
-  if (!deliveryDate) {
+  if (!occasionDate || shippingDurationDays === null || shippingDurationDays === undefined) {
     return {
       productionDeadline: null,
-      shippingDeadline: null,
+      shippingDate: null,
+      productionStartDate: null,
     };
   }
 
-  const delivery = toDateOnly(new Date(deliveryDate));
+  const occasion = toDateOnly(new Date(occasionDate));
+  const shippingDate = addDays(occasion, -Math.max(shippingDurationDays, 0));
+  const productionDeadline = addDays(shippingDate, -1);
+
   return {
-    productionDeadline: addDays(delivery, -Math.max(productionDays, 1)),
-    shippingDeadline: addDays(delivery, -1),
+    productionDeadline,
+    shippingDate,
+    productionStartDate: productionDeadline,
   };
 }
 

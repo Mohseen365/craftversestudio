@@ -12,7 +12,7 @@ type OrderResult = {
   paymentStatus: string;
   createdAt: string;
   productionDeadline: string | null;
-  shippingDeadline: string | null;
+  shippingDate: string | null;
   deliveryDate: string | null;
   occasionDate: string | null;
   trackingNumber: string | null;
@@ -163,10 +163,10 @@ export function TrackForm({ contact }: TrackFormProps) {
               </dd>
             </div>
             <div>
-              <dt className="text-stone-500">Shipping deadline</dt>
+              <dt className="text-stone-500">Shipping date</dt>
               <dd className="font-medium">
-                {result.shippingDeadline
-                  ? formatDate(result.shippingDeadline)
+                {result.shippingDate
+                  ? formatDate(result.shippingDate)
                   : "Not set"}
               </dd>
             </div>

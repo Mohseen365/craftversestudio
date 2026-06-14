@@ -7,8 +7,10 @@ export default async function AdminCapacityPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-stone-900">Capacity calendar</h1>
-      <p className="mt-2 text-stone-500">Set daily order limits to prevent overbooking</p>
+      <h1 className="text-2xl font-semibold text-stone-900">Production planning</h1>
+      <p className="mt-2 text-stone-500">
+        Review future production deadlines and accepted-order workload.
+      </p>
       <div className="mt-8">
         <CapacityPanel />
       </div>

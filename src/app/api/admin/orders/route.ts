@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth";
-import { getOrderDeadlines } from "@/lib/utils";
 
 export async function GET(req: NextRequest) {
   if (!(await requireAdmin())) {
@@ -26,7 +25,6 @@ export async function GET(req: NextRequest) {
   });
 
   const ordersWithDeadlines = orders.map((order) => {
-    const deliveryDate = order.deliveryDate ?? order.occasionDate;
     const maxProductionDays = Math.max(
       1,
       ...order.items.map((item) => item.product.productionDays)
@@ -34,8 +32,7 @@ export async function GET(req: NextRequest) {
 
     return {
       ...order,
-      deliveryDate,
-      ...getOrderDeadlines(deliveryDate, maxProductionDays),
+      maxProductionDays,
     };
   });
 

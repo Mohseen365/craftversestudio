@@ -1,58 +1,65 @@
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
-import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth";
-import { toDateOnly } from "@/lib/utils";
+import { getCapacityForDeadline, getPlanningRows } from "@/lib/capacity";
 
-const capacitySchema = z.object({
-  date: z.string(),
-  maximumCapacity: z.number().int().min(0),
-});
-
-export async function GET() {
+export async function GET(req: NextRequest) {
   if (!(await requireAdmin())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const capacities = await prisma.capacity.findMany({
-    include: { reservations: true },
-    orderBy: { date: "asc" },
-  });
+  const productionDeadline = req.nextUrl.searchParams.get("productionDeadline");
+  const quantity = Number(req.nextUrl.searchParams.get("quantity") ?? 0);
+  const orderId = req.nextUrl.searchParams.get("orderId") ?? undefined;
+
+  if (productionDeadline) {
+    const capacity = await getCapacityForDeadline(
+      new Date(productionDeadline),
+      Number.isFinite(quantity) ? quantity : 0,
+      orderId
+    );
+    return NextResponse.json({
+      capacity: {
+        ...capacity,
+        productionDeadline: capacity.productionDeadline.toISOString(),
+      },
+    });
+  }
+
+  const rows = await getPlanningRows();
 
   return NextResponse.json({
-    capacities: capacities.map((c) => {
-      const booked = c.reservations.reduce((sum, r) => sum + r.quantity, 0);
-      return {
-        id: c.id,
-        date: c.date.toISOString(),
-        maximumCapacity: c.maximumCapacity,
-        booked,
-        remaining: c.maximumCapacity - booked,
-      };
-    }),
+    capacities: rows.map((row) => ({
+      date: row.date.toISOString(),
+      dailyCapacity: row.dailyCapacity,
+      used: row.used,
+      remaining: row.remaining,
+      isFull: row.isFull,
+      orders: row.orders.map((order) => ({
+        id: order.id,
+        orderNumber: order.orderNumber,
+        customerName: order.user.name,
+        occasionDate: order.occasionDate?.toISOString() ?? null,
+        address: order.user.addresses[0]
+          ? [
+              order.user.addresses[0].address,
+              order.user.addresses[0].city,
+              order.user.addresses[0].state,
+              order.user.addresses[0].pincode,
+            ]
+              .filter(Boolean)
+              .join(", ")
+          : "",
+        bouquetQuantity: order.quantity,
+        shippingDurationDays: order.shippingDurationDays,
+        shippingDate: order.shippingDate?.toISOString() ?? null,
+        productionDeadline: order.productionDeadline?.toISOString() ?? null,
+        status: order.status,
+        items: order.items.map((item) => ({
+          productName: item.product.name,
+          quantity: item.quantity,
+          productionDays: item.product.productionDays,
+        })),
+      })),
+    })),
   });
-}
-
-export async function POST(req: NextRequest) {
-  if (!(await requireAdmin())) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  try {
-    const body = capacitySchema.parse(await req.json());
-    const date = toDateOnly(new Date(body.date));
-
-    const capacity = await prisma.capacity.upsert({
-      where: { date },
-      create: { date, maximumCapacity: body.maximumCapacity },
-      update: { maximumCapacity: body.maximumCapacity },
-    });
-
-    return NextResponse.json({ capacity });
-  } catch (err) {
-    if (err instanceof z.ZodError) {
-      return NextResponse.json({ error: "Invalid data" }, { status: 400 });
-    }
-    return NextResponse.json({ error: "Failed to set capacity" }, { status: 500 });
-  }
 }

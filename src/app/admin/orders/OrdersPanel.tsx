@@ -2,20 +2,30 @@
 
 import { useEffect, useState } from "react";
 import { OrderStatusBadge } from "@/components/OrderStatusBadge";
-import { formatDate, formatPrice } from "@/lib/utils";
+import { addDays, formatDate, formatPrice } from "@/lib/utils";
 
 type Order = {
   id: string;
   orderNumber: string;
   status: string;
+  occasionDate: string | null;
   deliveryDate: string | null;
   productionDeadline: string | null;
-  shippingDeadline: string | null;
+  shippingDate: string | null;
+  shippingDurationDays: number | null;
   total: number;
   trackingNumber: string | null;
   user: { name: string; mobileNo: string; email: string | null };
   items: Array<{ product: { name: string }; quantity: number }>;
   payments: Array<{ screenshotUrl: string | null; status: string }>;
+};
+
+type CapacityPreview = {
+  dailyCapacity: number;
+  used: number;
+  remaining: number;
+  requestedQuantity: number;
+  canAccept: boolean;
 };
 
 const TABS = [
@@ -47,6 +57,8 @@ export function OrdersPanel() {
   const [tab, setTab] = useState("PAYMENT_VERIFICATION");
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [shippingDurations, setShippingDurations] = useState<Record<string, number>>({});
+  const [capacityPreviews, setCapacityPreviews] = useState<Record<string, CapacityPreview>>({});
 
   async function loadOrders(status: string) {
     setLoading(true);
@@ -69,9 +81,50 @@ export function OrdersPanel() {
     loadOrders(tab);
   }
 
-  async function acceptOrder(orderId: string) {
-    const res = await fetch(`/api/orders/${orderId}/accept`, {
+  function getPlanningDates(order: Order) {
+    const duration = shippingDurations[order.id];
+    if (!order.occasionDate || duration === undefined || Number.isNaN(duration)) {
+      return { shippingDate: null, productionDeadline: null };
+    }
+
+    const shippingDate = addDays(order.occasionDate, -duration);
+    return {
+      shippingDate,
+      productionDeadline: addDays(shippingDate, -1),
+    };
+  }
+
+  async function loadCapacityPreview(order: Order, duration: number) {
+    if (!order.occasionDate || Number.isNaN(duration)) return;
+
+    const shippingDate = addDays(order.occasionDate, -duration);
+    const productionDeadline = addDays(shippingDate, -1);
+    const params = new URLSearchParams({
+      productionDeadline: productionDeadline.toISOString(),
+      quantity: String(order.quantity),
+      orderId: order.id,
+    });
+    const res = await fetch(`/api/admin/capacity?${params.toString()}`);
+    const data = await res.json();
+    if (data.capacity) {
+      setCapacityPreviews((current) => ({
+        ...current,
+        [order.id]: data.capacity,
+      }));
+    }
+  }
+
+  async function acceptOrder(order: Order) {
+    const shippingDurationDays = shippingDurations[order.id];
+    if (shippingDurationDays === undefined || Number.isNaN(shippingDurationDays)) {
+      alert("Enter shipping duration before accepting this order");
+      return;
+    }
+
+    const res = await fetch(`/api/orders/${order.id}/accept`, {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ shippingDurationDays }),
     });
 
     if (res.ok) {
@@ -142,7 +195,7 @@ export function OrdersPanel() {
                         Production deadline
                       </th>
                       <th className="py-2 pr-4 font-medium">
-                        Shipping deadline
+                        Shipping date
                       </th>
                       <th className="py-2 pr-4 font-medium">
                         Reach customer
@@ -160,8 +213,8 @@ export function OrdersPanel() {
                           : "Not set"}
                       </td>
                       <td className="py-3 pr-4">
-                        {order.shippingDeadline
-                          ? formatDate(order.shippingDeadline)
+                        {order.shippingDate
+                          ? formatDate(order.shippingDate)
                           : "Not set"}
                       </td>
                       <td className="py-3 pr-4">
@@ -174,12 +227,84 @@ export function OrdersPanel() {
                 </table>
               </div>
               {order.status === "PENDING_REVIEW" && (
-                <button
-                  onClick={() => acceptOrder(order.id)}
-                  className="rounded bg-green-600 px-3 py-1 text-white"
-                >
-                  Accept Order
-                </button>
+                <div className="mt-5 rounded-lg border border-stone-200 bg-stone-50 p-4">
+                  <div className="grid gap-4 md:grid-cols-4">
+                    <label className="text-sm">
+                      <span className="block font-medium text-stone-700">
+                        Shipping duration
+                      </span>
+                      <input
+                        type="number"
+                        min={0}
+                        value={shippingDurations[order.id] ?? ""}
+                        onChange={(e) => {
+                          const value = Number(e.target.value);
+                          setShippingDurations((current) => ({
+                            ...current,
+                            [order.id]: value,
+                          }));
+                          loadCapacityPreview(order, value);
+                        }}
+                        className="mt-1 w-full rounded-lg border border-stone-200 px-3 py-2 text-sm"
+                      />
+                    </label>
+                    <div className="text-sm">
+                      <span className="block font-medium text-stone-700">
+                        Shipping date
+                      </span>
+                      <span className="mt-2 block text-stone-600">
+                        {getPlanningDates(order).shippingDate
+                          ? formatDate(getPlanningDates(order).shippingDate!)
+                          : "Enter duration"}
+                      </span>
+                    </div>
+                    <div className="text-sm">
+                      <span className="block font-medium text-stone-700">
+                        Production deadline
+                      </span>
+                      <span className="mt-2 block text-stone-600">
+                        {getPlanningDates(order).productionDeadline
+                          ? formatDate(getPlanningDates(order).productionDeadline!)
+                          : "Enter duration"}
+                      </span>
+                    </div>
+                    <div className="text-sm">
+                      <span className="block font-medium text-stone-700">
+                        Capacity
+                      </span>
+                      {capacityPreviews[order.id] ? (
+                        <span
+                          className={`mt-2 block font-medium ${
+                            capacityPreviews[order.id].canAccept
+                              ? "text-emerald-700"
+                              : "text-red-700"
+                          }`}
+                        >
+                          {capacityPreviews[order.id].used} /{" "}
+                          {capacityPreviews[order.id].dailyCapacity} used,{" "}
+                          {capacityPreviews[order.id].remaining} remaining
+                        </span>
+                      ) : (
+                        <span className="mt-2 block text-stone-600">
+                          Enter duration
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {capacityPreviews[order.id] &&
+                    !capacityPreviews[order.id].canAccept && (
+                      <p className="mt-3 text-sm font-medium text-red-700">
+                        Accepting this order exceeds available production capacity.
+                      </p>
+                    )}
+                  <button
+                    onClick={() => acceptOrder(order)}
+                    disabled={capacityPreviews[order.id]?.canAccept === false}
+                    className="mt-4 rounded bg-green-600 px-3 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-stone-300"
+                  >
+                    Accept Order
+                  </button>
+                </div>
               )}
               {order.payments[0]?.screenshotUrl &&
                 tab === "PAYMENT_VERIFICATION" && (

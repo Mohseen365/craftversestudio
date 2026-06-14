@@ -1,8 +1,16 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { reserveCapacity } from "@/lib/capacity";
-import { toDateOnly } from "@/lib/utils";
+import {
+  calculateProductionDeadline,
+  calculateShippingDate,
+  getCapacityForDeadline,
+} from "@/lib/capacity";
 import { requireAdmin } from "@/lib/auth";
+
+const acceptSchema = z.object({
+  shippingDurationDays: z.number().int().min(0),
+});
 
 export async function POST(
   req: Request,
@@ -13,42 +21,66 @@ export async function POST(
   }
 
   const { id } = await params;
+  const body = acceptSchema.safeParse(await req.json().catch(() => ({})));
 
-  const order = await prisma.order.findUnique({ where: { id } });
+  if (!body.success) {
+    return NextResponse.json(
+      { error: "Shipping duration is required" },
+      { status: 400 }
+    );
+  }
+
+  const order = await prisma.order.findUnique({
+    where: { id },
+    include: {
+      items: {
+        include: {
+          product: { select: { productionDays: true } },
+        },
+      },
+    },
+  });
 
   if (!order) {
     return NextResponse.json({ error: "Order not found" }, { status: 404 });
   }
 
-  const capacityDate = order.deliveryDate ?? order.occasionDate;
-  if (!capacityDate) {
+  if (!order.occasionDate) {
     return NextResponse.json(
-      { error: "Order needs a delivery or occasion date before acceptance" },
+      { error: "Order needs an occasion date before acceptance" },
       { status: 400 }
     );
   }
 
-  const existingReservation = await prisma.capacityReservation.findUnique({
-    where: { orderId: id },
-  });
+  const shippingDate = calculateShippingDate(
+    order.occasionDate,
+    body.data.shippingDurationDays
+  );
+  const productionDeadline = calculateProductionDeadline(shippingDate);
+  const capacity = await getCapacityForDeadline(
+    productionDeadline,
+    order.quantity,
+    order.id
+  );
 
-  if (!existingReservation) {
-    try {
-      await reserveCapacity(toDateOnly(capacityDate), id, order.quantity);
-    } catch (err) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : "Not enough capacity for this date";
-      return NextResponse.json({ error: message }, { status: 400 });
-    }
+  if (!capacity.canAccept) {
+    return NextResponse.json(
+      {
+        error: "Accepting this order exceeds available production capacity",
+        capacity,
+      },
+      { status: 409 }
+    );
   }
 
   await prisma.order.update({
     where: { id },
     data: {
       status: "ACCEPTED",
-      deliveryDate: capacityDate,
+      shippingDurationDays: body.data.shippingDurationDays,
+      shippingDate,
+      productionDeadline,
+      deliveryDate: order.occasionDate,
       payments: {
         updateMany: {
           where: {},
@@ -60,5 +92,5 @@ export async function POST(
     },
   });
 
-  return NextResponse.json({ success: true });
+  return NextResponse.json({ success: true, capacity });
 }

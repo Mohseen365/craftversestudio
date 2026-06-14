@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getOrderDeadlines } from "@/lib/utils";
 
 export async function GET(req: NextRequest) {
   const orderNumber = req.nextUrl.searchParams.get("orderNumber");
@@ -34,19 +33,12 @@ export async function GET(req: NextRequest) {
   }
 
   const paymentStatus = order.payments[0]?.status ?? "PENDING";
-  const maxProductionDays = Math.max(
-    1,
-    ...order.items.map((item) => item.product.productionDays)
-  );
-  const deliveryDate = order.deliveryDate ?? order.occasionDate;
-  const deadlines = getOrderDeadlines(deliveryDate, maxProductionDays);
 
   return NextResponse.json({
     order: {
       ...order,
       paymentStatus,
-      deliveryDate,
-      ...deadlines,
+      deliveryDate: order.deliveryDate ?? order.occasionDate,
     },
   });
 }

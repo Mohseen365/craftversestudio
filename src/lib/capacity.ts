@@ -1,91 +1,157 @@
 import { prisma } from "./prisma";
-import { toDateOnly } from "./utils";
+import { addDays, toDateOnly } from "./utils";
 
-export async function getCapacityForDate(date: Date) {
+export const DAILY_PRODUCTION_CAPACITY = 3;
+
+export function calculateShippingDate(
+  occasionDate: Date | string,
+  shippingDurationDays: number
+) {
+  return addDays(occasionDate, -shippingDurationDays);
+}
+
+export function calculateProductionDeadline(shippingDate: Date | string) {
+  return addDays(shippingDate, -1);
+}
+
+export async function getUsedCapacity(date: Date, excludeOrderId?: string) {
   const dateOnly = toDateOnly(date);
-  return prisma.capacity.findUnique({ where: { date: dateOnly } });
-}
+  const nextDate = addDays(dateOnly, 1);
 
-export async function getBookedQuantity(date: Date): Promise<number> {
-  const dateOnly = toDateOnly(date);
-  const capacity = await prisma.capacity.findUnique({
-    where: { date: dateOnly },
-    include: { reservations: true },
-  });
-  if (!capacity) return 0;
-  return capacity.reservations.reduce((sum, r) => sum + r.quantity, 0);
-}
-
-export async function getRemainingCapacity(date: Date): Promise<number | null> {
-  const dateOnly = toDateOnly(date);
-  const capacity = await prisma.capacity.findUnique({
-    where: { date: dateOnly },
-    include: { reservations: true },
-  });
-  if (!capacity) return null;
-  const booked = capacity.reservations.reduce((sum, r) => sum + r.quantity, 0);
-  return capacity.maximumCapacity - booked;
-}
-
-export async function isDateAvailable(date: Date, quantity: number): Promise<boolean> {
-  const remaining = await getRemainingCapacity(date);
-  if (remaining === null) return false;
-  return remaining >= quantity;
-}
-
-export async function reserveCapacity(date: Date, orderId: string, quantity: number) {
-  const dateOnly = toDateOnly(date);
-
-  return prisma.$transaction(async (tx) => {
-    const capacity = await tx.capacity.findUnique({
-      where: { date: dateOnly },
-      include: { reservations: true },
-    });
-
-    if (!capacity) {
-      throw new Error("No capacity set for this date");
-    }
-
-    const booked = capacity.reservations.reduce((sum, r) => sum + r.quantity, 0);
-    if (booked + quantity > capacity.maximumCapacity) {
-      throw new Error("Date is full");
-    }
-
-    return tx.capacityReservation.create({
-      data: {
-        capacityId: capacity.id,
-        orderId,
-        quantity,
-      },
-    });
-  });
-}
-
-export async function releaseCapacityReservation(orderId: string) {
-  await prisma.capacityReservation.deleteMany({ where: { orderId } });
-}
-
-export async function getAvailableDates(daysAhead = 30) {
-  const today = toDateOnly(new Date());
-  const end = new Date(today);
-  end.setDate(end.getDate() + daysAhead);
-
-  const capacities = await prisma.capacity.findMany({
+  const result = await prisma.order.aggregate({
     where: {
-      date: { gte: today, lte: end },
+      status: "ACCEPTED",
+      productionDeadline: {
+        gte: dateOnly,
+        lt: nextDate,
+      },
+      id: excludeOrderId ? { not: excludeOrderId } : undefined,
     },
-    include: { reservations: true },
-    orderBy: { date: "asc" },
+    _sum: {
+      quantity: true,
+    },
   });
 
-  return capacities.map((c) => {
-    const booked = c.reservations.reduce((sum, r) => sum + r.quantity, 0);
+  return result._sum.quantity ?? 0;
+}
+
+export async function getCapacityForDeadline(
+  date: Date,
+  requestedQuantity = 0,
+  excludeOrderId?: string
+) {
+  const productionDeadline = toDateOnly(date);
+  const used = await getUsedCapacity(productionDeadline, excludeOrderId);
+  const remaining = DAILY_PRODUCTION_CAPACITY - used;
+
+  return {
+    productionDeadline,
+    dailyCapacity: DAILY_PRODUCTION_CAPACITY,
+    used,
+    remaining,
+    requestedQuantity,
+    canAccept: used + requestedQuantity <= DAILY_PRODUCTION_CAPACITY,
+  };
+}
+
+export async function getPlanningRows(daysAhead = 60) {
+  const today = toDateOnly(new Date());
+  const end = addDays(today, daysAhead);
+
+  const orders = await prisma.order.findMany({
+    where: {
+      status: "ACCEPTED",
+      productionDeadline: {
+        gte: today,
+        lte: end,
+      },
+    },
+    include: {
+      user: {
+        select: {
+          name: true,
+          mobileNo: true,
+          email: true,
+          addresses: {
+            orderBy: { id: "desc" },
+            take: 1,
+          },
+        },
+      },
+      items: {
+        include: {
+          product: {
+            select: {
+              name: true,
+              productionDays: true,
+            },
+          },
+        },
+      },
+    },
+    orderBy: [{ productionDeadline: "asc" }, { createdAt: "asc" }],
+  });
+
+  const rows = new Map<string, { date: Date; orders: typeof orders }>();
+
+  for (const order of orders) {
+    if (!order.productionDeadline) continue;
+    const date = toDateOnly(order.productionDeadline);
+    const key = date.toISOString();
+    const existing = rows.get(key);
+    if (existing) {
+      existing.orders.push(order);
+    } else {
+      rows.set(key, { date, orders: [order] });
+    }
+  }
+
+  return Array.from(rows.values()).map((row) => {
+    const used = row.orders.reduce((sum, order) => sum + order.quantity, 0);
     return {
-      date: c.date,
-      maximumCapacity: c.maximumCapacity,
-      booked,
-      remaining: c.maximumCapacity - booked,
-      available: c.maximumCapacity - booked > 0,
+      date: row.date,
+      dailyCapacity: DAILY_PRODUCTION_CAPACITY,
+      used,
+      remaining: DAILY_PRODUCTION_CAPACITY - used,
+      isFull: used >= DAILY_PRODUCTION_CAPACITY,
+      orders: row.orders,
     };
   });
+}
+
+export async function isDateAvailable(date: Date, quantity: number) {
+  const capacity = await getCapacityForDeadline(date, quantity);
+  return capacity.canAccept;
+}
+
+export async function getBookedQuantity(date: Date) {
+  return getUsedCapacity(date);
+}
+
+export async function getRemainingCapacity(date: Date) {
+  const capacity = await getCapacityForDeadline(date);
+  return capacity.remaining;
+}
+
+export async function getAvailableDates(daysAhead = 45) {
+  const today = toDateOnly(new Date());
+  const dates = [];
+
+  for (let i = 0; i <= daysAhead; i += 1) {
+    const date = addDays(today, i);
+    const capacity = await getCapacityForDeadline(date);
+    dates.push({
+      date,
+      maximumCapacity: DAILY_PRODUCTION_CAPACITY,
+      booked: capacity.used,
+      remaining: capacity.remaining,
+      available: capacity.remaining > 0,
+    });
+  }
+
+  return dates;
+}
+
+export async function releaseCapacityReservation(_orderId?: string) {
+  return;
 }

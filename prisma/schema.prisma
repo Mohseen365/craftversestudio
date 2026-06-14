@@ -128,6 +128,9 @@ model Order {
   occasionType    String?     @map("occasion_type")
   occasionDate    DateTime?   @map("occasion_date")
   deliveryDate    DateTime?   @map("delivery_date")
+  shippingDurationDays Int?    @map("shipping_duration_days")
+  shippingDate    DateTime?   @map("shipping_date")
+  productionDeadline DateTime? @map("production_deadline")
   quantity        Int         @default(1)
   subtotal        Int
   total           Int
