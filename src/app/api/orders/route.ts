@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { generateOrderNumber, toDateOnly } from "@/lib/utils";
+import { generateOrderNumber } from "@/lib/utils";
 // import { isDateAvailable, reserveCapacity } from "@/lib/capacity";
 // import { notifyAdminNewOrder } from "@/lib/email";
 

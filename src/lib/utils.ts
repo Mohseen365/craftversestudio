@@ -33,6 +33,30 @@ export function toDateOnly(date: Date): Date {
   return d;
 }
 
+export function addDays(date: Date | string, days: number): Date {
+  const d = new Date(date);
+  d.setDate(d.getDate() + days);
+  return toDateOnly(d);
+}
+
+export function getOrderDeadlines(
+  deliveryDate: Date | string | null,
+  productionDays: number
+) {
+  if (!deliveryDate) {
+    return {
+      productionDeadline: null,
+      shippingDeadline: null,
+    };
+  }
+
+  const delivery = toDateOnly(new Date(deliveryDate));
+  return {
+    productionDeadline: addDays(delivery, -Math.max(productionDays, 1)),
+    shippingDeadline: addDays(delivery, -1),
+  };
+}
+
 export const PRICE_FILTERS = [
   { label: "All prices", min: 0, max: Infinity },
   { label: "₹0 – ₹500", min: 0, max: 500 },

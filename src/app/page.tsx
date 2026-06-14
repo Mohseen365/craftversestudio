@@ -5,35 +5,25 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { prisma } from "@/lib/prisma";
 import { ProductCard } from "@/components/ProductCard";
-import { redirect } from "next/navigation";
-// import { getCurrentUser } from "@/lib/auth";
-import { getOrCreateCustomer } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { trackEvent } from "@/lib/eventLogger";
 
 export default async function HomePage() {
-  // const user = await getCurrentUser();
-
-  // if (!user) {
-  //   redirect("/login");
-  // }
+  const user = await getCurrentUser();
 
   const featured = await prisma.product.findMany({
     where: { active: true },
-    include: { images: { orderBy: { sortOrder: "asc" }, take: 1 } },
     orderBy: { orderCount: "desc" },
     take: 4,
   });
-  getOrCreateCustomer()
-    .then((user) =>
-      trackEvent({
-        userId: user?.id,
-        eventType: "WEBSITE_OPENED",
-        metadata: {
-          source: "homepage",
-        },
-      })
-    )
-    .catch((err) => console.error("Customer creation failed:", err));
+
+  void trackEvent({
+    userId: user?.id,
+    eventType: "WEBSITE_OPENED",
+    metadata: {
+      source: "homepage",
+    },
+  });
 
   return (
     <>
@@ -92,7 +82,7 @@ export default async function HomePage() {
                   slug={product.slug}
                   price={product.price}
                   category={product.category}
-                  imageUrl={product.images[0]?.imageUrl}
+                  imageUrl={product.imageUrl}
                 />
               ))}
             </div>

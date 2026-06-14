@@ -1,5 +1,4 @@
 import { LoginForm } from "./LoginForm";
-import { getCurrentUser } from "@/lib/auth";
 import { trackEvent } from "@/lib/eventLogger";
 
 export default async function LoginPage({

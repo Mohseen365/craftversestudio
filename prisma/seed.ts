@@ -71,7 +71,7 @@ async function main() {
         description: p.description,
         price: p.price,
         productionDays: p.productionDays,
-        images: { create: { imageUrl: p.imageUrl, sortOrder: 0 } },
+        imageUrl: p.imageUrl,
       },
       update: {},
     });

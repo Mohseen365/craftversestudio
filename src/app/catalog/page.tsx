@@ -7,10 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { PRICE_FILTERS } from "@/lib/utils";
 import Link from "next/link";
 import { trackEvent } from "@/lib/eventLogger";
-// import { getCurrentUser } from "@/lib/auth";
-import { getOrCreateCustomer } from "@/lib/auth";
-
-// const user = await getCurrentUser();
+import { getCurrentUser } from "@/lib/auth";
 
 type SearchParams = Promise<{
   q?: string;
@@ -27,6 +24,7 @@ export default async function CatalogPage({
   const q = params.q?.trim() ?? "";
   const priceFilter = params.price ?? "all";
   const sort = params.sort ?? "newest";
+  const user = await getCurrentUser();
 
   const priceRange =
     priceFilter === "all"
@@ -61,17 +59,13 @@ export default async function CatalogPage({
         : { createdAt: "desc" },
   });
 
-  void getOrCreateCustomer()
-    .then((user) =>
-      trackEvent({
-        userId: user?.id,
-        eventType: "WEBSITE_OPENED",
-        metadata: {
-          source: "catalog",
-        },
-      })
-    )
-    .catch((err) => console.error("Customer creation failed:", err));
+  void trackEvent({
+    userId: user?.id,
+    eventType: "WEBSITE_OPENED",
+    metadata: {
+      source: "catalog",
+    },
+  });
 
   return (
     <>

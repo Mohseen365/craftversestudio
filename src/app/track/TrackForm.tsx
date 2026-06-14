@@ -11,8 +11,10 @@ type OrderResult = {
   status: string;
   paymentStatus: string;
   createdAt: string;
-  // deliveryDate: string;
-  occasionDate: string;
+  productionDeadline: string | null;
+  shippingDeadline: string | null;
+  deliveryDate: string | null;
+  occasionDate: string | null;
   trackingNumber: string | null;
   total: number;
   items: Array<{ product: { name: string }; quantity: number }>;
@@ -111,7 +113,7 @@ export function TrackForm({ contact }: TrackFormProps) {
             </div>
             {result.status === "ACCEPTED" && (
               <Link
-                href={`/order/payment?orderId=${result.id}&orderNumber=${result.orderNumber}&mobileNo=${result.user.mobileNo}&userId=${result.user.id}`}
+                href={`/order/${result.id}/payment?orderId=${result.id}&orderNumber=${result.orderNumber}&mobileNo=${result.user.mobileNo ?? mobileNo}&userId=${result.user.id}`}
               >
                 Proceed to Payment
               </Link>
@@ -125,7 +127,7 @@ export function TrackForm({ contact }: TrackFormProps) {
             )}
             {result.status === "PAYMENT_PENDING" && (
               <Link
-                href={`/order/payment?orderId=${result.id}&orderNumber=${result.orderNumber}&userId=${result.user.id}`}
+                href={`/order/${result.id}/payment?orderId=${result.id}&orderNumber=${result.orderNumber}&mobileNo=${result.user.mobileNo ?? mobileNo}&userId=${result.user.id}`}
               >
                 Proceed to Payment
               </Link>
@@ -148,7 +150,25 @@ export function TrackForm({ contact }: TrackFormProps) {
             </div>
             <div>
               <dt className="text-stone-500">Delivery date</dt>
-              <dd className="font-medium">{formatDate(result.occasionDate)}</dd>
+              <dd className="font-medium">
+                {result.deliveryDate ? formatDate(result.deliveryDate) : "Not set"}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-stone-500">Production deadline</dt>
+              <dd className="font-medium">
+                {result.productionDeadline
+                  ? formatDate(result.productionDeadline)
+                  : "Not set"}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-stone-500">Shipping deadline</dt>
+              <dd className="font-medium">
+                {result.shippingDeadline
+                  ? formatDate(result.shippingDeadline)
+                  : "Not set"}
+              </dd>
             </div>
             {result.trackingNumber && (
               <div>

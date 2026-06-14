@@ -18,30 +18,45 @@ export function LoginForm({ order }: LoginFormProps) {
   const [email, setEmail] = useState("");
   const [instagramUsername, setInstagramUsername] = useState("");
   const [name, setName] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  async function handleLogin() {
+  async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
     // const user = await getOrCreateCustomer();
     // const id = user.id;
 
-    const res = await fetch("/api/customer/login", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        mobileNo,
-        email,
-        instagramUsername,
-        userId: order.userId,
-        name,
-      }),
-    });
+    try {
+      const res = await fetch("/api/customer/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          mobileNo,
+          email,
+          instagramUsername,
+          userId: order.userId,
+          name,
+        }),
+      });
 
-    // router.push(
-    //   `/order/${order.productId}/payment?orderId=${order.id}&orderNumber=${order.number}`
-    // );
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error ?? "Could not save contact details");
+      }
 
-    router.push(`/track?orderNumber=${order.number}&mobileNo=${mobileNo}`);
+      // router.push(
+      //   `/order/${order.productId}/payment?orderId=${order.id}&orderNumber=${order.number}`
+      // );
+
+      router.push(`/track?orderNumber=${order.number}&mobileNo=${mobileNo}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong");
+      setLoading(false);
+    }
 
     // if (res.ok) {
     //   window.location.href = "/";
@@ -59,7 +74,8 @@ export function LoginForm({ order }: LoginFormProps) {
   // }
 
   return (
-    <div className="mt-8 space-y-4">
+    <form onSubmit={handleLogin} className="mt-8 space-y-4">
+      {error && <p className="text-sm text-red-600">{error}</p>}
       <input
         placeholder="Full Name"
         value={name}
@@ -90,15 +106,16 @@ export function LoginForm({ order }: LoginFormProps) {
       />
 
       <button
-        onClick={handleLogin}
+        type="submit"
+        disabled={loading}
         className="w-full rounded-lg bg-rose-700 p-3 text-white"
       >
-        Continue
+        {loading ? "Saving..." : "Continue"}
       </button>
 
       {/* <button onClick={continueGuest} className="w-full rounded-lg border p-3">
         Continue as Guest
       </button> */}
-    </div>
+    </form>
   );
 }

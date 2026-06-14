@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const currentUserId = userId;
+  const guestUserId = userId;
   const currentUser = await getCurrentUser();
   const conditions: Prisma.UserWhereInput[] = [];
 
@@ -72,6 +72,18 @@ export async function POST(req: NextRequest) {
           isGuest: false,
         },
       });
+      if (guestUserId && guestUserId !== user.id) {
+        await prisma.$transaction([
+          prisma.order.updateMany({
+            where: { userId: guestUserId },
+            data: { userId: user.id },
+          }),
+          prisma.address.updateMany({
+            where: { userId: guestUserId },
+            data: { userId: user.id },
+          }),
+        ]);
+      }
       await createCustomerSession(user.id);
       return NextResponse.json({
         success: true,

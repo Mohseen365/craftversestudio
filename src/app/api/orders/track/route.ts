@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getOrderDeadlines } from "@/lib/utils";
 
 export async function GET(req: NextRequest) {
   const orderNumber = req.nextUrl.searchParams.get("orderNumber");
@@ -18,7 +19,11 @@ export async function GET(req: NextRequest) {
       : { user: { mobileNo: mobileNo! } },
     include: {
       payments: true,
-      items: { include: { product: { select: { name: true } } } },
+      items: {
+        include: {
+          product: { select: { name: true, productionDays: true } },
+        },
+      },
       user: { select: { mobileNo: true, id: true } },
     },
     orderBy: { createdAt: "desc" },
@@ -28,5 +33,20 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Order not found" }, { status: 404 });
   }
 
-  return NextResponse.json({ order });
+  const paymentStatus = order.payments[0]?.status ?? "PENDING";
+  const maxProductionDays = Math.max(
+    1,
+    ...order.items.map((item) => item.product.productionDays)
+  );
+  const deliveryDate = order.deliveryDate ?? order.occasionDate;
+  const deadlines = getOrderDeadlines(deliveryDate, maxProductionDays);
+
+  return NextResponse.json({
+    order: {
+      ...order,
+      paymentStatus,
+      deliveryDate,
+      ...deadlines,
+    },
+  });
 }

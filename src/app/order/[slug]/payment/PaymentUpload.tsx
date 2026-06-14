@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 export function PaymentUpload({
   orderId,
   orderNumber,
-  userId,
   mobileNo,
 }: {
   orderId: string;

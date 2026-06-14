@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { formatDate, formatPrice } from "@/lib/utils";
+import { formatPrice } from "@/lib/utils";
 
 // type AvailableDate = {
 //   date: string;
@@ -54,11 +54,21 @@ export function OrderForm({
     const formData = new FormData(form);
 
     try {
+      let customerId = userId;
+      if (!customerId) {
+        const guestRes = await fetch("/api/customer/guest", { method: "POST" });
+        const guestData = await guestRes.json();
+        if (!guestRes.ok || !guestData.userId) {
+          throw new Error(guestData.error ?? "Could not start guest order");
+        }
+        customerId = guestData.userId;
+      }
+
       const res = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userId: userId,
+          userId: customerId,
           productId: product.id,
           // fullName: formData.get("fullName"),
           // instagramUsername: formData.get("instagramUsername"),
@@ -84,7 +94,7 @@ export function OrderForm({
       //   `/order/${product.slug}/payment?orderId=${data.orderId}&orderNumber=${data.orderNumber}`
       // );
       router.push(
-        `/login/?orderId=${data.orderId}&productId${product.id}&orderNumber=${data.orderNumber}&userId=&{userId}`
+        `/login?orderId=${data.orderId}&productId=${product.id}&orderNumber=${data.orderNumber}&userId=${data.userId}`
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");

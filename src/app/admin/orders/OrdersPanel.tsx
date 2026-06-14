@@ -8,7 +8,9 @@ type Order = {
   id: string;
   orderNumber: string;
   status: string;
-  deliveryDate: string;
+  deliveryDate: string | null;
+  productionDeadline: string | null;
+  shippingDeadline: string | null;
   total: number;
   trackingNumber: string | null;
   user: { name: string; mobileNo: string; email: string | null };
@@ -68,13 +70,17 @@ export function OrdersPanel() {
   }
 
   async function acceptOrder(orderId: string) {
-    const res = await fetch(`/api/admin/orders/${orderId}/accept`, {
+    const res = await fetch(`/api/orders/${orderId}/accept`, {
       method: "POST",
     });
 
     if (res.ok) {
-      window.location.reload();
+      loadOrders(tab);
+      return;
     }
+
+    const data = await res.json();
+    alert(data.error ?? "Could not accept order");
   }
 
   return (
@@ -113,8 +119,9 @@ export function OrdersPanel() {
                     {order.user.name} · {order.user.mobileNo}
                   </p>
                   <p className="text-sm text-stone-500">
-                    Delivery: {formatDate(order.deliveryDate)} ·{" "}
-                    {formatPrice(order.total)}
+                    Delivery:{" "}
+                    {order.deliveryDate ? formatDate(order.deliveryDate) : "Not set"}{" "}
+                    · {formatPrice(order.total)}
                   </p>
                   <ul className="mt-2 text-sm text-stone-600">
                     {order.items.map((item, i) => (
@@ -125,6 +132,46 @@ export function OrdersPanel() {
                   </ul>
                 </div>
                 <OrderStatusBadge status={order.status} />
+              </div>
+              <div className="mt-5 overflow-x-auto">
+                <table className="w-full min-w-[560px] border-collapse text-left text-sm">
+                  <thead className="border-b border-stone-100 text-stone-500">
+                    <tr>
+                      <th className="py-2 pr-4 font-medium">Order ID</th>
+                      <th className="py-2 pr-4 font-medium">
+                        Production deadline
+                      </th>
+                      <th className="py-2 pr-4 font-medium">
+                        Shipping deadline
+                      </th>
+                      <th className="py-2 pr-4 font-medium">
+                        Reach customer
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="border-b border-stone-50">
+                      <td className="py-3 pr-4 font-mono text-xs">
+                        {order.id}
+                      </td>
+                      <td className="py-3 pr-4">
+                        {order.productionDeadline
+                          ? formatDate(order.productionDeadline)
+                          : "Not set"}
+                      </td>
+                      <td className="py-3 pr-4">
+                        {order.shippingDeadline
+                          ? formatDate(order.shippingDeadline)
+                          : "Not set"}
+                      </td>
+                      <td className="py-3 pr-4">
+                        {order.deliveryDate
+                          ? formatDate(order.deliveryDate)
+                          : "Not set"}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
               {order.status === "PENDING_REVIEW" && (
                 <button

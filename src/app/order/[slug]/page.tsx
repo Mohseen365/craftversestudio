@@ -4,11 +4,8 @@ import { notFound } from "next/navigation";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { prisma } from "@/lib/prisma";
-import { getAvailableDates } from "@/lib/capacity";
 import { OrderForm } from "./OrderForm";
-import { redirect } from "next/navigation";
-// import { getCurrentUser } from "@/lib/auth";
-import { getOrCreateCustomer } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { trackEvent } from "@/lib/eventLogger";
 
 export default async function OrderPage({
@@ -30,10 +27,10 @@ export default async function OrderPage({
 
   if (!product) notFound();
 
-  const user = await getOrCreateCustomer();
+  const user = await getCurrentUser();
 
   void trackEvent({
-    userId: user.id,
+    userId: user?.id,
     eventType: "ORDER_Page",
     metadata: {
       id: id,
@@ -68,7 +65,7 @@ export default async function OrderPage({
               price: product.price,
             }}
             // availableDates={availableDates}
-            userId={user.id}
+            userId={user?.id ?? ""}
           />
         </div>
       </main>
