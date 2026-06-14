@@ -15,6 +15,7 @@ type Order = {
   shippingDurationDays: number | null;
   total: number;
   trackingNumber: string | null;
+  quantity: number;
   user: { name: string; mobileNo: string; email: string | null };
   items: Array<{ product: { name: string }; quantity: number }>;
   payments: Array<{ screenshotUrl: string | null; status: string }>;
@@ -57,8 +58,12 @@ export function OrdersPanel() {
   const [tab, setTab] = useState("PAYMENT_VERIFICATION");
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const [shippingDurations, setShippingDurations] = useState<Record<string, number>>({});
-  const [capacityPreviews, setCapacityPreviews] = useState<Record<string, CapacityPreview>>({});
+  const [shippingDurations, setShippingDurations] = useState<
+    Record<string, number>
+  >({});
+  const [capacityPreviews, setCapacityPreviews] = useState<
+    Record<string, CapacityPreview>
+  >({});
 
   async function loadOrders(status: string) {
     setLoading(true);
@@ -83,7 +88,11 @@ export function OrdersPanel() {
 
   function getPlanningDates(order: Order) {
     const duration = shippingDurations[order.id];
-    if (!order.occasionDate || duration === undefined || Number.isNaN(duration)) {
+    if (
+      !order.occasionDate ||
+      duration === undefined ||
+      Number.isNaN(duration)
+    ) {
       return { shippingDate: null, productionDeadline: null };
     }
 
@@ -116,7 +125,10 @@ export function OrdersPanel() {
 
   async function acceptOrder(order: Order) {
     const shippingDurationDays = shippingDurations[order.id];
-    if (shippingDurationDays === undefined || Number.isNaN(shippingDurationDays)) {
+    if (
+      shippingDurationDays === undefined ||
+      Number.isNaN(shippingDurationDays)
+    ) {
       alert("Enter shipping duration before accepting this order");
       return;
     }
@@ -173,7 +185,9 @@ export function OrdersPanel() {
                   </p>
                   <p className="text-sm text-stone-500">
                     Delivery:{" "}
-                    {order.deliveryDate ? formatDate(order.deliveryDate) : "Not set"}{" "}
+                    {order.deliveryDate
+                      ? formatDate(order.deliveryDate)
+                      : "Not set"}{" "}
                     · {formatPrice(order.total)}
                   </p>
                   <ul className="mt-2 text-sm text-stone-600">
@@ -194,12 +208,8 @@ export function OrdersPanel() {
                       <th className="py-2 pr-4 font-medium">
                         Production deadline
                       </th>
-                      <th className="py-2 pr-4 font-medium">
-                        Shipping date
-                      </th>
-                      <th className="py-2 pr-4 font-medium">
-                        Reach customer
-                      </th>
+                      <th className="py-2 pr-4 font-medium">Shipping date</th>
+                      <th className="py-2 pr-4 font-medium">Reach customer</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -264,7 +274,9 @@ export function OrdersPanel() {
                       </span>
                       <span className="mt-2 block text-stone-600">
                         {getPlanningDates(order).productionDeadline
-                          ? formatDate(getPlanningDates(order).productionDeadline!)
+                          ? formatDate(
+                              getPlanningDates(order).productionDeadline!
+                            )
                           : "Enter duration"}
                       </span>
                     </div>
@@ -294,7 +306,8 @@ export function OrdersPanel() {
                   {capacityPreviews[order.id] &&
                     !capacityPreviews[order.id].canAccept && (
                       <p className="mt-3 text-sm font-medium text-red-700">
-                        Accepting this order exceeds available production capacity.
+                        Accepting this order exceeds available production
+                        capacity.
                       </p>
                     )}
                   <button
