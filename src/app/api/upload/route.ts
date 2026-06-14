@@ -60,8 +60,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       url: result.secure_url,
     });
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json({ error: "Upload failed" }, { status: 500 });
+  } catch (error) {
+    console.error("UPLOAD ERROR:", error);
+
+    return NextResponse.json(
+      {
+        error: error instanceof Error ? error.message : "Upload failed",
+      },
+      { status: 500 }
+    );
   }
 }
