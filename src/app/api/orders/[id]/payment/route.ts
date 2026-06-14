@@ -7,9 +7,13 @@ const schema = z.object({
   screenshotUrl: z
     .string()
     .min(1)
-    .refine((value) => value.startsWith("/uploads/") || z.url().safeParse(value).success, {
-      message: "Invalid screenshot URL",
-    }),
+    .refine(
+      (value) =>
+        value.startsWith("/uploads/") || z.url().safeParse(value).success,
+      {
+        message: "Invalid screenshot URL",
+      }
+    ),
 });
 
 export async function POST(
@@ -45,7 +49,7 @@ export async function POST(
           orderId: id,
           amount: order.total,
           screenshotUrl: body.screenshotUrl,
-          status: "PENDING",
+          status: "UPLOADED",
         },
       }),
       prisma.order.update({

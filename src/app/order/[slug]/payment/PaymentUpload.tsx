@@ -40,8 +40,8 @@ export function PaymentUpload({
         body: uploadData,
       });
       const uploadJson = await uploadRes.json();
-      console.log("upload status", uploadRes.status);
-      console.log("upload response", uploadJson);
+      // console.log("upload status", uploadRes.status);
+      // console.log("upload response", uploadJson);
 
       if (!uploadRes.ok) throw new Error(uploadJson.error ?? "Upload failed");
 

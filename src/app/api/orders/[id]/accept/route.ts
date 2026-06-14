@@ -37,7 +37,9 @@ export async function POST(
       await reserveCapacity(toDateOnly(capacityDate), id, order.quantity);
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : "Not enough capacity for this date";
+        err instanceof Error
+          ? err.message
+          : "Not enough capacity for this date";
       return NextResponse.json({ error: message }, { status: 400 });
     }
   }
@@ -47,6 +49,14 @@ export async function POST(
     data: {
       status: "ACCEPTED",
       deliveryDate: capacityDate,
+      payments: {
+        updateMany: {
+          where: {},
+          data: {
+            status: "PENDING",
+          },
+        },
+      },
     },
   });
 
