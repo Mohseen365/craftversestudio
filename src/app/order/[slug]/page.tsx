@@ -11,7 +11,7 @@ import { trackEvent } from "@/lib/eventLogger";
 export default async function OrderPage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: Promise<{ slug: string }>;
 }) {
   // const user = await getCurrentUser();
 
@@ -19,10 +19,10 @@ export default async function OrderPage({
   //   redirect("/login");
   // }
 
-  const { id } = await params;
+  const { slug } = await params;
 
   const product = await prisma.product.findUnique({
-    where: { id, active: true },
+    where: { slug, active: true },
   });
 
   if (!product) notFound();
@@ -33,7 +33,7 @@ export default async function OrderPage({
     userId: user?.id,
     eventType: "ORDER_Page",
     metadata: {
-      id: id,
+      // id: id,
       productName: product.name,
       category: product.category,
       price: product.price,

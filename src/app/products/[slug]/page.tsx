@@ -14,12 +14,12 @@ import { getCurrentUser } from "@/lib/auth";
 export default async function ProductPage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: Promise<{ slug: string }>;
 }) {
-  const { id } = await params;
+  const { slug } = await params;
 
   const product = await prisma.product.findUnique({
-    where: { id, active: true },
+    where: { slug, active: true },
     // include: { images: { orderBy: { sortOrder: "asc" } } },
   });
 
@@ -122,7 +122,7 @@ export default async function ProductPage({
             </div>
                      */}
             <Link
-              href={`/order/${product.id}`}
+              href={`/order/${product.slug}`}
               className="mt-8 inline-flex rounded-full bg-rose-700 px-8 py-3 text-sm font-medium text-white hover:bg-rose-800 transition"
             >
               Order this bouquet
