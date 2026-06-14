@@ -7,6 +7,7 @@ export function PaymentUpload({
   orderId,
   orderNumber,
   mobileNo,
+  userId,
 }: {
   orderId: string;
   orderNumber: string;
@@ -39,6 +40,9 @@ export function PaymentUpload({
         body: uploadData,
       });
       const uploadJson = await uploadRes.json();
+      console.log("upload status", uploadRes.status);
+      console.log("upload response", uploadJson);
+
       if (!uploadRes.ok) throw new Error(uploadJson.error ?? "Upload failed");
 
       const paymentRes = await fetch(`/api/orders/${orderId}/payment`, {
