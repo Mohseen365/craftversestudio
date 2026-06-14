@@ -17,6 +17,9 @@ DROP INDEX "orders_delivery_date_idx";
 ALTER TABLE "orders" ALTER COLUMN "delivery_date" DROP NOT NULL;
 
 -- AlterTable
+ALTER TABLE products ADD COLUMN image_url TEXT;
+
+-- AlterTable
 ALTER TABLE "products" ALTER COLUMN "image_url" DROP DEFAULT;
 
 -- DropTable
