@@ -117,6 +117,7 @@ export function ProductsPanel() {
               type="number"
               placeholder="Production days"
               // value={1}
+              step="0.01" // allows decimals like 1.0, 10.25
               className="rounded-lg border px-3 py-2 text-sm"
               defaultValue={editingProduct?.productionDays?.toString() ?? "1"}
             />
