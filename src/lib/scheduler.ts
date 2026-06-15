@@ -77,11 +77,18 @@ export function scheduleOrdersInMemory(
     if (a.slack !== b.slack) {
       return a.slack - b.slack;
     }
-    return a.order.productionDeadline.getTime() - b.order.productionDeadline.getTime();
+    return (
+      a.order.productionDeadline.getTime() -
+      b.order.productionDeadline.getTime()
+    );
   });
 
   // Allocate backwards from deadline to today + 1
-  for (const { order, remainingToSchedule, availableDates } of ordersToSchedule) {
+  for (const {
+    order,
+    remainingToSchedule,
+    availableDates,
+  } of ordersToSchedule) {
     let needed = remainingToSchedule;
     const orderAllocations: ScheduledAllocation[] = [];
 
@@ -93,7 +100,10 @@ export function scheduleOrdersInMemory(
 
       if (remainingCap > 0) {
         const allocate = Math.min(needed, remainingCap);
-        consumedCapacity.set(dateStr, (consumedCapacity.get(dateStr) ?? 0) + allocate);
+        consumedCapacity.set(
+          dateStr,
+          (consumedCapacity.get(dateStr) ?? 0) + allocate
+        );
         orderAllocations.push({ date, quantity: allocate });
         needed -= allocate;
       }
@@ -103,7 +113,11 @@ export function scheduleOrdersInMemory(
       return {
         success: false,
         allocations: new Map(),
-        reason: `Order ${order.orderNumber} (ID: ${order.id}) cannot be completed before its deadline (${order.productionDeadline.toISOString().split("T")[0]}). Missing ${needed} capacity units.`,
+        reason: `Order ${order.orderNumber} (ID: ${
+          order.id
+        }) cannot be completed before its deadline (${
+          order.productionDeadline.toISOString().split("T")[0]
+        }). Missing ${needed} capacity units.`,
       };
     }
 
@@ -167,7 +181,8 @@ export async function getSchedulerData(today: Date) {
 
   const inputs: OrderScheduleInput[] = orders.map((order) => {
     const requiredCapacity = order.items.reduce(
-      (sum, item) => sum + item.quantity * Math.max(1, item.product.productionDays),
+      (sum, item) =>
+        sum + item.quantity * Math.max(1, item.product.productionDays),
       0
     );
 
@@ -192,14 +207,12 @@ export async function getSchedulerData(today: Date) {
 /**
  * Checks if a candidate order can be accepted.
  */
-export async function checkAcceptability(
-  candidate: {
-    id: string;
-    orderNumber: string;
-    productionDeadline: Date;
-    requiredCapacity: number;
-  }
-) {
+export async function checkAcceptability(candidate: {
+  id: string;
+  orderNumber: string;
+  productionDeadline: Date;
+  requiredCapacity: number;
+}) {
   const today = toDateOnly(new Date());
   const { inputs, capacityLimits } = await getSchedulerData(today);
 
@@ -215,7 +228,7 @@ export async function checkAcceptability(
   });
 
   const result = scheduleOrdersInMemory(today, filteredInputs, capacityLimits);
-  
+
   if (!result.success) {
     return {
       canAccept: false,
@@ -318,7 +331,14 @@ export async function rebuildSchedule() {
       where: {
         order: {
           status: {
-            in: ["CANCELLED", "REFUNDED", "REJECTED", "SHIPPED", "DELIVERED", "PAYMENT_REJECTED"],
+            in: [
+              "CANCELLED",
+              "REFUNDED",
+              "REJECTED",
+              "SHIPPED",
+              "DELIVERED",
+              "PAYMENT_REJECTED",
+            ],
           },
         },
         capacity: {
@@ -381,15 +401,37 @@ export async function getSchedulerPlanningRows(daysAhead = 60) {
     },
   });
 
-  const capacityMap = new Map<string, typeof capacities[0]>();
+  const capacityMap = new Map<string, (typeof capacities)[0]>();
   for (const cap of capacities) {
     capacityMap.set(toDateOnly(cap.date).toISOString(), cap);
   }
 
   const rows = [];
+  // for (let i = 0; i <= daysAhead; i++) {
+  //   const date = addDays(today, i);
+  //   const key = date.toISOString();
+  //   const capRecord = capacityMap.get(key);
+
+  //   const maxCap = capRecord?.maximumCapacity ?? DAILY_PRODUCTION_CAPACITY;
+  //   const reservations = capRecord?.reservations ?? [];
+  //   const used = reservations.reduce((sum, res) => sum + res.quantity, 0);
+
+  //   rows.push({
+  //     date,
+  //     dailyCapacity: maxCap,
+  //     used,
+  //     remaining: Math.max(0, maxCap - used),
+  //     isFull: used >= maxCap,
+  //     reservations: reservations.map((res) => ({
+  //       id: res.id,
+  //       quantity: res.quantity,
+  //       order: res.order,
+  //     })),
+  //   });
+  // }
   for (let i = 0; i <= daysAhead; i++) {
     const date = addDays(today, i);
-    const key = date.toISOString();
+    const key = toDateOnly(date).toISOString(); // normalize here too
     const capRecord = capacityMap.get(key);
 
     const maxCap = capRecord?.maximumCapacity ?? DAILY_PRODUCTION_CAPACITY;
