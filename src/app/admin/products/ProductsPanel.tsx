@@ -44,6 +44,7 @@ export function ProductsPanel() {
       category: fd.get("category"),
       description: fd.get("description"),
       price: Number(fd.get("price")),
+      active: true,
       productionDays: Number(fd.get("productionDays")),
       imageUrl: fd.get("imageUrl") || undefined,
       instagramUrl: fd.get("instagramUrl") || undefined,
@@ -164,14 +165,27 @@ export function ProductsPanel() {
                   {p.active ? "Active" : "Archived"}
                 </p>
               </div>
-              {p.active && (
-                <button
-                  onClick={() => archive(p.id)}
-                  className="text-sm text-red-500"
-                >
-                  Archive
-                </button>
-              )}
+              <div className="flex gap-3">
+                {p.active && (
+                  <button
+                    onClick={() => {
+                      setEditingProduct(p); // set product to edit
+                      setShowForm(true); // open the form
+                    }}
+                    className="text-sm text-blue-500"
+                  >
+                    Edit
+                  </button>
+                )}
+                {p.active && (
+                  <button
+                    onClick={() => archive(p.id)}
+                    className="text-sm text-red-500"
+                  >
+                    Archive
+                  </button>
+                )}
+              </div>
             </li>
           ))}
         </ul>
