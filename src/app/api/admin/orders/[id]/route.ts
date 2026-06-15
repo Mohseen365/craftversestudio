@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth";
 import { releaseCapacityReservation } from "@/lib/capacity";
+import { rebuildSchedule } from "@/lib/scheduler";
 import {
   notifyCustomerOrderConfirmed,
   notifyCustomerStatusUpdate,
@@ -70,13 +71,7 @@ export async function PATCH(
         }),
       ]);
 
-      // if (order.user.email) {
-      //   await notifyCustomerOrderConfirmed(
-      //     order.user.email,
-      //     order.orderNumber,
-      //     order.deliveryDate
-      //   );
-      // }
+      await rebuildSchedule();
 
       return NextResponse.json({ success: true, status: "CONFIRMED" });
     }
@@ -92,6 +87,7 @@ export async function PATCH(
           data: { status: "PAYMENT_REJECTED" },
         }),
       ]);
+      await rebuildSchedule();
       return NextResponse.json({ success: true, status: "PAYMENT_REJECTED" });
     }
 
@@ -107,14 +103,9 @@ export async function PATCH(
       },
     });
 
-    // if (body.status && order.user.email && body.status !== order.status) {
-    //   const label = ORDER_STATUS_LABELS[body.status] ?? body.status;
-    //   await notifyCustomerStatusUpdate(
-    //     order.user.email,
-    //     order.orderNumber,
-    //     label
-    //   );
-    // }
+    if (body.status) {
+      await rebuildSchedule();
+    }
 
     return NextResponse.json({ order: updated });
   } catch (err) {

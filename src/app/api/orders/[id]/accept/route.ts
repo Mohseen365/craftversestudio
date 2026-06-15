@@ -4,8 +4,8 @@ import { prisma } from "@/lib/prisma";
 import {
   calculateProductionDeadline,
   calculateShippingDate,
-  getCapacityForDeadline,
 } from "@/lib/capacity";
+import { checkAcceptability, rebuildSchedule } from "@/lib/scheduler";
 import { requireAdmin } from "@/lib/auth";
 
 const acceptSchema = z.object({
@@ -57,17 +57,22 @@ export async function POST(
     body.data.shippingDurationDays
   );
   const productionDeadline = calculateProductionDeadline(shippingDate);
-  const capacity = await getCapacityForDeadline(
-    productionDeadline,
-    order.quantity,
-    order.id
+  const requiredCapacity = order.items.reduce(
+    (sum, item) => sum + item.quantity * Math.max(1, item.product.productionDays),
+    0
   );
 
-  if (!capacity.canAccept) {
+  const check = await checkAcceptability({
+    id: order.id,
+    orderNumber: order.orderNumber,
+    productionDeadline,
+    requiredCapacity,
+  });
+
+  if (!check.canAccept) {
     return NextResponse.json(
       {
-        error: "Accepting this order exceeds available production capacity",
-        capacity,
+        error: check.reason ?? "Accepting this order exceeds available production capacity",
       },
       { status: 409 }
     );
@@ -92,5 +97,8 @@ export async function POST(
     },
   });
 
-  return NextResponse.json({ success: true, capacity });
+  // Rebuild the production schedule now that the order is accepted
+  await rebuildSchedule();
+
+  return NextResponse.json({ success: true, suggestedDates: check.suggestedDates });
 }

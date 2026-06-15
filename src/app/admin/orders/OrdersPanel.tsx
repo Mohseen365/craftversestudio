@@ -32,11 +32,11 @@ type Order = {
 };
 
 type CapacityPreview = {
-  dailyCapacity: number;
-  used: number;
-  remaining: number;
-  requestedQuantity: number;
   canAccept: boolean;
+  reason?: string;
+  suggestedDates: Array<{ date: string; quantity: number }>;
+  requiredCapacity: number;
+  productionDeadline: string;
 };
 
 const TABS = [
@@ -319,17 +319,20 @@ export function OrdersPanel() {
                         Capacity
                       </span>
                       {capacityPreviews[order.id] ? (
-                        <span
-                          className={`mt-2 block font-medium ${
-                            capacityPreviews[order.id].canAccept
-                              ? "text-emerald-700"
-                              : "text-red-700"
-                          }`}
-                        >
-                          {capacityPreviews[order.id].used} /{" "}
-                          {capacityPreviews[order.id].dailyCapacity} used,{" "}
-                          {capacityPreviews[order.id].remaining} remaining
-                        </span>
+                        <div>
+                          <span
+                            className={`mt-2 block font-medium ${
+                              capacityPreviews[order.id].canAccept
+                                ? "text-emerald-700"
+                                : "text-red-700"
+                            }`}
+                          >
+                            {capacityPreviews[order.id].canAccept ? "Available" : "No Capacity"}
+                          </span>
+                          <span className="mt-1 block text-xs text-stone-500">
+                            Required capacity: {capacityPreviews[order.id].requiredCapacity}
+                          </span>
+                        </div>
                       ) : (
                         <span className="mt-2 block text-stone-600">
                           Enter duration
@@ -337,13 +340,26 @@ export function OrdersPanel() {
                       )}
                     </div>
                   </div>
-                  {capacityPreviews[order.id] &&
-                    !capacityPreviews[order.id].canAccept && (
-                      <p className="mt-3 text-sm font-medium text-red-700">
-                        Accepting this order exceeds available production
-                        capacity.
-                      </p>
-                    )}
+                  {capacityPreviews[order.id] && (
+                    <div className="mt-3 text-sm">
+                      {capacityPreviews[order.id].canAccept ? (
+                        <div className="text-emerald-700">
+                          <span className="font-semibold">Suggested schedule:</span>
+                          <ul className="list-disc list-inside mt-1 text-xs">
+                            {capacityPreviews[order.id].suggestedDates.map((d, i) => (
+                              <li key={i}>
+                                {formatDate(d.date)}: {d.quantity} unit(s)
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : (
+                        <p className="font-medium text-red-700">
+                          {capacityPreviews[order.id].reason ?? "Accepting this order exceeds available production capacity."}
+                        </p>
+                      )}
+                    </div>
+                  )}
                   <button
                     onClick={() => acceptOrder(order)}
                     disabled={capacityPreviews[order.id]?.canAccept === false}

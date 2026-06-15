@@ -46,7 +46,7 @@ export function CapacityPanel() {
         <table className="w-full min-w-[680px] text-left text-sm">
           <thead className="border-b border-stone-100 text-stone-500">
             <tr>
-              <th className="px-4 py-3 font-medium">Production Deadline</th>
+              <th className="px-4 py-3 font-medium">Production Date</th>
               <th className="px-4 py-3 font-medium">Used Capacity</th>
               <th className="px-4 py-3 font-medium">Available Capacity</th>
               <th className="px-4 py-3 font-medium">Status</th>

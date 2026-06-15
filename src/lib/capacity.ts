@@ -14,18 +14,38 @@ export function calculateProductionDeadline(shippingDate: Date | string) {
   return addDays(shippingDate, -1);
 }
 
+// Assuming:
+// Capacity.date = production date
+// CapacityReservation.quantity = capacity units consumed on that date
 export async function getUsedCapacity(date: Date, excludeOrderId?: string) {
   const dateOnly = toDateOnly(date);
-  const nextDate = addDays(dateOnly, 1);
+  // const nextDate = addDays(dateOnly, 1);
 
-  const result = await prisma.order.aggregate({
+  // const result = await prisma.order.aggregate({
+  //   where: {
+  //     status: "ACCEPTED",
+  //     productionDeadline: {
+  //       gte: dateOnly,
+  //       lt: nextDate,
+  //     },
+  //     id: excludeOrderId ? { not: excludeOrderId } : undefined,
+  //   },
+  //   _sum: {
+  //     quantity: true,
+  //   },
+  // });
+
+  // return result._sum.quantity ?? 0;
+  const result = await prisma.capacityReservation.aggregate({
     where: {
-      status: "ACCEPTED",
-      productionDeadline: {
-        gte: dateOnly,
-        lt: nextDate,
+      capacity: {
+        date: dateOnly,
       },
-      id: excludeOrderId ? { not: excludeOrderId } : undefined,
+      orderId: excludeOrderId
+        ? {
+            not: excludeOrderId,
+          }
+        : undefined,
     },
     _sum: {
       quantity: true,
@@ -119,10 +139,10 @@ export async function getPlanningRows(daysAhead = 60) {
   });
 }
 
-export async function isDateAvailable(date: Date, quantity: number) {
-  const capacity = await getCapacityForDeadline(date, quantity);
-  return capacity.canAccept;
-}
+// export async function isDateAvailable(date: Date, quantity: number) {
+//   const capacity = await getCapacityForDeadline(date, quantity);
+//   return capacity.canAccept;
+// }
 
 export async function getBookedQuantity(date: Date) {
   return getUsedCapacity(date);

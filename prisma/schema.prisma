@@ -199,6 +199,6 @@ model CapacityReservation {
   capacity Capacity @relation(fields: [capacityId], references: [id], onDelete: Cascade)
   order    Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
-  @@unique([orderId])
+  @@unique([capacityId, orderId])
   @@map("capacity_reservations")
 }
