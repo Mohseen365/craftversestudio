@@ -56,12 +56,19 @@ export function CapacityPanel() {
           <tbody>
             {rows.map((row) => (
               <tr key={row.date} className="border-b border-stone-50">
-                <td className="px-4 py-3 font-medium">{formatDate(row.date)}</td>
-                <td className="px-4 py-3">
-                  {Number(row.used.toFixed(2))} / {Number(row.dailyCapacity.toFixed(2))}
+                <td className="px-4 py-3 font-medium">
+                  {formatDate(row.date)}
                 </td>
                 <td className="px-4 py-3">
-                  <span className={row.remaining <= 0 ? "text-red-600" : "text-emerald-600"}>
+                  {Number(row.used.toFixed(2))} /{" "}
+                  {Number(row.dailyCapacity.toFixed(2))}
+                </td>
+                <td className="px-4 py-3">
+                  <span
+                    className={
+                      row.remaining <= 0 ? "text-red-600" : "text-emerald-600"
+                    }
+                  >
                     {Number(row.remaining.toFixed(2))}
                   </span>
                 </td>
@@ -79,11 +86,14 @@ export function CapacityPanel() {
                 <td className="px-4 py-3">
                   <button
                     onClick={() =>
-                      setExpandedDate(expandedDate === row.date ? null : row.date)
+                      setExpandedDate(
+                        expandedDate === row.date ? null : row.date
+                      )
                     }
                     className="rounded border border-stone-200 px-3 py-1 text-xs font-medium text-stone-700 hover:bg-stone-50"
                   >
-                    {expandedDate === row.date ? "Hide" : "View"} {row.orders.length}
+                    {expandedDate === row.date ? "Hide" : "View"}{" "}
+                    {row.orders.length}
                   </button>
                 </td>
               </tr>
@@ -97,17 +107,27 @@ export function CapacityPanel() {
         )}
       </div>
 
+      <div>expandedDate: {expandedDate}</div>
       {rows
-        .filter((row) => row.date === expandedDate)
+        .filter((row) => {
+          console.log("row.date", row.date);
+          console.log("expandedDate", expandedDate);
+
+          return row.date === expandedDate;
+        })
         .map((row) => (
-          <section key={row.date} className="rounded-lg border border-stone-200 bg-white p-5">
+          <section
+            key={row.date}
+            className="rounded-lg border border-stone-200 bg-white p-5"
+          >
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-lg font-semibold text-stone-900">
                   {formatDate(row.date)}
                 </h2>
                 <p className="text-sm text-stone-500">
-                  Capacity Used: {Number(row.used.toFixed(2))} / {Number(row.dailyCapacity.toFixed(2))}
+                  Capacity Used: {Number(row.used.toFixed(2))} /{" "}
+                  {Number(row.dailyCapacity.toFixed(2))}
                 </p>
               </div>
             </div>
@@ -123,27 +143,39 @@ export function CapacityPanel() {
                     <th className="py-2 pr-4 font-medium">Allocated Effort</th>
                     <th className="py-2 pr-4 font-medium">Ship Days</th>
                     <th className="py-2 pr-4 font-medium">Shipping Date</th>
-                    <th className="py-2 pr-4 font-medium">Production Deadline</th>
+                    <th className="py-2 pr-4 font-medium">
+                      Production Deadline
+                    </th>
                     <th className="py-2 pr-4 font-medium">Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {row.orders.map((order) => (
                     <tr key={order.id} className="border-b border-stone-50">
-                      <td className="py-3 pr-4 font-mono text-xs">{order.orderNumber}</td>
-                      <td className="py-3 pr-4">{order.customerName ?? "Guest"}</td>
+                      <td className="py-3 pr-4 font-mono text-xs">
+                        {order.orderNumber}
+                      </td>
                       <td className="py-3 pr-4">
-                        {order.occasionDate ? formatDate(order.occasionDate) : "Not set"}
+                        {order.customerName ?? "Guest"}
+                      </td>
+                      <td className="py-3 pr-4">
+                        {order.occasionDate
+                          ? formatDate(order.occasionDate)
+                          : "Not set"}
                       </td>
                       <td className="max-w-[260px] py-3 pr-4 text-stone-600">
                         {order.address || "Not set"}
                       </td>
-                      <td className="py-3 pr-4">{Number(order.bouquetQuantity.toFixed(2))} day(s)</td>
+                      <td className="py-3 pr-4">
+                        {Number(order.bouquetQuantity.toFixed(2))} day(s)
+                      </td>
                       <td className="py-3 pr-4">
                         {order.shippingDurationDays ?? "Not set"}
                       </td>
                       <td className="py-3 pr-4">
-                        {order.shippingDate ? formatDate(order.shippingDate) : "Not set"}
+                        {order.shippingDate
+                          ? formatDate(order.shippingDate)
+                          : "Not set"}
                       </td>
                       <td className="py-3 pr-4">
                         {order.productionDeadline

@@ -46,7 +46,7 @@ export function ProductsPanel() {
       description: fd.get("description"),
       price: Number(fd.get("price")),
       active: true,
-      productionDays: fd.get("productionDays"),
+      productionDays: fd.get("productionDays")?.toString() ?? "1",
       imageUrl: fd.get("imageUrl") || undefined,
       instagramUrl: fd.get("instagramUrl") || undefined,
     };
