@@ -58,7 +58,9 @@ export async function POST(
   );
   const productionDeadline = calculateProductionDeadline(shippingDate);
   const requiredCapacity = order.items.reduce(
-    (sum, item) => sum + item.quantity * Math.max(1, item.product.productionDays),
+    (sum, item) =>
+      // sum + item.quantity * Math.max(1, item.product.productionDays),
+      sum + item.quantity * item.product.productionDays,
     0
   );
 
@@ -72,7 +74,9 @@ export async function POST(
   if (!check.canAccept) {
     return NextResponse.json(
       {
-        error: check.reason ?? "Accepting this order exceeds available production capacity",
+        error:
+          check.reason ??
+          "Accepting this order exceeds available production capacity",
       },
       { status: 409 }
     );
@@ -83,8 +87,8 @@ export async function POST(
     data: {
       status: "ACCEPTED",
       shippingDurationDays: body.data.shippingDurationDays,
-      shippingDate,
-      productionDeadline,
+      shippingDate: shippingDate,
+      productionDeadline: productionDeadline,
       occasionDate: order.occasionDate,
       payments: {
         updateMany: {
@@ -100,5 +104,8 @@ export async function POST(
   // Rebuild the production schedule now that the order is accepted
   await rebuildSchedule();
 
-  return NextResponse.json({ success: true, suggestedDates: check.suggestedDates });
+  return NextResponse.json({
+    success: true,
+    suggestedDates: check.suggestedDates,
+  });
 }
