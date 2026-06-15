@@ -3,13 +3,8 @@ import { DAILY_PRODUCTION_CAPACITY } from "./capacity";
 
 export function formatDateKey(date: Date, isUtc = false): string {
   const year = isUtc ? date.getUTCFullYear() : date.getFullYear();
-  const month = String(
-    (isUtc ? date.getUTCMonth() : date.getMonth()) + 1
-  ).padStart(2, "0");
-  const day = String(isUtc ? date.getUTCDate() : date.getDate()).padStart(
-    2,
-    "0"
-  );
+  const month = String((isUtc ? date.getUTCMonth() : date.getMonth()) + 1).padStart(2, "0");
+  const day = String(isUtc ? date.getUTCDate() : date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
 
@@ -40,11 +35,13 @@ export interface OrderScheduleInput {
 
 /**
  * Runs the scheduling algorithm in-memory using YYYY-MM-DD date keys.
+ * Allocates FORWARD from todayKey towards the deadline.
  */
 export function scheduleOrdersInMemory(
   todayKey: string,
   orders: OrderScheduleInput[],
-  capacityLimits: Map<string, number>
+  capacityLimits: Map<string, number>,
+  completedWorkMap: Map<string, number>
 ): {
   success: boolean;
   allocations: Map<string, ScheduledAllocation[]>;
@@ -55,8 +52,9 @@ export function scheduleOrdersInMemory(
 
   const getRemainingCapacity = (dateKey: string) => {
     const limit = capacityLimits.get(dateKey) ?? DAILY_PRODUCTION_CAPACITY;
+    const completed = completedWorkMap.get(dateKey) ?? 0;
     const consumed = consumedCapacity.get(dateKey) ?? 0;
-    return Math.max(0, limit - consumed);
+    return Math.max(0, limit - completed - consumed);
   };
 
   // Calculate remaining needs and constraints for all orders
@@ -67,21 +65,29 @@ export function scheduleOrdersInMemory(
         return null;
       }
 
+      // Available dates: from todayKey to deadlineKey inclusive
       const availableDates: string[] = [];
-      let currentKey = addDaysToKey(todayKey, 1);
+      let currentKey = todayKey;
       while (currentKey <= order.productionDeadlineKey) {
         availableDates.push(currentKey);
         currentKey = addDaysToKey(currentKey, 1);
       }
 
-      const availableDays = availableDates.length;
-      const slack = availableDays - remainingToSchedule;
+      // Calculate total available capacity in the window
+      const availableCapacityInWindow = availableDates.reduce((sum, dKey) => {
+        const limit = capacityLimits.get(dKey) ?? DAILY_PRODUCTION_CAPACITY;
+        const completed = completedWorkMap.get(dKey) ?? 0;
+        return sum + Math.max(0, limit - completed);
+      }, 0);
+
+      // Slack is the available capacity in window minus the remaining capacity to schedule
+      const slack = availableCapacityInWindow - remainingToSchedule;
 
       return {
         order,
         remainingToSchedule,
         availableDates,
-        availableDays,
+        availableDays: availableDates.length,
         slack,
       };
     })
@@ -95,45 +101,37 @@ export function scheduleOrdersInMemory(
     if (a.availableDays !== b.availableDays) {
       return a.availableDays - b.availableDays;
     }
-    if (a.slack !== b.slack) {
+    if (Math.abs(a.slack - b.slack) > 0.001) {
       return a.slack - b.slack;
     }
-    if (a.order.productionDeadlineKey < b.order.productionDeadlineKey)
-      return -1;
+    if (a.order.productionDeadlineKey < b.order.productionDeadlineKey) return -1;
     if (a.order.productionDeadlineKey > b.order.productionDeadlineKey) return 1;
     return 0;
   });
 
-  // Allocate backwards from deadline to today + 1
-  for (const {
-    order,
-    remainingToSchedule,
-    availableDates,
-  } of ordersToSchedule) {
+  // Allocate forwards from todayKey to deadline
+  for (const { order, remainingToSchedule, availableDates } of ordersToSchedule) {
     let needed = remainingToSchedule;
     const orderAllocations: ScheduledAllocation[] = [];
 
-    for (let i = availableDates.length - 1; i >= 0; i--) {
-      if (needed <= 0) break;
+    for (let i = 0; i < availableDates.length; i++) {
+      if (needed <= 0.001) break;
       const dateKey = availableDates[i];
       const remainingCap = getRemainingCapacity(dateKey);
 
-      if (remainingCap > 0) {
+      if (remainingCap > 0.001) {
         const allocate = Math.min(needed, remainingCap);
-        consumedCapacity.set(
-          dateKey,
-          (consumedCapacity.get(dateKey) ?? 0) + allocate
-        );
+        consumedCapacity.set(dateKey, (consumedCapacity.get(dateKey) ?? 0) + allocate);
         orderAllocations.push({ dateKey, quantity: allocate });
         needed -= allocate;
       }
     }
 
-    if (needed > 0) {
+    if (needed > 0.001) {
       return {
         success: false,
         allocations: new Map(),
-        reason: `Order ${order.orderNumber} (ID: ${order.id}) cannot be completed before its deadline (${order.productionDeadlineKey}). Missing ${needed} capacity units.`,
+        reason: `Order ${order.orderNumber} (ID: ${order.id}) cannot be completed before its deadline (${order.productionDeadlineKey}). Missing ${needed.toFixed(2)} capacity units.`,
       };
     }
 
@@ -192,20 +190,33 @@ export async function getSchedulerData(todayKey: string) {
   const capacityLimits = new Map<string, number>();
   for (const cap of capacities) {
     const dateStr = formatDateKey(cap.date, true);
-    capacityLimits.set(dateStr, cap.maximumCapacity);
+    capacityLimits.set(dateStr, Number(cap.maximumCapacity));
+  }
+
+  // Build completedWorkMap: dateKey -> sum(completedQuantity) for all reservations
+  const completedWorkMap = new Map<string, number>();
+  const reservations = await prisma.capacityReservation.findMany({
+    include: {
+      capacity: true,
+    },
+  });
+  for (const res of reservations) {
+    const dKey = formatDateKey(res.capacity.date, true);
+    const completed = Number(res.completedQuantity);
+    completedWorkMap.set(dKey, (completedWorkMap.get(dKey) ?? 0) + completed);
   }
 
   const inputs: OrderScheduleInput[] = orders.map((order) => {
     const requiredCapacity = order.items.reduce(
-      // (sum, item) => sum + item.quantity * Math.max(1, item.product.productionDays),
-      (sum, item) => sum + item.quantity * item.product.productionDays,
+      (sum, item) => sum + item.quantity * Number(item.product.productionDays),
       0
     );
 
-    // Sum capacity already locked (dateKey <= todayKey)
-    const lockedCapacity = order.capacityReservations
-      .filter((res) => formatDateKey(res.capacity.date, true) <= todayKey)
-      .reduce((sum, res) => sum + res.quantity, 0);
+    // Sum completedQuantity across all reservations of this order
+    const lockedCapacity = order.capacityReservations.reduce(
+      (sum, res) => sum + Number(res.completedQuantity),
+      0
+    );
 
     return {
       id: order.id,
@@ -217,22 +228,23 @@ export async function getSchedulerData(todayKey: string) {
     };
   });
 
-  return { inputs, capacityLimits };
+  return { inputs, capacityLimits, completedWorkMap };
 }
 
 /**
  * Checks if a candidate order can be accepted.
  */
-export async function checkAcceptability(candidate: {
-  id: string;
-  orderNumber: string;
-  productionDeadline: Date;
-  requiredCapacity: number;
-}) {
+export async function checkAcceptability(
+  candidate: {
+    id: string;
+    orderNumber: string;
+    productionDeadline: Date;
+    requiredCapacity: number;
+  }
+) {
   const todayKey = formatDateKey(new Date(), false);
-  const { inputs, capacityLimits } = await getSchedulerData(todayKey);
+  const { inputs, capacityLimits, completedWorkMap } = await getSchedulerData(todayKey);
 
-  // Remove candidate if it already exists in inputs, and add the updated version
   const filteredInputs = inputs.filter((inp) => inp.id !== candidate.id);
   filteredInputs.push({
     id: candidate.id,
@@ -243,12 +255,8 @@ export async function checkAcceptability(candidate: {
     status: "ACCEPTED",
   });
 
-  const result = scheduleOrdersInMemory(
-    todayKey,
-    filteredInputs,
-    capacityLimits
-  );
-
+  const result = scheduleOrdersInMemory(todayKey, filteredInputs, capacityLimits, completedWorkMap);
+  
   if (!result.success) {
     return {
       canAccept: false,
@@ -273,58 +281,68 @@ export async function checkAcceptability(candidate: {
 export async function rebuildSchedule() {
   const todayKey = formatDateKey(new Date(), false);
   const todayDate = parseDateKey(todayKey);
-  const { inputs, capacityLimits } = await getSchedulerData(todayKey);
+  const { inputs, capacityLimits, completedWorkMap } = await getSchedulerData(todayKey);
 
-  const result = scheduleOrdersInMemory(todayKey, inputs, capacityLimits);
+  const result = scheduleOrdersInMemory(todayKey, inputs, capacityLimits, completedWorkMap);
   if (!result.success) {
     throw new Error(`Cannot rebuild schedule: ${result.reason}`);
   }
 
-  // Database update transaction
-  await prisma.$transaction(async (tx) => {
-    // 1. Delete all future reservations (where capacity.date > today) for active orders
-    await tx.capacityReservation.deleteMany({
-      where: {
-        capacity: {
-          date: {
-            gt: todayDate,
-          },
-        },
-        order: {
-          status: {
-            in: [
-              "ACCEPTED",
-              "PAYMENT_PENDING",
-              "PAYMENT_SUBMITTED",
-              "PAYMENT_VERIFICATION",
-              "PAYMENT_REJECTED",
-              "CONFIRMED",
-              "IN_PRODUCTION",
-              "READY_TO_SHIP",
-            ],
-          },
+  // Load all existing reservations on or after today date
+  const existingReservations = await prisma.capacityReservation.findMany({
+    where: {
+      capacity: {
+        date: {
+          gte: todayDate,
         },
       },
-    });
+    },
+    include: {
+      capacity: true,
+    },
+  });
 
-    // 2. Create/update Capacity records and insert the new reservations
-    for (const [orderId, allocations] of result.allocations.entries()) {
-      for (const alloc of allocations) {
-        const dateObj = parseDateKey(alloc.dateKey);
+  const completedMap = new Map<string, number>(); // orderId_dateKey -> completedQuantity
+  for (const res of existingReservations) {
+    const dKey = formatDateKey(res.capacity.date, true);
+    completedMap.set(`${res.orderId}_${dKey}`, Number(res.completedQuantity));
+  }
 
-        let capacity = await tx.capacity.findUnique({
-          where: { date: dateObj },
+  // Gather new planned allocations from scheduler
+  const newAllocations = new Map<string, number>(); // orderId_dateKey -> allocatedQuantity
+  for (const [orderId, allocs] of result.allocations.entries()) {
+    for (const alloc of allocs) {
+      newAllocations.set(`${orderId}_${alloc.dateKey}`, alloc.quantity);
+    }
+  }
+
+  // Determine the set of keys to update/delete
+  const allKeys = new Set([...completedMap.keys(), ...newAllocations.keys()]);
+
+  await prisma.$transaction(async (tx) => {
+    // Upsert or Delete based on planned + completed quantities
+    for (const key of allKeys) {
+      const [orderId, dKey] = key.split("_");
+      const dateObj = parseDateKey(dKey);
+      const C = completedMap.get(key) ?? 0;
+      const A = newAllocations.get(key) ?? 0;
+      const totalPlanned = C + A;
+
+      // Find or create the capacity record for this date
+      let capacity = await tx.capacity.findUnique({
+        where: { date: dateObj },
+      });
+
+      if (!capacity) {
+        capacity = await tx.capacity.create({
+          data: {
+            date: dateObj,
+            maximumCapacity: DAILY_PRODUCTION_CAPACITY,
+          },
         });
+      }
 
-        if (!capacity) {
-          capacity = await tx.capacity.create({
-            data: {
-              date: dateObj,
-              maximumCapacity: DAILY_PRODUCTION_CAPACITY,
-            },
-          });
-        }
-
+      if (totalPlanned > 0.001) {
         await tx.capacityReservation.upsert({
           where: {
             capacityId_orderId: {
@@ -333,39 +351,61 @@ export async function rebuildSchedule() {
             },
           },
           update: {
-            quantity: alloc.quantity,
+            plannedQuantity: totalPlanned,
+            completedQuantity: C,
           },
           create: {
             capacityId: capacity.id,
             orderId,
-            quantity: alloc.quantity,
+            plannedQuantity: totalPlanned,
+            completedQuantity: C,
           },
         });
+      } else {
+        // Delete reservation if it exists and totalPlanned is 0
+        const existingRes = existingReservations.find(
+          (r) => r.orderId === orderId && formatDateKey(r.capacity.date, true) === dKey
+        );
+        if (existingRes) {
+          await tx.capacityReservation.delete({
+            where: { id: existingRes.id },
+          });
+        }
       }
     }
 
-    // 3. Remove future reservations for cancelled/refunded/rejected/shipped/delivered orders
-    await tx.capacityReservation.deleteMany({
+    // Clean up future reservations (date >= today) for cancelled/inactive orders
+    const inactiveReservations = await tx.capacityReservation.findMany({
       where: {
-        order: {
-          status: {
-            in: [
-              "CANCELLED",
-              "REFUNDED",
-              "REJECTED",
-              "SHIPPED",
-              "DELIVERED",
-              "PAYMENT_REJECTED",
-            ],
-          },
-        },
         capacity: {
           date: {
-            gt: todayDate,
+            gte: todayDate,
+          },
+        },
+        order: {
+          status: {
+            in: ["CANCELLED", "REFUNDED", "REJECTED", "SHIPPED", "DELIVERED", "PAYMENT_REJECTED"],
           },
         },
       },
     });
+
+    for (const r of inactiveReservations) {
+      const completedVal = Number(r.completedQuantity);
+      if (completedVal > 0.001) {
+        // Keep completed history but remove planned excess
+        await tx.capacityReservation.update({
+          where: { id: r.id },
+          data: {
+            plannedQuantity: completedVal,
+          },
+        });
+      } else {
+        await tx.capacityReservation.delete({
+          where: { id: r.id },
+        });
+      }
+    }
   });
 }
 
@@ -420,7 +460,7 @@ export async function getSchedulerPlanningRows(daysAhead = 60) {
     },
   });
 
-  const capacityMap = new Map<string, (typeof capacities)[0]>();
+  const capacityMap = new Map<string, typeof capacities[0]>();
   for (const cap of capacities) {
     capacityMap.set(formatDateKey(cap.date, true), cap);
   }
@@ -430,9 +470,11 @@ export async function getSchedulerPlanningRows(daysAhead = 60) {
     const dateKey = addDaysToKey(todayKey, i);
     const capRecord = capacityMap.get(dateKey);
 
-    const maxCap = capRecord?.maximumCapacity ?? DAILY_PRODUCTION_CAPACITY;
+    const maxCap = capRecord ? Number(capRecord.maximumCapacity) : DAILY_PRODUCTION_CAPACITY;
     const reservations = capRecord?.reservations ?? [];
-    const used = reservations.reduce((sum, res) => sum + res.quantity, 0);
+    
+    // Used capacity on this day is the sum of plannedQuantity
+    const used = reservations.reduce((sum, res) => sum + Number(res.plannedQuantity), 0);
 
     rows.push({
       date: parseDateKey(dateKey),
@@ -442,7 +484,8 @@ export async function getSchedulerPlanningRows(daysAhead = 60) {
       isFull: used >= maxCap,
       reservations: reservations.map((res) => ({
         id: res.id,
-        quantity: res.quantity,
+        quantity: Number(res.plannedQuantity), // planned effort on this day
+        completedQuantity: Number(res.completedQuantity),
         order: res.order,
       })),
     });

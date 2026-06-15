@@ -330,7 +330,7 @@ export function OrdersPanel() {
                             {capacityPreviews[order.id].canAccept ? "Available" : "No Capacity"}
                           </span>
                           <span className="mt-1 block text-xs text-stone-500">
-                            Required capacity: {capacityPreviews[order.id].requiredCapacity}
+                            Required capacity: {Number(capacityPreviews[order.id].requiredCapacity.toFixed(2))}
                           </span>
                         </div>
                       ) : (
@@ -348,7 +348,7 @@ export function OrdersPanel() {
                           <ul className="list-disc list-inside mt-1 text-xs">
                             {capacityPreviews[order.id].suggestedDates.map((d, i) => (
                               <li key={i}>
-                                {formatDate(d.date)}: {d.quantity} unit(s)
+                                {formatDate(d.date)}: {Number(d.quantity.toFixed(2))} day(s)
                               </li>
                             ))}
                           </ul>

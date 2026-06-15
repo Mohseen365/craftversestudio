@@ -103,7 +103,7 @@ model Product {
   category       String
   description    String
   price          Int
-  productionDays Int      @default(1) @map("production_days")
+  productionDays Decimal      @default(1) @map("production_days") @db.Decimal(10, 2)
   active         Boolean  @default(true)
   orderCount     Int      @default(0) @map("order_count")
   createdAt      DateTime @default(now()) @map("created_at")
@@ -183,7 +183,7 @@ model Payment {
 model Capacity {
   id              String   @id @default(cuid())
   date            DateTime @unique @db.Date
-  maximumCapacity Int      @map("maximum_capacity")
+  maximumCapacity Decimal  @map("maximum_capacity") @db.Decimal(10, 2)
 
   reservations CapacityReservation[]
 
@@ -191,10 +191,11 @@ model Capacity {
 }
 
 model CapacityReservation {
-  id         String @id @default(cuid())
-  capacityId String @map("capacity_id")
-  orderId    String @map("order_id")
-  quantity   Int
+  id                String  @id @default(cuid())
+  capacityId        String  @map("capacity_id")
+  orderId           String  @map("order_id")
+  plannedQuantity   Decimal @map("planned_quantity") @db.Decimal(10, 2)
+  completedQuantity Decimal @default(0) @map("completed_quantity") @db.Decimal(10, 2)
 
   capacity Capacity @relation(fields: [capacityId], references: [id], onDelete: Cascade)
   order    Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)

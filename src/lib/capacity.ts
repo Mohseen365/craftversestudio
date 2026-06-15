@@ -1,7 +1,7 @@
 import { prisma } from "./prisma";
 import { addDays, toDateOnly } from "./utils";
 
-export const DAILY_PRODUCTION_CAPACITY = 3;
+export const DAILY_PRODUCTION_CAPACITY = 1.0;
 
 export function calculateShippingDate(
   occasionDate: Date | string,
@@ -48,11 +48,11 @@ export async function getUsedCapacity(date: Date, excludeOrderId?: string) {
         : undefined,
     },
     _sum: {
-      quantity: true,
+      plannedQuantity: true,
     },
   });
 
-  return result._sum.quantity ?? 0;
+  return Number(result._sum.plannedQuantity ?? 0);
 }
 
 export async function getCapacityForDeadline(

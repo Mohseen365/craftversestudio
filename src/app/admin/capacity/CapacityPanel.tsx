@@ -58,11 +58,11 @@ export function CapacityPanel() {
               <tr key={row.date} className="border-b border-stone-50">
                 <td className="px-4 py-3 font-medium">{formatDate(row.date)}</td>
                 <td className="px-4 py-3">
-                  {row.used} / {row.dailyCapacity}
+                  {Number(row.used.toFixed(2))} / {Number(row.dailyCapacity.toFixed(2))}
                 </td>
                 <td className="px-4 py-3">
-                  <span className={row.remaining === 0 ? "text-red-600" : "text-emerald-600"}>
-                    {row.remaining}
+                  <span className={row.remaining <= 0 ? "text-red-600" : "text-emerald-600"}>
+                    {Number(row.remaining.toFixed(2))}
                   </span>
                 </td>
                 <td className="px-4 py-3">
@@ -107,7 +107,7 @@ export function CapacityPanel() {
                   {formatDate(row.date)}
                 </h2>
                 <p className="text-sm text-stone-500">
-                  Capacity Used: {row.used} / {row.dailyCapacity}
+                  Capacity Used: {Number(row.used.toFixed(2))} / {Number(row.dailyCapacity.toFixed(2))}
                 </p>
               </div>
             </div>
@@ -120,7 +120,7 @@ export function CapacityPanel() {
                     <th className="py-2 pr-4 font-medium">Customer</th>
                     <th className="py-2 pr-4 font-medium">Occasion Date</th>
                     <th className="py-2 pr-4 font-medium">Address</th>
-                    <th className="py-2 pr-4 font-medium">Bouquet Qty</th>
+                    <th className="py-2 pr-4 font-medium">Allocated Effort</th>
                     <th className="py-2 pr-4 font-medium">Ship Days</th>
                     <th className="py-2 pr-4 font-medium">Shipping Date</th>
                     <th className="py-2 pr-4 font-medium">Production Deadline</th>
@@ -138,7 +138,7 @@ export function CapacityPanel() {
                       <td className="max-w-[260px] py-3 pr-4 text-stone-600">
                         {order.address || "Not set"}
                       </td>
-                      <td className="py-3 pr-4">{order.bouquetQuantity}</td>
+                      <td className="py-3 pr-4">{Number(order.bouquetQuantity.toFixed(2))} day(s)</td>
                       <td className="py-3 pr-4">
                         {order.shippingDurationDays ?? "Not set"}
                       </td>
