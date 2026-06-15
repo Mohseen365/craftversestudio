@@ -5,7 +5,7 @@
 
 */
 -- DropIndex
-DROP INDEX "orders_production_deadline_idx";
+-- DROP INDEX "orders_production_deadline_idx";
 
 -- AlterTable
-ALTER TABLE "products" ALTER COLUMN "image_url" SET NOT NULL;
+-- ALTER TABLE "products" ALTER COLUMN "image_url" SET NOT NULL;
