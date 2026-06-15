@@ -115,7 +115,7 @@ export function ProductsPanel() {
               name="productionDays"
               type="number"
               placeholder="Production days"
-              value={1}
+              // value={1}
               className="rounded-lg border px-3 py-2 text-sm"
               defaultValue={editingProduct?.productionDays}
             />
