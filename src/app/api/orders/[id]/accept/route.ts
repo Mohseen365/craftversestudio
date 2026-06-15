@@ -80,7 +80,7 @@ export async function POST(
       shippingDurationDays: body.data.shippingDurationDays,
       shippingDate,
       productionDeadline,
-      deliveryDate: order.occasionDate,
+      occasionDate: order.occasionDate,
       payments: {
         updateMany: {
           where: {},

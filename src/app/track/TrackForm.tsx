@@ -113,7 +113,11 @@ export function TrackForm({ contact }: TrackFormProps) {
             </div>
             {result.status === "ACCEPTED" && (
               <Link
-                href={`/order/${result.id}/payment?orderId=${result.id}&orderNumber=${result.orderNumber}&mobileNo=${result.user.mobileNo ?? mobileNo}&userId=${result.user.id}`}
+                href={`/order/${result.id}/payment?orderId=${
+                  result.id
+                }&orderNumber=${result.orderNumber}&mobileNo=${
+                  result.user.mobileNo ?? mobileNo
+                }&userId=${result.user.id}`}
               >
                 Proceed to Payment
               </Link>
@@ -127,7 +131,11 @@ export function TrackForm({ contact }: TrackFormProps) {
             )}
             {result.status === "PAYMENT_PENDING" && (
               <Link
-                href={`/order/${result.id}/payment?orderId=${result.id}&orderNumber=${result.orderNumber}&mobileNo=${result.user.mobileNo ?? mobileNo}&userId=${result.user.id}`}
+                href={`/order/${result.id}/payment?orderId=${
+                  result.id
+                }&orderNumber=${result.orderNumber}&mobileNo=${
+                  result.user.mobileNo ?? mobileNo
+                }&userId=${result.user.id}`}
               >
                 Proceed to Payment
               </Link>
@@ -151,10 +159,12 @@ export function TrackForm({ contact }: TrackFormProps) {
             <div>
               <dt className="text-stone-500">Delivery date</dt>
               <dd className="font-medium">
-                {result.deliveryDate ? formatDate(result.deliveryDate) : "Not set"}
+                {result.deliveryDate
+                  ? formatDate(result.deliveryDate)
+                  : "Not set"}
               </dd>
             </div>
-            <div>
+            {/* <div>
               <dt className="text-stone-500">Production deadline</dt>
               <dd className="font-medium">
                 {result.productionDeadline
@@ -169,7 +179,7 @@ export function TrackForm({ contact }: TrackFormProps) {
                   ? formatDate(result.shippingDate)
                   : "Not set"}
               </dd>
-            </div>
+            </div> */}
             {result.trackingNumber && (
               <div>
                 <dt className="text-stone-500">Tracking number</dt>
