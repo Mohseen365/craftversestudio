@@ -3,13 +3,17 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth";
 import { slugify } from "@/lib/utils";
+import { Decimal } from "@prisma/client/runtime/library";
 
 const productSchema = z.object({
   name: z.string().min(2),
   category: z.string().min(2),
   description: z.string().min(10),
   price: z.number().int().positive(),
-  productionDays: z.number().int().min(1).default(1),
+  productionDays: z
+    .string()
+    .transform((val) => new Decimal(val))
+    .optional(),
   imageUrl: z.string(),
   instagramUrl: z.string().optional(),
   active: z.boolean().default(true),

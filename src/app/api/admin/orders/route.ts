@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
   const ordersWithDeadlines = orders.map((order) => {
     const maxProductionDays = Math.max(
       1,
-      ...order.items.map((item) => item.product.productionDays)
+      ...order.items.map((item) => item.product.productionDays.toNumber())
     );
 
     return {

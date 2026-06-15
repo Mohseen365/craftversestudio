@@ -2,13 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth";
+import { Decimal } from "@prisma/client/runtime/library";
 
 const updateSchema = z.object({
   name: z.string().min(2).optional(),
   category: z.string().min(2).optional(),
   description: z.string().min(10).optional(),
   price: z.number().int().positive().optional(),
-  productionDays: z.number().int().min(1).optional(),
+  productionDays: z
+    .string()
+    .transform((val) => new Decimal(val))
+    .optional(),
+
   active: z.boolean().optional(),
   imageUrl: z.string(),
   instagramUrl: z.string(),

@@ -207,7 +207,7 @@ export async function getSchedulerData(todayKey: string) {
   const capacityLimits = new Map<string, number>();
   for (const cap of capacities) {
     const dateStr = formatDateKey(cap.date, true);
-    capacityLimits.set(dateStr, Number(cap.maximumCapacity));
+    capacityLimits.set(dateStr, cap.maximumCapacity.toNumber());
   }
 
   // Build completedWorkMap: dateKey -> sum(completedQuantity) for all reservations
@@ -510,7 +510,7 @@ export async function getSchedulerPlanningRows(daysAhead = 60) {
     const capRecord = capacityMap.get(dateKey);
 
     const maxCap = capRecord
-      ? Number(capRecord.maximumCapacity)
+      ? capRecord.maximumCapacity.toNumber()
       : DAILY_PRODUCTION_CAPACITY;
     const reservations = capRecord?.reservations ?? [];
 

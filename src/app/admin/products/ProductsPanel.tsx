@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { formatPrice } from "@/lib/utils";
+import { Decimal } from "@prisma/client/runtime/library";
 
 type Product = {
   id: string;
@@ -12,7 +13,7 @@ type Product = {
   active: boolean;
   imageUrl: string;
   instagramUrl: string;
-  productionDays: number;
+  productionDays: Decimal;
   description: string;
 };
 
@@ -39,13 +40,16 @@ export function ProductsPanel() {
 
     const fd = new FormData(e.currentTarget);
 
+    const rawValue = fd.get("productionDays"); // FormDataEntryValue | null
     const payload = {
       name: fd.get("name"),
       category: fd.get("category"),
       description: fd.get("description"),
       price: Number(fd.get("price")),
       active: true,
-      productionDays: Number(fd.get("productionDays")),
+      productionDays: rawValue
+        ? new Decimal(rawValue.toString()) // convert to string first
+        : new Decimal(1), // fallback default
       imageUrl: fd.get("imageUrl") || undefined,
       instagramUrl: fd.get("instagramUrl") || undefined,
     };
@@ -117,7 +121,7 @@ export function ProductsPanel() {
               placeholder="Production days"
               // value={1}
               className="rounded-lg border px-3 py-2 text-sm"
-              defaultValue={editingProduct?.productionDays}
+              defaultValue={editingProduct?.productionDays?.toString() ?? "1"}
             />
             <input
               name="imageUrl"
