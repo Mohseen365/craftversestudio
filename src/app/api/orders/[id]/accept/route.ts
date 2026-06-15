@@ -60,7 +60,7 @@ export async function POST(
   const requiredCapacity = order.items.reduce(
     (sum, item) =>
       // sum + item.quantity * Math.max(1, item.product.productionDays),
-      sum + item.quantity * item.product.productionDays,
+      sum + item.quantity * item.product.productionDays.toNumber(),
     0
   );
 

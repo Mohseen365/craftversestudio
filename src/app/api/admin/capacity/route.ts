@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
       const requiredCapacity = order.items.reduce(
         (sum, item) =>
           // sum + item.quantity * Math.max(1, item.product.productionDays),
-          sum + item.quantity * item.product.productionDays,
+          sum + item.quantity * item.product.productionDays.toNumber(),
         0
       );
 
@@ -84,7 +84,7 @@ export async function GET(req: NextRequest) {
           items: order.items.map((item) => ({
             productName: item.product.name,
             quantity: item.quantity,
-            productionDays: item.product.productionDays,
+            productionDays: item.product.productionDays.toNumber(),
           })),
         };
       }),
