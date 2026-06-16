@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { OrderStatusBadge } from "@/components/OrderStatusBadge";
 import { addDays, formatDate, formatPrice } from "@/lib/utils";
 
@@ -75,6 +75,8 @@ export function OrdersPanel() {
   const [capacityPreviews, setCapacityPreviews] = useState<
     Record<string, CapacityPreview>
   >({});
+  // Debounce timers: one per order, so typing quickly doesn't fire a request per keystroke
+  const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   async function loadOrders(status: string) {
     setLoading(true);
@@ -133,6 +135,20 @@ export function OrdersPanel() {
         [id]: data.capacity,
       }));
     }
+  }
+
+  function scheduleCapacityPreview(
+    occasionDate: Date,
+    quantity: number,
+    id: string,
+    duration: number
+  ) {
+    // Cancel any pending preview request for this order
+    if (debounceTimers.current[id]) clearTimeout(debounceTimers.current[id]);
+    // Fire after 400ms of no further input
+    debounceTimers.current[id] = setTimeout(() => {
+      loadCapacityPreview(occasionDate, quantity, id, duration);
+    }, 400);
   }
 
   async function acceptOrder(id: string) {
@@ -302,7 +318,7 @@ export function OrdersPanel() {
                             [order.id]: value,
                           }));
                           if (order.occasionDate) {
-                            loadCapacityPreview(
+                            scheduleCapacityPreview(
                               order.occasionDate,
                               order.quantity,
                               order.id,

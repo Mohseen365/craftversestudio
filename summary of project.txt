@@ -885,3 +885,33 @@ OrderPanel preview calls `checkAcceptability` on every shipping duration change.
 
 **Bouquet is a capacity-aware bouquet production planning and order management platform that calculates production effort from product production days, validates capacity before order acceptance via an in-memory scheduling algorithm, allocates fractional daily effort across production dates using CapacityReservation records, and rebuilds future schedules whenever accepted orders change to ensure all schedulable orders meet their production deadlines.**
 
+
+---
+
+# Changes Applied (Round 5 — June 2026)
+
+## Refactor — Remaining redundancies
+
+### Fix — Preview fires on every keystroke (OrdersPanel debounce)
+
+**Problem:** Shipping duration input called `loadCapacityPreview` on every `onChange`. Typing "14" fired 2 requests. Each request runs `checkAcceptability` → `getSchedulerData` → 4+ DB queries.
+
+**Fix:** Added `debounceTimers` ref (one slot per order ID). New `scheduleCapacityPreview()` wrapper cancels any pending timer and fires after 400ms of no further input. One request per burst of typing instead of one per character.
+
+Files changed: `src/app/admin/orders/OrdersPanel.tsx`
+
+---
+
+### Cleanup — Stale commented code removed from capacity preview route
+
+Removed leftover `// sum + item.quantity * Math.max(1, ...)` comment in `GET /api/admin/capacity`.
+
+Files changed: `src/app/api/admin/capacity/route.ts`
+
+---
+
+## What remains by design
+
+**Double-call between preview and accept:** Preview calls `checkAcceptability` for the admin to see capacity. Accept API calls it again authoritatively. This is correct — the API check is the gate. Trusting the client-side preview result would be wrong. Debounce above reduces preview cost significantly.
+
+**`getSchedulerData` vs `getSchedulerPlanningRows`:** Both read capacity tables but return different shapes for different purposes. Planning rows are heavier (full joins) but only called when CapacityPanel loads — not in hot paths.
