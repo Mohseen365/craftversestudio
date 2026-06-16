@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-// import { getOrCreateCustomer } from "@/lib/auth"; //cannot use in client side
 type LoginFormProps = {
   order: {
     id: string;
@@ -12,6 +11,7 @@ type LoginFormProps = {
     userId: string;
   };
 };
+
 export function LoginForm({ order }: LoginFormProps) {
   const router = useRouter();
   const [mobileNo, setMobileNo] = useState("");
@@ -19,59 +19,39 @@ export function LoginForm({ order }: LoginFormProps) {
   const [instagramUsername, setInstagramUsername] = useState("");
   const [name, setName] = useState("");
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [isPending, startTransition] = useTransition();
 
-  async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
+  function handleLogin(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError("");
-    setLoading(true);
-    // const user = await getOrCreateCustomer();
-    // const id = user.id;
 
-    try {
-      const res = await fetch("/api/customer/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          mobileNo,
-          email,
-          instagramUsername,
-          userId: order.userId,
-          name,
-        }),
-      });
+    startTransition(async () => {
+      try {
+        const res = await fetch("/api/customer/login", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            mobileNo,
+            email,
+            instagramUsername,
+            userId: order.userId,
+            name,
+          }),
+        });
 
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error ?? "Could not save contact details");
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          throw new Error(data.error ?? "Could not save contact details");
+        }
+
+        router.push(`/track?orderNumber=${order.number}&mobileNo=${mobileNo}`);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Something went wrong");
       }
-
-      // router.push(
-      //   `/order/${order.productId}/payment?orderId=${order.id}&orderNumber=${order.number}`
-      // );
-
-      router.push(`/track?orderNumber=${order.number}&mobileNo=${mobileNo}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
-      setLoading(false);
-    }
-
-    // if (res.ok) {
-    //   window.location.href = "/";
-    // }
+    });
   }
-
-  // async function continueGuest() {
-  //   const res = await fetch("/api/customer/guest", {
-  //     method: "POST",
-  //   });
-
-  //   if (res.ok) {
-  //     window.location.href = "/";
-  //   }
-  // }
 
   return (
     <form onSubmit={handleLogin} className="mt-8 space-y-4">
@@ -80,42 +60,36 @@ export function LoginForm({ order }: LoginFormProps) {
         placeholder="Full Name"
         value={name}
         onChange={(e) => setName(e.target.value)}
-        className="w-full rounded-lg border p-3"
+        className="w-full rounded-lg border p-3 focus:border-rose-300 focus:outline-none focus:ring-2 focus:ring-rose-100"
         required
       />
       <input
         placeholder="Mobile Number"
         value={mobileNo}
         onChange={(e) => setMobileNo(e.target.value)}
-        className="w-full rounded-lg border p-3"
+        className="w-full rounded-lg border p-3 focus:border-rose-300 focus:outline-none focus:ring-2 focus:ring-rose-100"
         required
       />
-
       <input
         placeholder="Email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
-        className="w-full rounded-lg border p-3"
+        type="email"
+        className="w-full rounded-lg border p-3 focus:border-rose-300 focus:outline-none focus:ring-2 focus:ring-rose-100"
       />
-
       <input
         placeholder="Instagram Username"
         value={instagramUsername}
         onChange={(e) => setInstagramUsername(e.target.value)}
-        className="w-full rounded-lg border p-3"
+        className="w-full rounded-lg border p-3 focus:border-rose-300 focus:outline-none focus:ring-2 focus:ring-rose-100"
       />
-
       <button
         type="submit"
-        disabled={loading}
-        className="w-full rounded-lg bg-rose-700 p-3 text-white"
+        disabled={isPending}
+        className="w-full rounded-lg bg-rose-700 p-3 text-white hover:bg-rose-800 disabled:opacity-50 transition"
       >
-        {loading ? "Saving..." : "Continue"}
+        {isPending ? "Saving..." : "Continue"}
       </button>
-
-      {/* <button onClick={continueGuest} className="w-full rounded-lg border p-3">
-        Continue as Guest
-      </button> */}
     </form>
   );
 }
