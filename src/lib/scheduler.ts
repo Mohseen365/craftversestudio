@@ -349,21 +349,42 @@ export async function getSchedulerPlanningRows() {
     orderBy: { date: "asc" },
   });
 
-  return capacities
-    .filter((c) => c.reservations && c.reservations.length > 0)
-    .map((c) => {
-      const max = c.maximumCapacity.toNumber();
-      const used = c.reservations.reduce(
-        (s, r) => s + Number(r.plannedQuantity) + Number(r.manualQuantity || 0),
-        0
-      );
-      return {
-        date: c.date,
-        dailyCapacity: max,
+  type CapacityRow = (typeof capacities)[number];
+  const capacityMap = new Map<string, CapacityRow>();
+
+  for (const cap of capacities) {
+    capacityMap.set(formatDateKey(cap.date, true), cap);
+  }
+
+  const rows = [];
+
+  for (
+    let current = todayDate;
+    current <= endDate;
+    current.setUTCDate(current.getUTCDate() + 1)
+  ) {
+    const dateKey = formatDateKey(current, true);
+
+    const cap = capacityMap.get(dateKey);
+
+    const maxCap = cap
+      ? cap.maximumCapacity.toNumber()
+      : DAILY_PRODUCTION_CAPACITY;
+
+    const reservations = cap?.reservations ?? [];
+
+    const used = reservations.reduce(
+      (sum, r) => sum + r.plannedQuantity.toNumber(),
+      0
+    );
+    if (!cap) {
+      rows.push({
+        date: new Date(current),
+        dailyCapacity: maxCap,
         used,
-        remaining: Math.max(0, max - used),
-        isFull: used >= max,
-        reservations: c.reservations.map((r) => ({
+        remaining: Math.max(0, maxCap - used),
+        isFull: used >= maxCap,
+        reservations: reservations.map((r) => ({
           id: r.id,
           quantity: Number(r.plannedQuantity),
           completedQuantity: Number(r.completedQuantity),
@@ -371,6 +392,9 @@ export async function getSchedulerPlanningRows() {
           isManual: r.isManual ?? false,
           order: r.order,
         })),
-      };
-    });
+      });
+      continue;
+    }
+  }
+  return rows;
 }
