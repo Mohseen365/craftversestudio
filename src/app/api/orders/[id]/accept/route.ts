@@ -107,7 +107,7 @@ export async function POST(
   });
 
   // Rebuild the production schedule now that the order is accepted
-  await rebuildSchedule();
+  void rebuildSchedule();
 
   return NextResponse.json({
     success: true,

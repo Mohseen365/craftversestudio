@@ -747,6 +747,67 @@ Files changed: `src/app/api/customer/login/route.ts`
 
 ---
 
+---
+
+# Changes Applied (Round 3 — June 2026)
+
+## Fix 9 — Accept order button: shippingDurationDays .int() validation rejected valid inputs
+
+**Root cause:** `acceptSchema` had `z.number().int()`. The admin input field can naturally produce a non-integer (e.g. entering `3.5` for 3.5 days shipping). Zod's `.int()` would reject it and the `safeParse` failure returned "Shipping duration is required" — the actual reason was hidden.
+
+**Fix:** Changed to `z.number().min(0).max(365)` — integers and decimals both accepted.
+
+Files changed: `src/app/api/orders/[id]/accept/route.ts`
+
+---
+
+## Fix 10 — Progress update: timezone mismatch caused findFirst to return nothing
+
+**Root cause:** The progress route used `toDateOnly()` from `lib/utils.ts` which calls `setHours(0,0,0,0)` — local time. But `Capacity.date` is stored as UTC midnight. In any timezone with a positive UTC offset, local midnight is a different UTC value than the stored date, so `prisma.capacityReservation.findFirst({ where: { capacity: { date: dateOnly } } })` matched zero rows every time. The API returned 404 silently.
+
+**Fix:** Rewrote the route to use `formatDateKey(new Date(date), true)` + `parseDateKey()` from `lib/scheduler.ts` — both are pure UTC and match how `Capacity.date` is stored. Additional improvements:
+- Rejects `completedUnits <= 0`
+- Caps `completedQuantity` at `plannedQuantity` (can't mark more work done than was allocated for that date)
+- Returns `{ completedQuantity }` so the UI can update optimistically
+
+Files changed: `src/app/api/admin/capacity/progress/route.ts`
+
+---
+
+## Fix 11 — CapacityPanel expanded view showed wrong data in all columns
+
+**Root cause:** All four columns (Production Days, Allocated, Completed, Remaining) were wired to `order.bouquetQuantity` which was `res.plannedQuantity` — the effort slice for this specific date only. This made all columns show the same number.
+
+The correct values require:
+- `totalRequiredEffort` = `Σ(product.productionDays × item.quantity)` across all items — the total production cost of the order
+- `allocatedToday` = `plannedQuantity` on this specific date — what's scheduled for today
+- `completedEffort` = sum of `completedQuantity` across ALL reservations for this order (all dates)
+- `remainingEffort` = `totalRequiredEffort - completedEffort`
+
+**Fix:** Three-part change:
+
+**`lib/scheduler.ts` — `getSchedulerPlanningRows()`**: Added `capacityReservations: true` to the order include so all per-date completedQuantity values are available when computing order-level totals.
+
+**`src/app/api/admin/capacity/route.ts`**: Replaced `bouquetQuantity: res.quantity` with four explicit fields per order:
+```typescript
+allocatedToday: res.quantity,           // effort for this date
+totalRequiredEffort,                     // Σ(productionDays × qty)
+completedEffort,                         // Σ(completedQuantity) all dates
+remainingEffort: max(0, total - completed)
+```
+Also filters out `isManual: true` reservations from the orders list (the `override-system` entry was appearing as a row).
+
+**`src/app/admin/capacity/CapacityPanel.tsx`**: Full rewrite of the expanded table:
+- Updated `PlanningOrder` type with the four new fields
+- Columns: Order, Customer, Items (product name × qty × productionDays), Total Effort, Allocated Today, Completed, Remaining, Deadline, Status, Mark Work Done
+- `Mark Work Done` input is capped at `allocatedToday` (max you can mark is what was planned for today)
+- On success, updates display optimistically from the API response without a full reload
+- Shows `alert()` on error instead of silently logging to console
+
+Files changed: `src/lib/scheduler.ts`, `src/app/api/admin/capacity/route.ts`, `src/app/admin/capacity/CapacityPanel.tsx`
+
+---
+
 # Remaining Known Issues (not yet fixed)
 
 ## 1. Customer cookie stores raw userId (unsigned)
@@ -778,3 +839,4 @@ OrderPanel preview calls `checkAcceptability` on every shipping duration change.
 ## One-Line Project Description
 
 **Bouquet is a capacity-aware bouquet production planning and order management platform that calculates production effort from product production days, validates capacity before order acceptance via an in-memory scheduling algorithm, allocates fractional daily effort across production dates using CapacityReservation records, and rebuilds future schedules whenever accepted orders change to ensure all schedulable orders meet their production deadlines.**
+

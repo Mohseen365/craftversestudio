@@ -9,7 +9,7 @@ type Order = {
   id: string;
   orderNumber: string;
   status: string;
-  occasionDate: string | null;
+  occasionDate: Date | null;
   deliveryDate: string | null;
   productionDeadline: string | null;
   shippingDate: string | null;
@@ -97,45 +97,46 @@ export function OrdersPanel() {
     loadOrders(tab);
   }
 
-  function getPlanningDates(order: Order) {
-    const duration = shippingDurations[order.id];
-    if (
-      !order.occasionDate ||
-      duration === undefined ||
-      Number.isNaN(duration)
-    ) {
+  function getPlanningDates(id: string, occasionDate: Date) {
+    const duration = shippingDurations[id];
+    if (!occasionDate || duration === undefined || Number.isNaN(duration)) {
       return { shippingDate: null, productionDeadline: null };
     }
 
-    const shippingDate = addDays(order.occasionDate, -duration);
+    const shippingDate = addDays(occasionDate, -duration);
     return {
       shippingDate,
       productionDeadline: addDays(shippingDate, -1),
     };
   }
 
-  async function loadCapacityPreview(order: Order, duration: number) {
-    if (!order.occasionDate || Number.isNaN(duration)) return;
+  async function loadCapacityPreview(
+    occasionDate: Date,
+    quantity: number,
+    id: string,
+    duration: number
+  ) {
+    if (!occasionDate || Number.isNaN(duration)) return;
 
-    const shippingDate = addDays(order.occasionDate, -duration);
+    const shippingDate = addDays(occasionDate, -duration);
     const productionDeadline = addDays(shippingDate, -1);
     const params = new URLSearchParams({
       productionDeadline: productionDeadline.toISOString(),
-      quantity: String(order.quantity),
-      orderId: order.id,
+      quantity: String(quantity),
+      orderId: id,
     });
     const res = await fetch(`/api/admin/capacity?${params.toString()}`);
     const data = await res.json();
     if (data.capacity) {
       setCapacityPreviews((current) => ({
         ...current,
-        [order.id]: data.capacity,
+        [id]: data.capacity,
       }));
     }
   }
 
-  async function acceptOrder(order: Order) {
-    const shippingDurationDays = shippingDurations[order.id];
+  async function acceptOrder(id: string) {
+    const shippingDurationDays = shippingDurations[id];
     if (
       shippingDurationDays === undefined ||
       Number.isNaN(shippingDurationDays)
@@ -144,23 +145,24 @@ export function OrdersPanel() {
       return;
     }
 
-    const res = await fetch(`/api/orders/${order.id}/accept`, {
+    const res = await fetch(`/api/orders/${id}/accept`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ shippingDurationDays }),
     });
 
     if (res.ok) {
+      console.log("accept response is ok");
       // Remove the accepted order from the current list and clear its preview
-      setOrders((prev) => prev.filter((o) => o.id !== order.id));
+      setOrders((prev) => prev.filter((o) => o.id !== id));
       setCapacityPreviews((prev) => {
         const next = { ...prev };
-        delete next[order.id];
+        delete next[id];
         return next;
       });
       setShippingDurations((prev) => {
         const next = { ...prev };
-        delete next[order.id];
+        delete next[id];
         return next;
       });
       return;
@@ -299,7 +301,14 @@ export function OrdersPanel() {
                             ...current,
                             [order.id]: value,
                           }));
-                          loadCapacityPreview(order, value);
+                          if (order.occasionDate) {
+                            loadCapacityPreview(
+                              order.occasionDate,
+                              order.quantity,
+                              order.id,
+                              value
+                            );
+                          }
                         }}
                         className="mt-1 w-full rounded-lg border border-stone-200 px-3 py-2 text-sm"
                       />
@@ -309,9 +318,15 @@ export function OrdersPanel() {
                         Shipping date
                       </span>
                       <span className="mt-2 block text-stone-600">
-                        {getPlanningDates(order).shippingDate
-                          ? formatDate(getPlanningDates(order).shippingDate!)
-                          : "Enter duration"}
+                        {order.occasionDate
+                          ? getPlanningDates(order.id, order.occasionDate)
+                              .shippingDate
+                            ? formatDate(
+                                getPlanningDates(order.id, order.occasionDate)
+                                  .shippingDate!
+                              )
+                            : "Enter duration"
+                          : "No occasion date"}
                       </span>
                     </div>
                     <div className="text-sm">
@@ -319,11 +334,15 @@ export function OrdersPanel() {
                         Production deadline
                       </span>
                       <span className="mt-2 block text-stone-600">
-                        {getPlanningDates(order).productionDeadline
-                          ? formatDate(
-                              getPlanningDates(order).productionDeadline!
-                            )
-                          : "Enter duration"}
+                        {order.occasionDate
+                          ? getPlanningDates(order.id, order.occasionDate)
+                              .productionDeadline
+                            ? formatDate(
+                                getPlanningDates(order.id, order.occasionDate)
+                                  .productionDeadline!
+                              )
+                            : "Enter duration"
+                          : "No occasion date"}
                       </span>
                     </div>
                     <div className="text-sm">
@@ -386,7 +405,7 @@ export function OrdersPanel() {
                     </div>
                   )}
                   <button
-                    onClick={() => acceptOrder(order)}
+                    onClick={() => acceptOrder(order.id)}
                     disabled={capacityPreviews[order.id]?.canAccept === false}
                     className="mt-4 rounded bg-green-600 px-3 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-stone-300"
                   >
