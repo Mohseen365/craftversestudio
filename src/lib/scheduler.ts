@@ -205,21 +205,41 @@ export async function getSchedulerData(todayKey: string) {
     },
   });
 
-  // Fetch all Capacity records to know limits for specific days
-  const capacities = await prisma.capacity.findMany();
+  // Determine today (local) start of day
+  const today = new Date();
+  // Find the farthest production deadline among active orders
+  const latestOrder = await prisma.order.findFirst({
+    where: {
+      status: {
+        notIn: ["CANCELLED", "REFUNDED", "REJECTED", "SHIPPED", "DELIVERED"],
+      },
+      productionDeadline: { gte: today },
+    },
+    orderBy: { productionDeadline: "desc" },
+    select: { productionDeadline: true },
+  });
+  const endDate = latestOrder?.productionDeadline ?? today;
+
+  // Fetch capacity limits within the date range
+  const capacities = await prisma.capacity.findMany({
+    where: {
+      date: { gte: today, lte: endDate },
+    },
+  });
   const capacityLimits = new Map<string, number>();
   for (const cap of capacities) {
     const dateStr = formatDateKey(cap.date, true);
     capacityLimits.set(dateStr, cap.maximumCapacity.toNumber());
   }
 
-  // Build completedWorkMap: dateKey -> sum(completedQuantity) for all reservations
-  const completedWorkMap = new Map<string, number>();
+  // Build completedWorkMap for reservations within the relevant date range
   const reservations = await prisma.capacityReservation.findMany({
-    include: {
-      capacity: true,
+    where: {
+      capacity: { date: { gte: today, lte: endDate } },
     },
+    include: { capacity: true },
   });
+  const completedWorkMap = new Map<string, number>();
   for (const res of reservations) {
     const dKey = formatDateKey(res.capacity.date, true);
     const completed = Number(res.completedQuantity);
@@ -336,148 +356,28 @@ export async function rebuildSchedule() {
   });
 
   const completedMap = new Map<string, number>(); // orderId_dateKey -> completedQuantity
-  for (const res of existingReservations) {
-    const dKey = formatDateKey(res.capacity.date, true);
-    completedMap.set(`${res.orderId}_${dKey}`, Number(res.completedQuantity));
-  }
-
-  // Gather new planned allocations from scheduler
-  const newAllocations = new Map<string, number>(); // orderId_dateKey -> allocatedQuantity
-  for (const [orderId, allocs] of result.allocations.entries()) {
-    for (const alloc of allocs) {
-      newAllocations.set(`${orderId}_${alloc.dateKey}`, alloc.quantity);
-    }
-  }
-
-  // Determine the set of keys to update/delete
-  const allKeys = new Set([...completedMap.keys(), ...newAllocations.keys()]);
-
-  await prisma.$transaction(async (tx) => {
-    // Upsert or Delete based on planned + completed quantities
-    for (const key of allKeys) {
-      const [orderId, dKey] = key.split("_");
-      const dateObj = parseDateKey(dKey);
-      const C = completedMap.get(key) ?? 0;
-      const A = newAllocations.get(key) ?? 0;
-      const totalPlanned = C + A;
-
-      // Find or create the capacity record for this date
-      let capacity = await tx.capacity.findUnique({
-        where: { date: dateObj },
-      });
-
-      if (!capacity) {
-        capacity = await tx.capacity.create({
-          data: {
-            date: dateObj,
-            maximumCapacity: DAILY_PRODUCTION_CAPACITY,
-          },
-        });
-      }
-
-      if (totalPlanned > 0.001) {
-        await tx.capacityReservation.upsert({
-          where: {
-            capacityId_orderId: {
-              capacityId: capacity.id,
-              orderId,
-            },
-          },
-          update: {
-            plannedQuantity: totalPlanned,
-            completedQuantity: C,
-          },
-          create: {
-            capacityId: capacity.id,
-            orderId,
-            plannedQuantity: totalPlanned,
-            completedQuantity: C,
-          },
-        });
-      } else {
-        // Delete reservation if it exists and totalPlanned is 0
-        const existingRes = existingReservations.find(
-          (r) =>
-            r.orderId === orderId &&
-            formatDateKey(r.capacity.date, true) === dKey
-        );
-        if (existingRes) {
-          await tx.capacityReservation.delete({
-            where: { id: existingRes.id },
-          });
-        }
-      }
-    }
-
-    // Clean up future reservations (date >= today) for cancelled/inactive orders
-    const inactiveReservations = await tx.capacityReservation.findMany({
-      where: {
-        capacity: {
-          date: {
-            gte: todayDate,
-          },
-        },
-        order: {
-          status: {
-            in: [
-              "CANCELLED",
-              "REFUNDED",
-              "REJECTED",
-              "SHIPPED",
-              "DELIVERED",
-              "PAYMENT_REJECTED",
-            ],
-          },
-        },
-      },
-    });
-
-    for (const r of inactiveReservations) {
-      const completedVal = Number(r.completedQuantity);
-      if (completedVal > 0.001) {
-        // Keep completed history but remove planned excess
-        await tx.capacityReservation.update({
-          where: { id: r.id },
-          data: {
-            plannedQuantity: completedVal,
-          },
-        });
-      } else {
-        await tx.capacityReservation.delete({
-          where: { id: r.id },
-        });
-      }
-    }
-  });
-}
-
-/**
- * Returns planning rows based on actual production dates instead of deadline dates.
- */
-export async function getSchedulerPlanningRows() {
   // Determine today (local) start of day
   const today = new Date();
-  const todayKey = formatDateKey(today, false);
+  // const todayKey = formatDateKey(today, false);
 
-  // Find the latest capacity date that has at least one reservation (future reservations only)
-  const latestCap = await prisma.capacity.findFirst({
+  // Find the farthest deadline of an active, incomplete order
+  const latestOrder = await prisma.order.findFirst({
     where: {
-      date: { gte: today },
-      reservations: { some: {} },
+      status: {
+        notIn: ["CANCELLED", "REFUNDED", "REJECTED", "SHIPPED", "DELIVERED"],
+      },
+      productionDeadline: { gte: today },
     },
-    orderBy: { date: "desc" },
-    select: { date: true },
+    orderBy: { productionDeadline: "desc" },
+    select: { productionDeadline: true },
   });
 
-  // No future reservations → return empty array
-  if (!latestCap) {
-    return [];
-  }
+  const endDate = latestOrder?.productionDeadline ?? today;
 
-  // Fetch all capacities from today up to the latest reservation date, including reservations
+  // Fetch all capacities from today up to the latest deadline, including reservations
   const capacities = await prisma.capacity.findMany({
     where: {
-      date: { gte: today, lte: latestCap.date },
+      date: { gte: today, lte: endDate },
     },
     include: {
       reservations: {
