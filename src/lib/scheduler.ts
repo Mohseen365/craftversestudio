@@ -1,10 +1,9 @@
 // src/lib/scheduler.ts
 import { prisma } from "./prisma";
 import { getDailyProductionCapacity } from "./capacity";
-import { SCHEDULABLE_STATUSES, INACTIVE_STATUSES } from "./constants";
+import { SCHEDULABLE_STATUSES, INACTIVE_STATUSES, DAILY_PRODUCTION_CAPACITY } from "./constants";
 
-// Fallback constant for default daily capacity (used when no override is present)
-const DAILY_PRODUCTION_CAPACITY = 1; // Default value; actual capacity may be fetched dynamically elsewhere
+
 
 /** Helper to format a Date as YYYY‑MM‑DD */
 export function formatDateKey(date: Date, isUtc = false): string {

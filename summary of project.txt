@@ -1,0 +1,619 @@
+# Bouquet Project – Technical Architecture & Business Flow
+
+## Project Objective
+
+A bouquet order management and production planning system that ensures orders are only accepted when sufficient production capacity exists between the order request date and production deadline.
+
+The system combines:
+
+* Product catalog management
+* Customer order management
+* Payment verification
+* Production capacity planning
+* Automatic scheduling
+* Delivery tracking
+
+The core problem being solved is:
+
+> "Given limited production effort per day, can a new order be completed before its production deadline without causing existing accepted orders to miss theirs?"
+
+---
+
+# Core Concepts
+
+## Daily Capacity
+
+Each date has a configurable production capacity stored in the `Capacity` table (field: `maximumCapacity`).
+
+Default capacity constant: `DAILY_PRODUCTION_CAPACITY = 1` (defined in `lib/constants.ts`).
+
+Per-date overrides are stored in the `Capacity` table and take precedence over the constant.
+
+Example:
+
+| Date   | Capacity |
+| ------ | -------- |
+| 15 Jun | 1        |
+| 16 Jun | 1        |
+| 17 Jun | 1        |
+
+Capacity is measured in **production effort days**, not bouquet count.
+
+```text
+1   = one full production day
+0.5 = half production day
+2   = two production days available
+```
+
+Capacity can be manually adjusted from CapacityPanel via `POST /api/admin/capacity/override`.
+
+The `Setting` model also stores a `DAILY_PRODUCTION_CAPACITY` key used by `getDailyProductionCapacity()` in `lib/capacity.ts` (legacy helper — the active scheduling engine uses `DAILY_PRODUCTION_CAPACITY` constant from `lib/constants.ts` as fallback).
+
+---
+
+## Product.productionDays
+
+Stored as `Decimal(10,2)` on the `Product` model. Represents effort required to produce one unit of a product.
+
+Example:
+
+| Product         | productionDays |
+| --------------- | -------------- |
+| Rose Bouquet    | 1              |
+| Premium Bouquet | 2              |
+| Wedding Bouquet | 3              |
+
+---
+
+## Order Required Capacity
+
+Order effort is calculated from order items at multiple points in the codebase.
+
+Formula:
+
+```text
+requiredCapacity = Σ (item.product.productionDays × item.quantity)
+```
+
+Used in:
+- `api/orders/[id]/accept/route.ts` — before accepting
+- `api/admin/capacity/route.ts` — for capacity preview in OrderPanel
+- `lib/scheduler.ts → getSchedulerData()` — when building the schedule
+
+---
+
+## Production Deadline
+
+```text
+occasionDate
+    ↑
+shippingDate  = occasionDate - shippingDurationDays
+    ↑
+productionDeadline = shippingDate - 1 day
+```
+
+Calculated in `lib/capacity.ts`:
+- `calculateShippingDate(occasionDate, shippingDurationDays)`
+- `calculateProductionDeadline(shippingDate)` — subtracts 1 day
+
+Set on the Order when admin accepts it (via `/api/orders/[id]/accept`).
+
+---
+
+# Order Status Flow
+
+```
+PENDING_REVIEW
+  → ACCEPTED           (admin accepts via OrderPanel)
+  → REJECTED           (admin rejects)
+
+ACCEPTED
+  → PAYMENT_PENDING    (after acceptance, customer needs to pay)
+
+PAYMENT_PENDING / PAYMENT_SUBMITTED
+  → PAYMENT_VERIFICATION  (customer submits payment screenshot)
+
+PAYMENT_VERIFICATION
+  → CONFIRMED          (admin verifies payment)
+  → PAYMENT_REJECTED   (admin rejects payment)
+
+CONFIRMED → IN_PRODUCTION → READY_TO_SHIP → SHIPPED → DELIVERED
+
+Any non-terminal → CANCELLED / REFUNDED
+```
+
+### SCHEDULABLE_STATUSES (orders included in scheduling):
+```
+ACCEPTED, PAYMENT_PENDING, PAYMENT_SUBMITTED, PAYMENT_VERIFICATION,
+CONFIRMED, IN_PRODUCTION, READY_TO_SHIP
+```
+
+### INACTIVE_STATUSES (excluded from scheduling):
+```
+CANCELLED, REFUNDED, REJECTED, SHIPPED, DELIVERED, PAYMENT_REJECTED
+```
+
+Both defined in `lib/constants.ts`.
+
+---
+
+# Scheduling Engine
+
+Location: `lib/scheduler.ts`
+
+Main exported functions:
+- `scheduleOrdersInMemory()`
+- `getSchedulerData()`
+- `checkAcceptability()`
+- `rebuildSchedule()`
+- `getSchedulerPlanningRows()`
+
+---
+
+## scheduleOrdersInMemory(todayKey, orders, capacityLimits, completedWorkMap)
+
+Pure in-memory scheduling algorithm. No DB access.
+
+Parameters:
+- `todayKey`: YYYY-MM-DD string for today
+- `orders`: `OrderScheduleInput[]` — each has `id`, `orderNumber`, `productionDeadlineKey`, `requiredCapacity`, `lockedCapacity`, `status`
+- `capacityLimits`: `Map<dateKey, maxCapacity>` — per-date limits from DB
+- `completedWorkMap`: `Map<dateKey, completedWork>` — already-done work per date
+
+Algorithm:
+1. For each order, compute `remaining = requiredCapacity - lockedCapacity`
+2. Build list of viable dates from `todayKey` to `productionDeadlineKey`
+3. Compute `slack = totalWindowCapacity - remaining`
+4. Sort orders: most constrained first (fewest dates → lowest slack → earliest deadline)
+5. Walk forward through dates, allocate `min(need, available)` per day
+6. If any order can't be fully allocated before its deadline → return `success: false` with reason
+
+Returns: `{ success, allocations: Map<orderId, ScheduledAllocation[]>, reason? }`
+
+---
+
+## getSchedulerData(todayKey)
+
+Pulls current scheduling context from DB.
+
+Steps:
+1. Fetch all orders with `SCHEDULABLE_STATUSES` that have a `productionDeadline`
+2. Find the farthest `productionDeadline` among non-inactive orders (determines window end)
+3. Fetch `Capacity` records in `[today, endDate]` window → build `capacityLimits` map
+4. Fetch all `CapacityReservation` records in the window → build `completedWorkMap` (sum of `completedQuantity` per date)
+5. Map orders to `OrderScheduleInput` — `lockedCapacity` = sum of `completedQuantity` from reservations
+
+Returns: `{ inputs, capacityLimits, completedWorkMap }`
+
+---
+
+## checkAcceptability(candidate)
+
+Used before accepting an order to validate capacity.
+
+Parameters: `{ id, orderNumber, productionDeadline: Date, requiredCapacity }`
+
+Process:
+1. Calls `getSchedulerData(todayKey)` to get current state
+2. Removes the candidate order from inputs (to re-add it fresh)
+3. Adds candidate with `lockedCapacity: 0` and `status: "ACCEPTED"`
+4. Runs `scheduleOrdersInMemory()` with the updated inputs
+5. If success → extracts allocation for candidate → returns `suggestedDates`
+
+Returns:
+```typescript
+{ canAccept: boolean, reason?: string, suggestedDates: Array<{ date: string, quantity: number }> }
+```
+
+---
+
+## rebuildSchedule()
+
+Rebuilds ALL future capacity reservations from scratch.
+
+Process:
+1. Calls `getSchedulerData(todayKey)`
+2. Runs `scheduleOrdersInMemory()`
+3. In a DB transaction:
+   - Ensures `Capacity` rows exist for all dates
+   - Deletes all `isManual: false` reservations with `date >= today`
+   - Creates new `CapacityReservation` records based on allocation map
+4. Calls `getSchedulerPlanningRows()` and returns rows
+
+Throws if `scheduleOrdersInMemory()` returns `success: false`.
+
+---
+
+## getSchedulerPlanningRows()
+
+Builds the planning table for the admin capacity UI.
+
+Process:
+1. Finds the farthest `occasionDate` among non-inactive orders (window end)
+2. Fetches `Capacity` rows from today to window end, with full reservation joins (order → user → addresses, items → product)
+3. Walks each date in the window day-by-day
+4. For dates with a `Capacity` record: computes `used` (sum of `plannedQuantity`), `remaining`, `isFull`
+5. Skips dates with no `Capacity` record
+
+Returns array of rows (used by `GET /api/admin/capacity` when no query params).
+
+---
+
+# Capacity Reservation Model
+
+```
+CapacityReservation
+  capacityId        → Capacity (date)
+  orderId           → Order
+  plannedQuantity   → effort allocated for future work (Decimal)
+  completedQuantity → effort already done (Decimal, default 0)
+  manualQuantity    → manual override amount (Decimal, default 0)
+  isManual          → true for manual overrides (not deleted on rebuild)
+```
+
+Unique constraint: `(capacityId, orderId)` — one reservation per order per date.
+
+`rebuildSchedule()` only deletes `isManual: false` future reservations, preserving manual ones.
+
+---
+
+# Admin System
+
+---
+
+## Capacity Management
+
+Page: `app/admin/capacity/page.tsx`
+Component: `CapacityPanel` (`app/admin/capacity/CapacityPanel.tsx`)
+API: `GET /api/admin/capacity` (no params) → `getSchedulerPlanningRows()`
+
+### CapacityPanel UI
+
+**Table 1 — Daily Capacity View**
+
+Columns:
+- Production Date
+- Used Capacity / dailyCapacity (with inline edit for capacity override)
+- Available Capacity (coloured green/red)
+- Status (Fully booked / Available badge)
+- Orders (View N button — expands to Table 2 for that date)
+
+Pagination: starts with today + 7 days, "Load more (7 days)" button extends window up to `maxDate`.
+
+Inline capacity override: clicking "View N" for a date expands an input + Save button that calls `POST /api/admin/capacity/override`.
+
+**Table 2 — Orders on Selected Date (expanded)**
+
+Columns:
+- Order ID (orderNumber)
+- Customer
+- Occasion Date
+- Allocated Effort (plannedQuantity as "X day(s)")
+- Production Deadline
+- Status (OrderStatusBadge)
+- How much work today (input + "Update" button → `POST /api/admin/capacity/progress`)
+
+### API: GET /api/admin/capacity (with params: productionDeadline + orderId)
+
+Used by OrderPanel for capacity preview:
+1. Finds order and its items with `productionDays`
+2. Computes `requiredCapacity = Σ(item.quantity × product.productionDays)`
+3. Calls `checkAcceptability({ id, orderNumber, productionDeadline, requiredCapacity })`
+4. Returns:
+```typescript
+{
+  capacity: {
+    canAccept: boolean,
+    reason?: string,
+    suggestedDates: Array<{ date: string, quantity: number }>,
+    requiredCapacity: number,
+    productionDeadline: string
+  }
+}
+```
+
+### API: POST /api/admin/capacity/override
+
+- Body: `{ date, maximumCapacity }`
+- Finds or creates `Capacity` record for the date
+- Updates `maximumCapacity` on `Capacity`
+- Upserts a `CapacityReservation` with `isManual: true`, `orderId: "override-system"`
+- Note: current implementation has a bug — global uniqueness check for manual overrides is too restrictive (blocks multiple dates from having manual overrides)
+- Creates `AuditLog` entry with action `"CAPACITY_OVERRIDE"`
+
+### API: POST /api/admin/capacity/progress
+
+- Body: `{ orderId, date, completedUnits }`
+- Finds the `CapacityReservation` for that `orderId` and date
+- Increments `completedQuantity` by `completedUnits`
+- Creates `AuditLog` entry with action `"PROGRESS_UPDATE"`
+- Returns updated capacity summary for the date
+- Note: validation for `completedUnits > remaining` is commented out
+
+### API: GET /api/admin/capacity/available — NEVER USED, dead endpoint
+
+---
+
+## Order Management
+
+Page: `app/admin/orders/page.tsx`
+Component: `OrdersPanel` (`app/admin/orders/OrdersPanel.tsx`)
+
+### OrdersPanel UI
+
+**Tabs** (each maps to a status):
+```
+PENDING_REVIEW, ACCEPTED, REJECTED, PAYMENT_PENDING,
+PAYMENT_SUBMITTED, PAYMENT_VERIFICATION, PAYMENT_REJECTED,
+REFUNDED, CONFIRMED, IN_PRODUCTION, READY_TO_SHIP,
+SHIPPED, DELIVERED, WAITLISTED, CANCELLED
+```
+
+On tab change: `GET /api/admin/orders?status={status}`
+
+**Order Card displays:**
+- orderNumber, user.name, user.mobileNo
+- occasionDate, total, order items (product name × quantity)
+- Table 1: Order ID, Production Deadline, Shipping Date, Reach Customer (occasionDate)
+- Table 2: Address, City, State, Pincode (all addresses)
+- OrderStatusBadge
+
+**For PENDING_REVIEW orders — Planning + Accept section:**
+1. Shipping duration input (number)
+2. On input change: recalculates shippingDate and productionDeadline client-side (addDays utility), then calls `GET /api/admin/capacity?productionDeadline=...&orderId=...`
+3. Shows: Shipping date, Production deadline, Capacity (Available/No Capacity), Required capacity
+4. If canAccept: shows suggested schedule (date + days)
+5. If !canAccept: shows reason text
+6. Accept Order button — disabled if `canAccept === false`
+   - Calls `POST /api/orders/{id}/accept` with `{ shippingDurationDays }`
+   - On success: `window.location.reload()` (full page reload to refresh CapacityPanel too)
+
+**For PAYMENT_VERIFICATION orders:**
+- Shows payment screenshot image
+- "Approve payment" → `PATCH /api/admin/orders/{id}` with `{ verifyPayment: true }`
+- "Reject" → `PATCH /api/admin/orders/{id}` with `{ rejectPayment: true }`
+
+**Status progression buttons (NEXT_STATUS map):**
+```
+CONFIRMED → IN_PRODUCTION → READY_TO_SHIP → SHIPPED → DELIVERED
+```
+Each calls `PATCH /api/admin/orders/{id}` with `{ status: nextStatus }`
+
+**READY_TO_SHIP — tracking number input:**
+- Enter key submits `PATCH /api/admin/orders/{id}` with `{ status: "SHIPPED", trackingNumber: value }`
+
+**Cancel order button:** always visible unless `CANCELLED` or `DELIVERED`
+- Calls `PATCH /api/admin/orders/{id}` with `{ status: "CANCELLED" }`
+
+**Double-call issue (known bug):**
+- OrderPanel calls `GET /api/admin/capacity?productionDeadline&orderId` (runs `checkAcceptability`)
+- Accept button calls `POST /api/orders/{id}/accept` (runs `checkAcceptability` again + `rebuildSchedule`)
+- So `checkAcceptability` runs twice for every acceptance
+
+---
+
+## API: GET /api/admin/orders
+
+Params: `status` (optional)
+
+Returns orders with:
+- user (name, mobileNo, email, addresses)
+- items (with product.name, product.productionDays)
+- payments (latest one: screenshotUrl, status)
+- Computed `maxProductionDays` = max of item.product.productionDays (or 1)
+
+---
+
+## API: PATCH /api/admin/orders/[id]
+
+Body schema (zod):
+```typescript
+{
+  status?: OrderStatus,
+  trackingNumber?: string,
+  verifyPayment?: boolean,
+  rejectPayment?: boolean
+}
+```
+
+Logic:
+1. If `verifyPayment: true`:
+   - Sets all PENDING payments → VERIFIED (with verifiedAt)
+   - Sets order status → CONFIRMED
+   - Calls `rebuildSchedule()` ← **always runs, even though CONFIRMED is a schedulable status and no capacity actually changes**
+   
+2. If `rejectPayment: true`:
+   - Sets all PENDING payments → REJECTED
+   - Sets order status → PAYMENT_REJECTED
+   - Calls `rebuildSchedule()` ← **should NOT run — PAYMENT_REJECTED is inactive so order drops from schedule, but this is actually correct**
+
+3. If `status === "CANCELLED"` or `"REFUNDED"`:
+   - Calls `releaseCapacityReservation(id)` ← **currently a no-op function in lib/capacity.ts — does nothing!**
+   - Then falls through to update order and call `rebuildSchedule()`
+
+4. Otherwise (status change / trackingNumber update):
+   - Updates order in DB
+   - If `body.status` is present → calls `rebuildSchedule()` ← **runs even for tracking-number-only updates that include a status, and even for non-capacity-affecting status changes like SHIPPED → DELIVERED**
+
+**Known issue:** `releaseCapacityReservation` is a no-op. The actual release happens indirectly because `rebuildSchedule()` only schedules SCHEDULABLE_STATUSES orders — so cancelled orders are dropped from the rebuild naturally.
+
+**Known issue:** `rebuildSchedule()` is called unconditionally on any status change. Should only run when the set of schedulable orders changes (i.e., status transitions into or out of SCHEDULABLE_STATUSES).
+
+---
+
+## API: POST /api/orders/[id]/accept
+
+Called by OrderPanel's "Accept Order" button.
+
+Process:
+1. Requires admin auth
+2. Parses `{ shippingDurationDays }` from body
+3. Fetches order with items + productionDays
+4. Validates `occasionDate` exists
+5. Computes `shippingDate` and `productionDeadline`
+6. Computes `requiredCapacity = Σ(item.quantity × productionDays)`
+7. Calls `checkAcceptability(...)` ← **second call (first was from OrderPanel preview)**
+8. If `!check.canAccept` → returns 409 with reason
+9. Updates order:
+   - status → ACCEPTED
+   - shippingDurationDays, shippingDate, productionDeadline, occasionDate
+   - Updates all payments to status PENDING (resets any prior payment state)
+10. Calls `rebuildSchedule()`
+11. Returns `{ success: true, suggestedDates }`
+
+---
+
+# Customer System
+
+---
+
+## Catalog → Order Flow
+
+```
+Catalog Page (app/catalog or similar)
+    ↓
+ProductCard
+    ↓
+Products page
+    ↓
+Orders page → Order Form component
+    ↓
+POST /api/orders (creates order with status PENDING_REVIEW)
+    ↓ (if not logged in)
+router.push to Login page → LoginForm component
+    ↓ (after login / if already logged in)
+router.push to Tracking page
+```
+
+### API: POST /api/orders
+
+- No capacity check (commented out)
+- Creates order with status `PENDING_REVIEW`
+- Creates an `Address` record for the user
+- Creates `OrderItem` linking product
+- Increments `product.orderCount`
+- Returns `{ orderId, orderNumber, userId }`
+- Note: capacity reservation and admin notification are both commented out
+
+---
+
+## Tracking Flow
+
+```
+Track page → TrackForm component
+    ↓
+GET /api/orders/track?{params}
+    ↓ (if order accepted)
+Payment page → PaymentUpload component
+    ↓
+POST /api/upload (uploads screenshot)
+    ↓
+POST /api/orders/{orderId}/payment (records payment)
+    ↓
+router.push back to Track page
+```
+
+Customer can see: Order Status, Payment Status, Tracking Number, Delivery Information.
+
+---
+
+# Database Models (Prisma Schema Summary)
+
+```
+User
+  id, name, mobileNo (unique), email (unique), instagramUsername, isGuest
+  → addresses[], orders[], events[]
+
+Address
+  userId, address, city, state, pincode
+
+Product
+  id, name, slug (unique), category, description, price (Int),
+  productionDays (Decimal), active, orderCount, imageUrl, instagramUrl
+  → orderItems[], events[]
+
+Order
+  id, orderNumber (unique), userId, status (OrderStatus),
+  occasionType, occasionDate, deliveryDate,
+  shippingDurationDays, shippingDate, productionDeadline,
+  quantity, subtotal, total, notes, giftMessage, trackingNumber
+  → user, items[], payments[], capacityReservations[], events[]
+
+OrderItem
+  orderId, productId, quantity, price
+
+Payment
+  orderId, amount, screenshotUrl, status (PaymentStatus), verifiedAt
+
+Capacity
+  date (unique, Date), maximumCapacity (Decimal)
+  → reservations[]
+
+CapacityReservation
+  capacityId, orderId,
+  plannedQuantity (Decimal),   ← effort allocated for future work
+  completedQuantity (Decimal), ← effort already completed
+  manualQuantity (Decimal),    ← manual override amount
+  isManual (Boolean)           ← preserved through rebuildSchedule
+  unique: (capacityId, orderId)
+
+AuditLog
+  action, entityId, entityType, beforeJson, afterJson, userId
+
+Setting
+  key (unique), value  ← stores DAILY_PRODUCTION_CAPACITY and other config
+
+ProductionProgress
+  date (unique), completedUnits, remainingUnits, scheduledDates (Json)
+  ← appears unused in current flow; no API writes to it
+```
+
+---
+
+# Known Issues & Improvement Opportunities
+
+## 1. Double checkAcceptability Call
+
+OrderPanel calls `GET /api/admin/capacity?productionDeadline&orderId` (triggers `checkAcceptability`) every time the shipping duration input changes. Then `POST /api/orders/{id}/accept` calls `checkAcceptability` again inside the API. The second call is the authoritative one; the first is just for preview. This is acceptable but wasteful — the API-side check is the one that actually matters.
+
+## 2. rebuildSchedule() Runs Too Often
+
+Current triggers in `PATCH /api/admin/orders/[id]`:
+- `verifyPayment` → CONFIRMED: rebuilds, but CONFIRMED is still in SCHEDULABLE_STATUSES so the schedule doesn't change
+- `rejectPayment` → PAYMENT_REJECTED: rebuilds — this IS correct (order leaves schedulable set)
+- Any `status` change: always rebuilds — wrong for status changes that don't cross the schedulable/inactive boundary (e.g. CONFIRMED → IN_PRODUCTION, IN_PRODUCTION → READY_TO_SHIP, READY_TO_SHIP → SHIPPED + trackingNumber)
+
+Should only rebuild when:
+- Order enters SCHEDULABLE_STATUSES (acceptance)
+- Order leaves SCHEDULABLE_STATUSES (cancelled, payment rejected, shipped, delivered)
+- productionDeadline or requiredCapacity changes
+
+## 3. releaseCapacityReservation is a No-Op
+
+`lib/capacity.ts → releaseCapacityReservation()` immediately returns without doing anything. Cancellations only clean up capacity because `rebuildSchedule()` naturally excludes cancelled orders. This works, but the explicit release step does nothing — misleading code.
+
+## 4. Capacity Override Bug
+
+`POST /api/admin/capacity/override` has a global uniqueness check that prevents more than one `isManual` reservation from existing across ALL dates. This means overriding two different dates will fail on the second call. Should be per-date uniqueness only.
+
+## 5. Tracking Number + Status in One PATCH
+
+When sending `SHIPPED` status + `trackingNumber` together, `rebuildSchedule()` fires because `body.status` is present. SHIPPED is in INACTIVE_STATUSES so the order does drop from the schedule — the rebuild IS correct here — but could be avoided by checking status transitions more precisely.
+
+## 6. Request-Date Boundary Not Enforced
+
+The scheduler allocates from `todayKey` forward, but doesn't store or check the original order request date. If an order is accepted days after being placed, it won't allocate effort before today (correct) but there's no explicit per-order start-date boundary.
+
+## 7. ProductionProgress Model Unused
+
+The `ProductionProgress` DB model exists in the schema but no API writes to it. Progress is tracked via `CapacityReservation.completedQuantity` instead.
+
+## 8. getDailyProductionCapacity() vs DAILY_PRODUCTION_CAPACITY constant
+
+`lib/capacity.ts` has `getDailyProductionCapacity()` which reads from the `Setting` table. `lib/scheduler.ts` uses `DAILY_PRODUCTION_CAPACITY` constant (value: 1) from `lib/constants.ts` as fallback when no `Capacity` row exists. These two mechanisms are not in sync — changing the Setting won't affect the scheduler's fallback.
+
+---
+
+## One-Line Project Description
+
+**Bouquet is a capacity-aware bouquet production planning and order management platform that calculates production effort from product production days, validates capacity before order acceptance via an in-memory scheduling algorithm, allocates fractional daily effort across production dates using CapacityReservation records, and rebuilds future schedules whenever accepted orders change to ensure all schedulable orders meet their production deadlines.**

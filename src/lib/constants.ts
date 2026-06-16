@@ -3,7 +3,6 @@ export const SCHEDULABLE_STATUSES = [
   "PAYMENT_PENDING",
   "PAYMENT_SUBMITTED",
   "PAYMENT_VERIFICATION",
-  "PAYMENT_REJECTED",
   "CONFIRMED",
   "IN_PRODUCTION",
   "READY_TO_SHIP",
@@ -17,3 +16,6 @@ export const INACTIVE_STATUSES = [
   "DELIVERED",
   "PAYMENT_REJECTED",
 ] as const;
+
+/** Default daily production capacity (in bouquet-days). Overridden per-date in the Capacity table. */
+export const DAILY_PRODUCTION_CAPACITY = 1;
