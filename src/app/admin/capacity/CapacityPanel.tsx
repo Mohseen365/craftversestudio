@@ -225,6 +225,9 @@ export function CapacityPanel() {
                       Production Deadline
                     </th>
                     <th className="py-2 pr-4 font-medium">Status</th>
+                    <th className="py-2 pr-4 font-medium">
+                      How much work today
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
