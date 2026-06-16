@@ -514,7 +514,8 @@ export async function getSchedulerPlanningRows() {
     .map((cap) => {
       const maxCap = cap.maximumCapacity.toNumber();
       const used = cap.reservations.reduce(
-        (sum, res) => sum + Number(res.plannedQuantity) + Number(res.manualQuantity || 0),
+        (sum, res) =>
+          sum + Number(res.plannedQuantity) + Number(res.manualQuantity || 0),
         0
       );
       return {
