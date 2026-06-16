@@ -749,7 +749,52 @@ Files changed: `src/app/api/customer/login/route.ts`
 
 ---
 
-# Changes Applied (Round 3 — June 2026)
+# Changes Applied (Round 4 — June 2026)
+
+## Refactor — Eliminate duplicate DB fetches and algorithm runs in accept flow
+
+**Problem:** `POST /api/orders/[id]/accept` was doing the following work:
+
+```
+getSchedulerData()          ← DB reads (1)
+scheduleOrdersInMemory()    ← algorithm (1)  [inside checkAcceptability]
+getSchedulerData()          ← DB reads (2) — same data, moments later
+scheduleOrdersInMemory()    ← algorithm (2) — same result  [inside rebuildSchedule]
+persist to DB
+getSchedulerPlanningRows()  ← DB reads (3) — return value discarded by accept route
+```
+
+Every accept triggered 2 full DB fetches and 2 runs of the scheduling algorithm. `getSchedulerPlanningRows` was also called unconditionally inside `rebuildSchedule()` even though every caller (accept route, PATCH orders route) discarded its return value.
+
+**Solution:** Split `rebuildSchedule()` into two responsibilities and make data shareable.
+
+### New function: `persistAllocations(allocations, todayKey)`
+
+The write-only side of a rebuild. Takes a pre-computed allocation map and persists it. No DB reads, no algorithm run.
+
+### `getSchedulerData()` — now returns `SchedulerData` interface
+
+Exposes `todayKey` alongside `inputs`, `capacityLimits`, `completedWorkMap` so callers can pass the whole object around.
+
+### `checkAcceptability()` — accepts optional `preloaded?: SchedulerData`
+
+If pre-loaded data is passed in, skips the `getSchedulerData()` call. Also returns `allocations` and `schedulerData` (with the candidate added to inputs) so the caller can pass them directly to `persistAllocations()`.
+
+### `rebuildSchedule()` — accepts optional `preloaded?: SchedulerData`
+
+If pre-loaded data is passed in, skips `getSchedulerData()`. No longer calls `getSchedulerPlanningRows()` — callers that need the rows call it themselves.
+
+### Updated accept route — `POST /api/orders/[id]/accept`
+
+```
+getSchedulerData()          ← DB reads (1) — loaded once, shared
+checkAcceptability(..., schedulerData)   ← algorithm (1), no extra DB fetch
+[if canAccept] persistAllocations(check.allocations, ...)  ← writes only, no re-fetch, no re-run
+```
+
+Result: **1 DB fetch instead of 2, 1 algorithm run instead of 2, no wasted `getSchedulerPlanningRows()` call**.
+
+Files changed: `src/lib/scheduler.ts`, `src/app/api/orders/[id]/accept/route.ts`
 
 ## Fix 9 — Accept order button: shippingDurationDays .int() validation rejected valid inputs
 

@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { calculateProductionDeadline, calculateShippingDate } from "@/lib/capacity";
 import {
-  calculateProductionDeadline,
-  calculateShippingDate,
-} from "@/lib/capacity";
-import { checkAcceptability, rebuildSchedule } from "@/lib/scheduler";
+  checkAcceptability,
+  persistAllocations,
+  getSchedulerData,
+  formatDateKey,
+} from "@/lib/scheduler";
 import { requireAdmin } from "@/lib/auth";
 
 const acceptSchema = z.object({
@@ -34,9 +36,7 @@ export async function POST(
     where: { id },
     include: {
       items: {
-        include: {
-          product: { select: { productionDays: true } },
-        },
+        include: { product: { select: { productionDays: true } } },
       },
     },
   });
@@ -69,48 +69,39 @@ export async function POST(
     0
   );
 
-  const check = await checkAcceptability({
-    id: order.id,
-    orderNumber: order.orderNumber,
-    productionDeadline,
-    requiredCapacity,
-  });
+  // Load scheduler data once — shared by checkAcceptability and persistAllocations
+  const schedulerData = await getSchedulerData(formatDateKey(new Date(), false));
+
+  const check = await checkAcceptability(
+    { id: order.id, orderNumber: order.orderNumber, productionDeadline, requiredCapacity },
+    schedulerData
+  );
 
   if (!check.canAccept) {
     return NextResponse.json(
-      {
-        error:
-          check.reason ??
-          "Accepting this order exceeds available production capacity",
-      },
+      { error: check.reason ?? "Accepting this order exceeds available production capacity" },
       { status: 409 }
     );
   }
 
+  // Persist the order update
   await prisma.order.update({
     where: { id },
     data: {
       status: "ACCEPTED",
       shippingDurationDays: body.data.shippingDurationDays,
-      shippingDate: shippingDate,
-      productionDeadline: productionDeadline,
+      shippingDate,
+      productionDeadline,
       occasionDate: order.occasionDate,
       payments: {
-        updateMany: {
-          where: {},
-          data: {
-            status: "PENDING",
-          },
-        },
+        updateMany: { where: {}, data: { status: "PENDING" } },
       },
     },
   });
 
-  // Rebuild the production schedule now that the order is accepted
-  void rebuildSchedule();
+  // Reuse the allocation already computed by checkAcceptability — no second DB fetch,
+  // no second algorithm run. schedulerData.inputs now includes the newly accepted order.
+  await persistAllocations(check.allocations!, check.schedulerData!.todayKey);
 
-  return NextResponse.json({
-    success: true,
-    suggestedDates: check.suggestedDates,
-  });
+  return NextResponse.json({ success: true, suggestedDates: check.suggestedDates });
 }

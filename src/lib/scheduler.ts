@@ -2,8 +2,6 @@
 import { prisma } from "./prisma";
 import { SCHEDULABLE_STATUSES, INACTIVE_STATUSES, DAILY_PRODUCTION_CAPACITY } from "./constants";
 
-
-
 /** Helper to format a Date as YYYY‑MM‑DD */
 export function formatDateKey(date: Date, isUtc = false): string {
   const year = isUtc ? date.getUTCFullYear() : date.getFullYear();
@@ -44,9 +42,16 @@ export interface OrderScheduleInput {
   status: string;
 }
 
+export interface SchedulerData {
+  todayKey: string;
+  inputs: OrderScheduleInput[];
+  capacityLimits: Map<string, number>;
+  completedWorkMap: Map<string, number>;
+}
+
 /**
- * In‑memory scheduling algorithm. It walks forward from *todayKey* towards each order's deadline
- * and attempts to allocate the required capacity respecting daily limits and already completed work.
+ * Pure in-memory scheduling algorithm.
+ * No DB access — all inputs are passed in.
  */
 export function scheduleOrdersInMemory(
   todayKey: string,
@@ -68,7 +73,6 @@ export function scheduleOrdersInMemory(
     return Math.max(0, limit - completed - consumed);
   };
 
-  // Build a list of orders that still need capacity and their viable date windows
   const toSchedule = orders
     .map((o) => {
       const remaining = o.requiredCapacity - o.lockedCapacity;
@@ -89,13 +93,11 @@ export function scheduleOrdersInMemory(
     })
     .filter((x): x is NonNullable<typeof x> => x !== null);
 
-  // Sort by most constrained first (fewest dates, then lowest slack, then earliest deadline)
+  // Most constrained first: fewest dates → lowest slack → earliest deadline
   toSchedule.sort((a, b) => {
     if (a.windowSize !== b.windowSize) return a.windowSize - b.windowSize;
     if (Math.abs(a.slack - b.slack) > 0.001) return a.slack - b.slack;
-    return a.order.productionDeadlineKey < b.order.productionDeadlineKey
-      ? -1
-      : 1;
+    return a.order.productionDeadlineKey < b.order.productionDeadlineKey ? -1 : 1;
   });
 
   for (const { order, remaining, dates } of toSchedule) {
@@ -115,11 +117,7 @@ export function scheduleOrdersInMemory(
       return {
         success: false,
         allocations: new Map(),
-        reason: `Order ${order.orderNumber} (ID: ${
-          order.id
-        }) cannot be satisfied before its deadline. Missing ${need.toFixed(
-          2
-        )} capacity units.`,
+        reason: `Order ${order.orderNumber} (ID: ${order.id}) cannot be satisfied before its deadline. Missing ${need.toFixed(2)} capacity units.`,
       };
     }
     futureAllocations.set(order.id, allocs);
@@ -129,10 +127,11 @@ export function scheduleOrdersInMemory(
 }
 
 /**
- * Pulls the current scheduling context: active orders, capacity limits, and already completed work.
- * Uses **centralised status constants** to avoid mismatches.
+ * Loads all scheduling inputs from the DB.
+ * Returns data that can be passed directly into scheduleOrdersInMemory()
+ * or rebuildSchedule() to avoid redundant DB fetches.
  */
-export async function getSchedulerData(todayKey: string) {
+export async function getSchedulerData(todayKey: string): Promise<SchedulerData> {
   const todayDate = parseDateKey(todayKey);
 
   const orders = await prisma.order.findMany({
@@ -149,7 +148,6 @@ export async function getSchedulerData(todayKey: string) {
     },
   });
 
-  // Determine the farthest production deadline we need to consider
   const latestOrder = await prisma.order.findFirst({
     where: {
       status: { notIn: [...INACTIVE_STATUSES] },
@@ -160,19 +158,14 @@ export async function getSchedulerData(todayKey: string) {
   });
   const endDate = latestOrder?.productionDeadline ?? todayDate;
 
-  // Capacity limits for the window [today, endDate]
   const caps = await prisma.capacity.findMany({
     where: { date: { gte: todayDate, lte: endDate } },
   });
   const capacityLimits = new Map<string, number>();
   for (const c of caps) {
-    capacityLimits.set(
-      formatDateKey(c.date, true),
-      c.maximumCapacity.toNumber()
-    );
+    capacityLimits.set(formatDateKey(c.date, true), c.maximumCapacity.toNumber());
   }
 
-  // Completed work per date (sum of completedQuantity across reservations)
   const reservations = await prisma.capacityReservation.findMany({
     where: { capacity: { date: { gte: todayDate, lte: endDate } } },
     include: { capacity: true },
@@ -180,8 +173,7 @@ export async function getSchedulerData(todayKey: string) {
   const completedWorkMap = new Map<string, number>();
   for (const r of reservations) {
     const key = formatDateKey(r.capacity.date, true);
-    const qty = Number(r.completedQuantity);
-    completedWorkMap.set(key, (completedWorkMap.get(key) ?? 0) + qty);
+    completedWorkMap.set(key, (completedWorkMap.get(key) ?? 0) + Number(r.completedQuantity));
   }
 
   const inputs: OrderScheduleInput[] = orders.map((o) => {
@@ -203,20 +195,38 @@ export async function getSchedulerData(todayKey: string) {
     };
   });
 
-  return { inputs, capacityLimits, completedWorkMap };
+  return { todayKey, inputs, capacityLimits, completedWorkMap };
 }
 
-/** Validate a prospective order without persisting anything */
-export async function checkAcceptability(candidate: {
-  id: string;
-  orderNumber: string;
-  productionDeadline: Date;
-  requiredCapacity: number;
-}) {
-  const todayKey = formatDateKey(new Date(), false);
-  const { inputs, capacityLimits, completedWorkMap } = await getSchedulerData(
-    todayKey
-  );
+/**
+ * Checks whether a candidate order can be accepted given current capacity.
+ *
+ * Accepts pre-loaded SchedulerData to avoid a redundant DB fetch when the
+ * caller (e.g. the accept route) will immediately call rebuildSchedule()
+ * afterwards and can share the same data.
+ *
+ * Returns the allocation for the candidate so the caller can pass it straight
+ * into persistAllocations() without running the algorithm a second time.
+ */
+export async function checkAcceptability(
+  candidate: {
+    id: string;
+    orderNumber: string;
+    productionDeadline: Date;
+    requiredCapacity: number;
+  },
+  // Optional: pass already-loaded data to skip a DB round-trip
+  preloaded?: SchedulerData
+): Promise<{
+  canAccept: boolean;
+  reason?: string;
+  suggestedDates: Array<{ date: string; quantity: number }>;
+  // The full allocation map so rebuildSchedule can reuse it
+  allocations?: Map<string, ScheduledAllocation[]>;
+  schedulerData?: SchedulerData;
+}> {
+  const data = preloaded ?? await getSchedulerData(formatDateKey(new Date(), false));
+  const { todayKey, inputs, capacityLimits, completedWorkMap } = data;
 
   const filtered = inputs.filter((i) => i.id !== candidate.id);
   filtered.push({
@@ -228,15 +238,12 @@ export async function checkAcceptability(candidate: {
     status: "ACCEPTED",
   });
 
-  const result = scheduleOrdersInMemory(
-    todayKey,
-    filtered,
-    capacityLimits,
-    completedWorkMap
-  );
+  const result = scheduleOrdersInMemory(todayKey, filtered, capacityLimits, completedWorkMap);
+
   if (!result.success) {
     return { canAccept: false, reason: result.reason, suggestedDates: [] };
   }
+
   const alloc = result.allocations.get(candidate.id) ?? [];
   return {
     canAccept: true,
@@ -244,51 +251,37 @@ export async function checkAcceptability(candidate: {
       date: parseDateKey(a.dateKey).toISOString(),
       quantity: a.quantity,
     })),
+    // Hand back the full allocation map and loaded data so the accept route
+    // can call rebuildSchedule without fetching or computing anything again
+    allocations: result.allocations,
+    schedulerData: { ...data, inputs: filtered },
   };
 }
 
 /**
- * Rebuilds the future schedule and persists allocations.
- * Cleans obsolete non-manual reservations, creates missing Capacity rows,
- * then inserts new CapacityReservation rows based on the allocation map.
+ * Persists a pre-computed allocation map to the DB.
+ * This is the write-only part of rebuildSchedule — separated so that the
+ * accept route can reuse the allocation already computed by checkAcceptability.
  */
-export async function rebuildSchedule() {
-  const todayKey = formatDateKey(new Date(), false);
+export async function persistAllocations(
+  allocations: Map<string, ScheduledAllocation[]>,
+  todayKey: string
+): Promise<void> {
   const todayDate = parseDateKey(todayKey);
-  const { inputs, capacityLimits, completedWorkMap } = await getSchedulerData(
-    todayKey
-  );
 
-  const result = scheduleOrdersInMemory(
-    todayKey,
-    inputs,
-    capacityLimits,
-    completedWorkMap
-  );
-  if (!result.success) {
-    throw new Error(`Cannot rebuild schedule: ${result.reason}`);
-  }
-
-  // Collect every allocation date so we can ensure Capacity rows exist for them
-  const allAllocationDates = new Set<string>();
-  for (const allocs of result.allocations.values()) {
+  // Ensure Capacity rows exist for every allocation date
+  for (const allocs of allocations.values()) {
     for (const a of allocs) {
-      allAllocationDates.add(a.dateKey);
+      const date = parseDateKey(a.dateKey);
+      await prisma.capacity.upsert({
+        where: { date },
+        update: {},
+        create: { date, maximumCapacity: DAILY_PRODUCTION_CAPACITY },
+      });
     }
   }
 
-  // Upsert Capacity rows for every date we need to write reservations into
-  for (const dateKey of allAllocationDates) {
-    const date = parseDateKey(dateKey);
-    await prisma.capacity.upsert({
-      where: { date },
-      update: {},
-      create: { date, maximumCapacity: DAILY_PRODUCTION_CAPACITY },
-    });
-  }
-
-  // Build a lookup from dateKey → capacityId so createMany can use scalar FKs
-  // (Prisma createMany does not support nested relation connects)
+  // Build dateKey → capacityId lookup (createMany needs scalar FKs)
   const capacityRows = await prisma.capacity.findMany({
     where: { date: { gte: todayDate } },
     select: { id: true, date: true },
@@ -299,12 +292,10 @@ export async function rebuildSchedule() {
   }
 
   await prisma.$transaction(async (tx) => {
-    // Delete all non-manual future reservations — they will be regenerated below
     await tx.capacityReservation.deleteMany({
       where: { capacity: { date: { gte: todayDate } }, isManual: false },
     });
 
-    // Insert new reservations using flat scalar capacityId (required by createMany)
     const creates: {
       capacityId: string;
       orderId: string;
@@ -314,10 +305,10 @@ export async function rebuildSchedule() {
       isManual: boolean;
     }[] = [];
 
-    for (const [orderId, allocs] of result.allocations.entries()) {
+    for (const [orderId, allocs] of allocations.entries()) {
       for (const a of allocs) {
         const capacityId = capacityIdByDateKey.get(a.dateKey);
-        if (!capacityId) continue; // should not happen after the upsert above
+        if (!capacityId) continue;
         creates.push({
           capacityId,
           orderId,
@@ -333,13 +324,35 @@ export async function rebuildSchedule() {
       await tx.capacityReservation.createMany({ data: creates });
     }
   });
-
-  // Return planning rows in the same shape the UI expects
-  const rows = await getSchedulerPlanningRows();
-  return rows;
 }
 
-/** Helper used by the UI to fetch rows after a rebuild */
+/**
+ * Full rebuild: loads data, runs the algorithm, persists.
+ * Used by the PATCH orders route and other callers that don't have
+ * pre-loaded data.
+ *
+ * Accepts optional pre-loaded SchedulerData to skip the DB fetch when
+ * the caller already has it (e.g. after a checkAcceptability call).
+ */
+export async function rebuildSchedule(preloaded?: SchedulerData): Promise<void> {
+  const todayKey = formatDateKey(new Date(), false);
+  const data = preloaded ?? await getSchedulerData(todayKey);
+
+  const result = scheduleOrdersInMemory(
+    data.todayKey,
+    data.inputs,
+    data.capacityLimits,
+    data.completedWorkMap
+  );
+
+  if (!result.success) {
+    throw new Error(`Cannot rebuild schedule: ${result.reason}`);
+  }
+
+  await persistAllocations(result.allocations, data.todayKey);
+}
+
+/** Reads the current schedule state from DB for the admin capacity UI. */
 export async function getSchedulerPlanningRows() {
   const todayKey = formatDateKey(new Date(), false);
   const todayDate = parseDateKey(todayKey);
@@ -347,10 +360,7 @@ export async function getSchedulerPlanningRows() {
   const latestOrder = await prisma.order.findFirst({
     where: {
       status: { notIn: [...INACTIVE_STATUSES] },
-      occasionDate: {
-        not: null,
-        gte: todayDate,
-      },
+      occasionDate: { not: null, gte: todayDate },
     },
     orderBy: { occasionDate: "desc" },
     select: { occasionDate: true },
@@ -366,15 +376,10 @@ export async function getSchedulerPlanningRows() {
             include: {
               user: {
                 include: {
-                  addresses: {
-                    orderBy: { id: "desc" },
-                    take: 1,
-                  },
+                  addresses: { orderBy: { id: "desc" }, take: 1 },
                 },
               },
               items: { include: { product: true } },
-              // Include ALL reservations for the order so the API can compute
-              // completedEffort and totalRequiredEffort across all dates
               capacityReservations: true,
             },
           },
@@ -386,7 +391,6 @@ export async function getSchedulerPlanningRows() {
 
   type CapacityRow = (typeof capacities)[number];
   const capacityMap = new Map<string, CapacityRow>();
-
   for (const cap of capacities) {
     capacityMap.set(formatDateKey(cap.date, true), cap);
   }
@@ -399,38 +403,29 @@ export async function getSchedulerPlanningRows() {
     current.setUTCDate(current.getUTCDate() + 1)
   ) {
     const dateKey = formatDateKey(current, true);
-
     const cap = capacityMap.get(dateKey);
+    if (!cap) continue;
 
-    const maxCap = cap
-      ? cap.maximumCapacity.toNumber()
-      : DAILY_PRODUCTION_CAPACITY;
+    const maxCap = cap.maximumCapacity.toNumber();
+    const reservations = cap.reservations;
+    const used = reservations.reduce((sum, r) => sum + r.plannedQuantity.toNumber(), 0);
 
-    const reservations = cap?.reservations ?? [];
-
-    const used = reservations.reduce(
-      (sum, r) => sum + r.plannedQuantity.toNumber(),
-      0
-    );
-    if (cap) {
-      rows.push({
-        date: new Date(current),
-        dailyCapacity: maxCap,
-        used,
-        remaining: Math.max(0, maxCap - used),
-        isFull: used >= maxCap,
-        reservations: reservations.map((r) => ({
-          id: r.id,
-          quantity: Number(r.plannedQuantity),
-          completedQuantity: Number(r.completedQuantity),
-          manualQuantity: Number(r.manualQuantity || 0),
-          isManual: r.isManual ?? false,
-          order: r.order,
-        })),
-      });
-    } else {
-      continue;
-    }
+    rows.push({
+      date: new Date(current),
+      dailyCapacity: maxCap,
+      used,
+      remaining: Math.max(0, maxCap - used),
+      isFull: used >= maxCap,
+      reservations: reservations.map((r) => ({
+        id: r.id,
+        quantity: Number(r.plannedQuantity),
+        completedQuantity: Number(r.completedQuantity),
+        manualQuantity: Number(r.manualQuantity || 0),
+        isManual: r.isManual ?? false,
+        order: r.order,
+      })),
+    });
   }
+
   return rows;
 }
