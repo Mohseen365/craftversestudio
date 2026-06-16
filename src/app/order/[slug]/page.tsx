@@ -6,17 +6,12 @@ import { OrderForm } from "./OrderForm";
 import { getCurrentUser } from "@/lib/auth";
 import { trackEvent } from "@/lib/eventLogger";
 
-export async function generateStaticParams() {
-  const products = await prisma.product.findMany({
-    where: { active: true },
-    select: { slug: true },
-    orderBy: { orderCount: "desc" },
-    take: 20,
-  });
+export const revalidate = 3600;
+export const dynamicParams = true;
 
-  return products.map((product) => ({
-    slug: product.slug,
-  }));
+// Return no static params — generated on first request and cached.
+export async function generateStaticParams() {
+  return [];
 }
 
 export default async function OrderPage({

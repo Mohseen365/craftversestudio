@@ -1,4 +1,8 @@
 export const revalidate = 3600;
+// Do not pre-render product pages at build time — generate on first request
+// and cache for 1 hour. This avoids hitting the DB during next build, which
+// exhausts the single-connection Supabase free-tier pool.
+export const dynamicParams = true;
 
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -10,17 +14,10 @@ import { trackEvent } from "@/lib/eventLogger";
 import { getCurrentUser } from "@/lib/auth";
 import Image from "next/image";
 
+// Return no static params — pages are generated on first request and cached.
+// This prevents DB calls at build time which exhaust the free-tier connection pool.
 export async function generateStaticParams() {
-  const products = await prisma.product.findMany({
-    where: { active: true },
-    select: { slug: true },
-    orderBy: { orderCount: "desc" },
-    take: 50,
-  });
-
-  return products.map((product) => ({
-    slug: product.slug,
-  }));
+  return [];
 }
 
 export default async function ProductPage({
