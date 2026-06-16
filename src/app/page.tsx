@@ -1,4 +1,4 @@
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
 
 import Link from "next/link";
 import { Header } from "@/components/Header";
@@ -9,21 +9,28 @@ import { getCurrentUser } from "@/lib/auth";
 import { trackEvent } from "@/lib/eventLogger";
 
 export default async function HomePage() {
-  const user = await getCurrentUser();
+  const [user, featured] = await Promise.all([
+    getCurrentUser().catch(() => null),
+    prisma.product.findMany({
+      where: { active: true },
+      orderBy: { orderCount: "desc" },
+      take: 4,
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        price: true,
+        category: true,
+        imageUrl: true,
+      },
+    }),
+  ]);
 
-  const featured = await prisma.product.findMany({
-    where: { active: true },
-    orderBy: { orderCount: "desc" },
-    take: 4,
-  });
-
-  void trackEvent({
+  trackEvent({
     userId: user?.id,
     eventType: "WEBSITE_OPENED",
-    metadata: {
-      source: "homepage",
-    },
-  });
+    metadata: { source: "homepage" },
+  }).catch(() => {});
 
   return (
     <>
@@ -46,12 +53,14 @@ export default async function HomePage() {
                 <Link
                   href="/catalog"
                   className="rounded-full bg-rose-700 px-6 py-3 text-sm font-medium text-white shadow-sm hover:bg-rose-800 transition"
+                  prefetch
                 >
                   Browse Catalog
                 </Link>
                 <Link
                   href="/track"
                   className="rounded-full border border-rose-200 bg-white px-6 py-3 text-sm font-medium text-rose-800 hover:bg-rose-50 transition"
+                  prefetch
                 >
                   Track Order
                 </Link>
@@ -63,13 +72,8 @@ export default async function HomePage() {
         {featured.length > 0 && (
           <section className="mx-auto max-w-6xl px-4 py-16">
             <div className="flex items-end justify-between">
-              <h2 className="font-serif text-2xl text-stone-900">
-                Popular bouquets
-              </h2>
-              <Link
-                href="/catalog"
-                className="text-sm text-rose-700 hover:underline"
-              >
+              <h2 className="font-serif text-2xl text-stone-900">Popular bouquets</h2>
+              <Link href="/catalog" className="text-sm text-rose-700 hover:underline">
                 View all
               </Link>
             </div>

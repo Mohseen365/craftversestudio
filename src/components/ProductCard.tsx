@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { formatPrice } from "@/lib/utils";
+import Image from "next/image";
+import { memo } from "react";
 
 type ProductCardProps = {
   id: string;
@@ -8,30 +10,32 @@ type ProductCardProps = {
   price: number;
   category: string;
   imageUrl?: string | null;
-  // instagramUrl?: string | null;
 };
 
-export function ProductCard({
+export const ProductCard = memo(function ProductCard({
   id,
   name,
   slug,
   price,
   category,
   imageUrl,
-}: // instagramUrl,
-ProductCardProps) {
+}: ProductCardProps) {
   return (
     <Link
       href={`/products/${slug}`}
       className="group overflow-hidden rounded-2xl border border-rose-100 bg-white shadow-sm transition hover:shadow-md hover:border-rose-200"
+      prefetch
     >
       <div className="aspect-[4/5] bg-gradient-to-br from-rose-50 to-stone-100 overflow-hidden">
         {imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <Image
             src={imageUrl}
             alt={name}
+            width={300}
+            height={400}
             className="h-full w-full object-cover transition group-hover:scale-105"
+            loading="lazy"
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
           />
         ) : (
           <div className="flex h-full items-center justify-center text-5xl text-rose-200">
@@ -50,4 +54,4 @@ ProductCardProps) {
       </div>
     </Link>
   );
-}
+});

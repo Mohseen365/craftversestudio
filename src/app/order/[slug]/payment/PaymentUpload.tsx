@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 export function PaymentUpload({
@@ -15,50 +15,47 @@ export function PaymentUpload({
   mobileNo: string;
 }) {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [isPending, startTransition] = useTransition();
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setLoading(true);
     setError("");
 
     const formData = new FormData(e.currentTarget);
     const file = formData.get("screenshot") as File;
     if (!file?.size) {
       setError("Please upload a payment screenshot");
-      setLoading(false);
       return;
     }
 
-    try {
-      const uploadData = new FormData();
-      uploadData.append("file", file);
+    startTransition(async () => {
+      try {
+        const uploadData = new FormData();
+        uploadData.append("file", file);
 
-      const uploadRes = await fetch("/api/upload", {
-        method: "POST",
-        body: uploadData,
-      });
-      const uploadJson = await uploadRes.json();
-      // console.log("upload status", uploadRes.status);
-      // console.log("upload response", uploadJson);
+        const uploadRes = await fetch("/api/upload", {
+          method: "POST",
+          body: uploadData,
+        });
+        const uploadJson = await uploadRes.json();
 
-      if (!uploadRes.ok) throw new Error(uploadJson.error ?? "Upload failed");
+        if (!uploadRes.ok) throw new Error(uploadJson.error ?? "Upload failed");
 
-      const paymentRes = await fetch(`/api/orders/${orderId}/payment`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ screenshotUrl: uploadJson.url }),
-      });
-      const paymentJson = await paymentRes.json();
-      if (!paymentRes.ok)
-        throw new Error(paymentJson.error ?? "Payment upload failed");
+        const paymentRes = await fetch(`/api/orders/${orderId}/payment`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ screenshotUrl: uploadJson.url }),
+        });
+        const paymentJson = await paymentRes.json();
+        if (!paymentRes.ok)
+          throw new Error(paymentJson.error ?? "Payment upload failed");
 
-      router.push(`/track?orderNumber=${orderNumber}&mobileNo=${mobileNo}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
-      setLoading(false);
-    }
+        router.push(`/track?orderNumber=${orderNumber}&mobileNo=${mobileNo}`);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Something went wrong");
+      }
+    });
   }
 
   return (
@@ -88,16 +85,17 @@ export function PaymentUpload({
           type="file"
           accept="image/*"
           required
-          className="mt-2 block w-full text-sm text-stone-500 file:mr-4 file:rounded-full file:border-0 file:bg-rose-50 file:px-4 file:py-2 file:text-sm file:font-medium file:text-rose-700"
+          disabled={isPending}
+          className="mt-2 block w-full text-sm text-stone-500 file:mr-4 file:rounded-full file:border-0 file:bg-rose-50 file:px-4 file:py-2 file:text-sm file:font-medium file:text-rose-700 disabled:opacity-50"
         />
       </div>
 
       <button
         type="submit"
-        disabled={loading}
-        className="w-full rounded-full bg-rose-700 py-3 text-sm font-medium text-white hover:bg-rose-800 disabled:opacity-50"
+        disabled={isPending}
+        className="w-full rounded-full bg-rose-700 py-3 text-sm font-medium text-white hover:bg-rose-800 disabled:opacity-50 transition"
       >
-        {loading ? "Uploading..." : "Submit payment proof"}
+        {isPending ? "Uploading..." : "Submit payment proof"}
       </button>
     </form>
   );

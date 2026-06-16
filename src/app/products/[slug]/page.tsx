@@ -1,4 +1,4 @@
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
 
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -6,11 +6,23 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { prisma } from "@/lib/prisma";
 import { formatPrice } from "@/lib/utils";
-//import { getAvailableDates } from "@/lib/capacity";
 import { trackEvent } from "@/lib/eventLogger";
 import { getCurrentUser } from "@/lib/auth";
+import Image from "next/image";
 
-// const user = await getCurrentUser();
+export async function generateStaticParams() {
+  const products = await prisma.product.findMany({
+    where: { active: true },
+    select: { slug: true },
+    orderBy: { orderCount: "desc" },
+    take: 50,
+  });
+
+  return products.map((product) => ({
+    slug: product.slug,
+  }));
+}
+
 export default async function ProductPage({
   params,
 }: {
@@ -18,16 +30,26 @@ export default async function ProductPage({
 }) {
   const { slug } = await params;
 
-  const product = await prisma.product.findUnique({
-    where: { slug, active: true },
-    // include: { images: { orderBy: { sortOrder: "asc" } } },
-  });
+  const [product, user] = await Promise.all([
+    prisma.product.findUnique({
+      where: { slug, active: true },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        price: true,
+        category: true,
+        imageUrl: true,
+        description: true,
+        instagramUrl: true,
+      },
+    }),
+    getCurrentUser().catch(() => null),
+  ]);
 
   if (!product) notFound();
 
-  const user = await getCurrentUser();
-
-  void trackEvent({
+  trackEvent({
     userId: user?.id,
     productId: product.id,
     eventType: "PRODUCT_VIEW",
@@ -36,9 +58,7 @@ export default async function ProductPage({
       category: product.category,
       price: product.price,
     },
-  });
-
-  //const availableDates = await getAvailableDates(45);
+  }).catch(() => {});
 
   return (
     <>
@@ -47,30 +67,19 @@ export default async function ProductPage({
         <div className="grid gap-10 lg:grid-cols-2">
           <div className="overflow-hidden rounded-2xl border border-rose-100 bg-white">
             {product.imageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+              <Image
                 src={product.imageUrl}
                 alt={product.name}
+                width={500}
+                height={600}
                 className="aspect-square w-full object-cover"
+                priority
               />
             ) : (
               <div className="flex aspect-square items-center justify-center bg-rose-50 text-8xl">
                 🌸
               </div>
             )}
-            {/* {product.images.length > 1 && (
-              <div className="grid grid-cols-4 gap-2 p-4">
-                {product.images.slice(1).map((img) => (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    key={img.id}
-                    src={img.imageUrl}
-                    alt=""
-                    className="aspect-square rounded-lg object-cover"
-                  />
-                ))}
-              </div>
-            )} */}
           </div>
 
           <div>
@@ -91,39 +100,15 @@ export default async function ProductPage({
                 href={product.instagramUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-pink-600"
+                className="text-pink-600 hover:underline"
               >
                 Watch Video on Instagram
               </a>
             )}
-            {/*             
-            <p className="mt-4 text-sm text-stone-500">
-              Production time: {product.productionDays} day(s) before delivery
-            </p> 
-
-            <div className="mt-8 rounded-2xl border border-rose-100 bg-rose-50/50 p-6">
-              <h2 className="font-medium text-stone-900">Available delivery dates</h2>
-              {availableDates.length === 0 ? (
-                <p className="mt-2 text-sm text-stone-500">
-                  No dates configured yet. Contact us on Instagram.
-                </p>
-              ) : (
-                <ul className="mt-4 space-y-2 text-sm">
-                  {availableDates.slice(0, 8).map((d) => (
-                    <li key={d.date.toISOString()} className="flex justify-between">
-                      <span>{formatDate(d.date)}</span>
-                      <span className={d.available ? "text-emerald-600" : "text-red-500"}>
-                        {d.available ? `${d.remaining} slots left` : "Full"}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-                     */}
             <Link
               href={`/order/${product.slug}`}
               className="mt-8 inline-flex rounded-full bg-rose-700 px-8 py-3 text-sm font-medium text-white hover:bg-rose-800 transition"
+              prefetch
             >
               Order this bouquet
             </Link>

@@ -1,4 +1,4 @@
-export const dynamic = "force-dynamic";
+export const revalidate = 1800;
 
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
@@ -24,48 +24,60 @@ export default async function CatalogPage({
   const q = params.q?.trim() ?? "";
   const priceFilter = params.price ?? "all";
   const sort = params.sort ?? "newest";
-  const user = await getCurrentUser();
 
   const priceRange =
     priceFilter === "all"
       ? PRICE_FILTERS[0]
       : PRICE_FILTERS.find((p) => p.label === priceFilter) ?? PRICE_FILTERS[0];
 
-  const products = await prisma.product.findMany({
-    where: {
-      active: true,
-      price: {
-        gte: priceRange.min,
-        ...(priceRange.max !== Infinity ? { lte: priceRange.max } : {}),
+  const [user, products] = await Promise.all([
+    getCurrentUser().catch(() => null),
+    prisma.product.findMany({
+      where: {
+        active: true,
+        price: {
+          gte: priceRange.min,
+          ...(priceRange.max !== Infinity ? { lte: priceRange.max } : {}),
+        },
+        ...(q
+          ? {
+              OR: [
+                { name: { contains: q, mode: "insensitive" } },
+                { category: { contains: q, mode: "insensitive" } },
+                { description: { contains: q, mode: "insensitive" } },
+              ],
+            }
+          : {}),
       },
-      ...(q
-        ? {
-            OR: [
-              { name: { contains: q, mode: "insensitive" } },
-              { category: { contains: q, mode: "insensitive" } },
-              { description: { contains: q, mode: "insensitive" } },
-            ],
-          }
-        : {}),
-    },
-    // include: { images: { orderBy: { sortOrder: "asc" }, take: 1 } },
-    orderBy:
-      sort === "price-low"
-        ? { price: "asc" }
-        : sort === "price-high"
-        ? { price: "desc" }
-        : sort === "best"
-        ? { orderCount: "desc" }
-        : { createdAt: "desc" },
-  });
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        price: true,
+        category: true,
+        imageUrl: true,
+      },
+      orderBy:
+        sort === "price-low"
+          ? { price: "asc" }
+          : sort === "price-high"
+            ? { price: "desc" }
+            : sort === "best"
+              ? { orderCount: "desc" }
+              : { createdAt: "desc" },
+    }),
+  ]);
 
-  void trackEvent({
+  trackEvent({
     userId: user?.id,
-    eventType: "WEBSITE_OPENED",
+    eventType: "CATALOG_VIEWED",
     metadata: {
       source: "catalog",
+      query: q,
+      filter: priceFilter,
+      sort,
     },
-  });
+  }).catch(() => {});
 
   return (
     <>

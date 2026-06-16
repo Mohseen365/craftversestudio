@@ -1,5 +1,3 @@
-export const dynamic = "force-dynamic";
-
 import { notFound } from "next/navigation";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
@@ -8,43 +6,51 @@ import { OrderForm } from "./OrderForm";
 import { getCurrentUser } from "@/lib/auth";
 import { trackEvent } from "@/lib/eventLogger";
 
+export async function generateStaticParams() {
+  const products = await prisma.product.findMany({
+    where: { active: true },
+    select: { slug: true },
+    orderBy: { orderCount: "desc" },
+    take: 20,
+  });
+
+  return products.map((product) => ({
+    slug: product.slug,
+  }));
+}
+
 export default async function OrderPage({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
-  // const user = await getCurrentUser();
-
-  // if (!user) {
-  //   redirect("/login");
-  // }
-
   const { slug } = await params;
 
-  const product = await prisma.product.findUnique({
-    where: { slug, active: true },
-  });
+  const [product, user] = await Promise.all([
+    prisma.product.findUnique({
+      where: { slug, active: true },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        price: true,
+        category: true,
+      },
+    }),
+    getCurrentUser().catch(() => null),
+  ]);
 
   if (!product) notFound();
 
-  const user = await getCurrentUser();
-
-  void trackEvent({
+  trackEvent({
     userId: user?.id,
-    eventType: "ORDER_Page",
+    eventType: "ORDER_PAGE_VIEWED",
     metadata: {
-      // id: id,
       productName: product.name,
       category: product.category,
       price: product.price,
     },
-  });
-  // const dates = await getAvailableDates(45);
-  // const availableDates = dates.map((d) => ({
-  //   date: d.date.toISOString(),
-  //   remaining: d.remaining,
-  //   available: d.available,
-  // }));
+  }).catch(() => {});
 
   return (
     <>
@@ -64,7 +70,6 @@ export default async function OrderPage({
               slug: product.slug,
               price: product.price,
             }}
-            // availableDates={availableDates}
             userId={user?.id ?? ""}
           />
         </div>

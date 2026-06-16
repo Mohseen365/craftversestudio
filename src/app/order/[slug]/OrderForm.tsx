@@ -1,14 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { formatPrice } from "@/lib/utils";
-
-// type AvailableDate = {
-//   date: string;
-//   remaining: number;
-//   available: boolean;
-// };
 
 type OrderFormProps = {
   product: {
@@ -17,7 +11,6 @@ type OrderFormProps = {
     slug: string;
     price: number;
   };
-  // availableDates: AvailableDate[];
   userId: string;
 };
 
@@ -31,75 +24,61 @@ const OCCASIONS = [
   "Other",
 ];
 
-export function OrderForm({
-  product,
-  /*availableDates*/ userId,
-}: OrderFormProps) {
+export function OrderForm({ product, userId }: OrderFormProps) {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
+  const [isPending, startTransition] = useTransition();
   const [error, setError] = useState("");
   const [quantity, setQuantity] = useState(1);
-  // const [deliveryDate, setDeliveryDate] = useState(
-  //   availableDates.find((d) => d.available)?.date ?? ""
-  // );
 
   const subtotal = product.price * quantity;
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setLoading(true);
     setError("");
 
-    const form = e.currentTarget;
-    const formData = new FormData(form);
+    const formData = new FormData(e.currentTarget);
 
-    try {
-      let customerId = userId;
-      if (!customerId) {
-        const guestRes = await fetch("/api/customer/guest", { method: "POST" });
-        const guestData = await guestRes.json();
-        if (!guestRes.ok || !guestData.userId) {
-          throw new Error(guestData.error ?? "Could not start guest order");
+    startTransition(async () => {
+      try {
+        let customerId = userId;
+        if (!customerId) {
+          const guestRes = await fetch("/api/customer/guest", {
+            method: "POST",
+          });
+          const guestData = await guestRes.json();
+          if (!guestRes.ok || !guestData.userId) {
+            throw new Error(guestData.error ?? "Could not start guest order");
+          }
+          customerId = guestData.userId;
         }
-        customerId = guestData.userId;
+
+        const res = await fetch("/api/orders", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: customerId,
+            productId: product.id,
+            address: formData.get("address"),
+            city: formData.get("city"),
+            pincode: formData.get("pincode"),
+            state: formData.get("state"),
+            occasionType: formData.get("occasionType"),
+            occasionDate: formData.get("occasionDate"),
+            quantity,
+            notes: formData.get("Configuration"),
+          }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? "Failed to create order");
+
+        router.push(
+          `/login?orderId=${data.orderId}&productId=${product.id}&orderNumber=${data.orderNumber}&userId=${data.userId}`
+        );
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Something went wrong");
       }
-
-      const res = await fetch("/api/orders", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: customerId,
-          productId: product.id,
-          // fullName: formData.get("fullName"),
-          // instagramUsername: formData.get("instagramUsername"),
-          // mobileNo: formData.get("mobileNo"),
-          // email: formData.get("email"),
-          address: formData.get("address"),
-          city: formData.get("city"),
-          pincode: formData.get("pincode"),
-          state: formData.get("state"),
-          occasionType: formData.get("occasionType"),
-          occasionDate: formData.get("occasionDate"),
-          // deliveryDate,
-          quantity,
-          // giftMessage: formData.get("giftMessage"),
-          notes: formData.get("Configuration"),
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed to create order");
-
-      // router.push(
-      //   `/order/${product.slug}/payment?orderId=${data.orderId}&orderNumber=${data.orderNumber}`
-      // );
-      router.push(
-        `/login?orderId=${data.orderId}&productId=${product.id}&orderNumber=${data.orderNumber}&userId=${data.userId}`
-      );
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
-      setLoading(false);
-    }
+    });
   }
 
   return (
@@ -111,19 +90,10 @@ export function OrderForm({
       )}
 
       <div className="grid gap-4 sm:grid-cols-2">
-        {/* <Field label="Full name" name="fullName" required />
-        <Field
-          label="Instagram username"
-          name="instagramUsername"
-          placeholder="@username"
-        />
-        <Field label="mobileNo" name="mobileNo" type="tel" required />
-        <Field label="Email" name="email" type="email" /> */}
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2">
         <Field label="State" name="state" required />
         <Field label="City" name="city" required />
+      </div>
+      <div>
         <Field label="Pincode" name="pincode" required />
       </div>
       <Field label="Address" name="address" required />
@@ -147,26 +117,7 @@ export function OrderForm({
         <Field label="Delivery date" name="occasionDate" type="date" required />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        {/* <div>
-          <label className="block text-sm font-medium text-stone-700">
-            Delivery date
-          </label>
-          <select
-            value={deliveryDate}
-            onChange={(e) => setDeliveryDate(e.target.value)}
-            required
-            className="mt-1 w-full rounded-xl border border-stone-200 px-4 py-2 text-sm"
-          >
-            <option value="">Select a date</option>
-            {availableDates.map((d) => (
-              <option key={d.date} value={d.date} disabled={!d.available}>
-                {formatDate(d.date)} —{" "}
-                {d.available ? `${d.remaining} left` : "Full"}
-              </option>
-            ))}
-          </select>
-        </div> */}
+      <div>
         <div>
           <label className="block text-sm font-medium text-stone-700">
             Quantity
@@ -182,25 +133,21 @@ export function OrderForm({
         </div>
       </div>
 
-      {/* <Field label="Gift message" name="giftMessage" /> */}
-      <Field label="Configuration" name="Configuration" />
+      <Field label="Configuration (Optional)" name="Configuration" />
 
       <div className="rounded-2xl border border-rose-100 bg-rose-50/50 p-6">
         <p className="text-sm text-stone-600">
           {product.name} × {quantity}
         </p>
         <p className="mt-2 text-xl font-medium">{formatPrice(subtotal)}</p>
-        {/* <p className="mt-2 text-xs text-stone-500">
-          You&apos;ll upload payment proof on the next step.
-        </p> */}
       </div>
 
       <button
         type="submit"
-        disabled={loading /*|| !deliveryDate*/}
-        className="w-full rounded-full bg-rose-700 py-3 text-sm font-medium text-white hover:bg-rose-800 disabled:opacity-50"
+        disabled={isPending}
+        className="w-full rounded-full bg-rose-700 py-3 text-sm font-medium text-white hover:bg-rose-800 disabled:opacity-50 transition"
       >
-        {loading ? "Creating order..." : "Continue to payment"}
+        {isPending ? "Creating order..." : "Continue to payment"}
       </button>
     </form>
   );
