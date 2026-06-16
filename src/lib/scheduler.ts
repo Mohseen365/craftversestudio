@@ -1,5 +1,8 @@
 import { prisma } from "./prisma";
-import { DAILY_PRODUCTION_CAPACITY } from "./capacity";
+import { getDailyProductionCapacity } from "./capacity";
+
+// Fallback constant for default daily capacity (used when no override is present)
+const DAILY_PRODUCTION_CAPACITY = 1; // Default value; actual capacity may be fetched dynamically elsewhere
 
 export function formatDateKey(date: Date, isUtc = false): string {
   const year = isUtc ? date.getUTCFullYear() : date.getFullYear();
@@ -451,17 +454,30 @@ export async function rebuildSchedule() {
 /**
  * Returns planning rows based on actual production dates instead of deadline dates.
  */
-export async function getSchedulerPlanningRows(daysAhead = 60) {
-  const todayKey = formatDateKey(new Date(), false);
-  const todayDate = parseDateKey(todayKey);
-  const end = parseDateKey(addDaysToKey(todayKey, daysAhead));
+export async function getSchedulerPlanningRows() {
+  // Determine today (local) start of day
+  const today = new Date();
+  const todayKey = formatDateKey(today, false);
 
+  // Find the latest capacity date that has at least one reservation (future reservations only)
+  const latestCap = await prisma.capacity.findFirst({
+    where: {
+      date: { gte: today },
+      reservations: { some: {} },
+    },
+    orderBy: { date: "desc" },
+    select: { date: true },
+  });
+
+  // No future reservations → return empty array
+  if (!latestCap) {
+    return [];
+  }
+
+  // Fetch all capacities from today up to the latest reservation date, including reservations
   const capacities = await prisma.capacity.findMany({
     where: {
-      date: {
-        gte: todayDate,
-        lte: end,
-      },
+      date: { gte: today, lte: latestCap.date },
     },
     include: {
       reservations: {
@@ -481,12 +497,7 @@ export async function getSchedulerPlanningRows(daysAhead = 60) {
               },
               items: {
                 include: {
-                  product: {
-                    select: {
-                      name: true,
-                      productionDays: true,
-                    },
-                  },
+                  product: { select: { name: true, productionDays: true } },
                 },
               },
             },
@@ -494,46 +505,34 @@ export async function getSchedulerPlanningRows(daysAhead = 60) {
         },
       },
     },
-    orderBy: {
-      date: "asc",
-    },
+    orderBy: { date: "asc" },
   });
 
-  const capacityMap = new Map<string, (typeof capacities)[0]>();
-  for (const cap of capacities) {
-    capacityMap.set(formatDateKey(cap.date, true), cap);
-  }
-
-  const rows = [];
-  for (let i = 0; i <= daysAhead; i++) {
-    const dateKey = addDaysToKey(todayKey, i);
-    const capRecord = capacityMap.get(dateKey);
-
-    const maxCap = capRecord
-      ? capRecord.maximumCapacity.toNumber()
-      : DAILY_PRODUCTION_CAPACITY;
-    const reservations = capRecord?.reservations ?? [];
-
-    // Used capacity on this day is the sum of plannedQuantity
-    const used = reservations.reduce(
-      (sum, res) => sum + Number(res.plannedQuantity),
-      0
-    );
-
-    rows.push({
-      date: parseDateKey(dateKey),
-      dailyCapacity: maxCap,
-      used,
-      remaining: Math.max(0, maxCap - used),
-      isFull: used >= maxCap,
-      reservations: reservations.map((res) => ({
-        id: res.id,
-        quantity: Number(res.plannedQuantity), // planned effort on this day
-        completedQuantity: Number(res.completedQuantity),
-        order: res.order,
-      })),
+  // Build rows – only include dates that actually have reservations
+  const rows = capacities
+    .filter((cap) => cap.reservations && cap.reservations.length > 0)
+    .map((cap) => {
+      const maxCap = cap.maximumCapacity.toNumber();
+      const used = cap.reservations.reduce(
+        (sum, res) => sum + Number(res.plannedQuantity) + Number(res.manualQuantity || 0),
+        0
+      );
+      return {
+        date: cap.date,
+        dailyCapacity: maxCap,
+        used,
+        remaining: Math.max(0, maxCap - used),
+        isFull: used >= maxCap,
+        reservations: cap.reservations.map((res) => ({
+          id: res.id,
+          quantity: Number(res.plannedQuantity),
+          completedQuantity: Number(res.completedQuantity),
+          manualQuantity: Number(res.manualQuantity || 0),
+          isManual: res.isManual ?? false,
+          order: res.order,
+        })),
+      };
     });
-  }
 
   return rows;
 }

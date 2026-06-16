@@ -29,6 +29,8 @@ enum OrderStatus {
   
 }
 
+
+
 enum PaymentStatus {
   PENDING
   UPLOADED
@@ -196,10 +198,25 @@ model CapacityReservation {
   orderId           String  @map("order_id")
   plannedQuantity   Decimal @map("planned_quantity") @db.Decimal(10, 2)
   completedQuantity Decimal @default(0) @map("completed_quantity") @db.Decimal(10, 2)
+  isManual          Boolean   @default(false)
+  manualQuantity    Decimal   @default(0) @db.Decimal(10, 2)
 
   capacity Capacity @relation(fields: [capacityId], references: [id], onDelete: Cascade)
   order    Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@unique([capacityId, orderId])
   @@map("capacity_reservations")
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  action      String
+  entityId    String
+  entityType  String
+  beforeJson  String?
+  afterJson   String?
+  userId      String?
+  createdAt   DateTime @default(now())
+
+  @@map("audit_logs")
 }

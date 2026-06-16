@@ -1,7 +1,15 @@
 import { prisma } from "./prisma";
 import { addDays, toDateOnly } from "./utils";
 
-export const DAILY_PRODUCTION_CAPACITY = 1.0;
+// Function to fetch daily production capacity (default 1) from settings
+export async function getDailyProductionCapacity(): Promise<number> {
+  const setting = await prisma.setting.findUnique({ where: { key: "DAILY_PRODUCTION_CAPACITY" } });
+  if (setting) {
+    const val = parseFloat(setting.value);
+    if (!isNaN(val)) return val;
+  }
+  return 1; // fallback default
+}
 
 export function calculateShippingDate(
   occasionDate: Date | string,
@@ -62,15 +70,16 @@ export async function getCapacityForDeadline(
 ) {
   const productionDeadline = toDateOnly(date);
   const used = await getUsedCapacity(productionDeadline, excludeOrderId);
-  const remaining = DAILY_PRODUCTION_CAPACITY - used;
+  const dailyCapacity = await getDailyProductionCapacity();
+  const remaining = dailyCapacity - used;
 
   return {
     productionDeadline,
-    dailyCapacity: DAILY_PRODUCTION_CAPACITY,
+    dailyCapacity,
     used,
     remaining,
     requestedQuantity,
-    canAccept: used + requestedQuantity <= DAILY_PRODUCTION_CAPACITY,
+    canAccept: used + requestedQuantity <= dailyCapacity,
   };
 }
 
@@ -126,17 +135,18 @@ export async function getPlanningRows(daysAhead = 60) {
     }
   }
 
-  return Array.from(rows.values()).map((row) => {
+  return Promise.all(Array.from(rows.values()).map(async (row) => {
     const used = row.orders.reduce((sum, order) => sum + order.quantity, 0);
+    const dailyCapacity = await getDailyProductionCapacity();
     return {
       date: row.date,
-      dailyCapacity: DAILY_PRODUCTION_CAPACITY,
+      dailyCapacity,
       used,
-      remaining: DAILY_PRODUCTION_CAPACITY - used,
-      isFull: used >= DAILY_PRODUCTION_CAPACITY,
+      remaining: dailyCapacity - used,
+      isFull: used >= dailyCapacity,
       orders: row.orders,
     };
-  });
+  }));
 }
 
 // export async function isDateAvailable(date: Date, quantity: number) {
@@ -162,7 +172,7 @@ export async function getAvailableDates(daysAhead = 45) {
     const capacity = await getCapacityForDeadline(date);
     dates.push({
       date,
-      maximumCapacity: DAILY_PRODUCTION_CAPACITY,
+      maximumCapacity: await getDailyProductionCapacity(),
       booked: capacity.used,
       remaining: capacity.remaining,
       available: capacity.remaining > 0,
