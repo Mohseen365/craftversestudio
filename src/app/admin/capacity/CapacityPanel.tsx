@@ -9,7 +9,7 @@ type PlanningOrder = {
   orderNumber: string;
   customerName: string | null;
   occasionDate: string | null;
-  address: string;
+  // address: string;
   bouquetQuantity: number;
   shippingDurationDays: number | null;
   shippingDate: string | null;
@@ -217,10 +217,10 @@ export function CapacityPanel() {
                     <th className="py-2 pr-4 font-medium">Order ID</th>
                     <th className="py-2 pr-4 font-medium">Customer</th>
                     <th className="py-2 pr-4 font-medium">Occasion Date</th>
-                    <th className="py-2 pr-4 font-medium">Address</th>
+                    {/* <th className="py-2 pr-4 font-medium">Address</th> */}
                     <th className="py-2 pr-4 font-medium">Allocated Effort</th>
-                    <th className="py-2 pr-4 font-medium">Ship Days</th>
-                    <th className="py-2 pr-4 font-medium">Shipping Date</th>
+                    {/* <th className="py-2 pr-4 font-medium">Ship Days</th>
+                    <th className="py-2 pr-4 font-medium">Shipping Date</th> */}
                     <th className="py-2 pr-4 font-medium">
                       Production Deadline
                     </th>
@@ -244,20 +244,20 @@ export function CapacityPanel() {
                           ? formatDate(order.occasionDate)
                           : "Not set"}
                       </td>
-                      <td className="max-w-[260px] py-3 pr-4 text-stone-600">
+                      {/* <td className="max-w-[260px] py-3 pr-4 text-stone-600">
                         {order.address || "Not set"}
-                      </td>
+                      </td> */}
                       <td className="py-3 pr-4">
                         {Number(order.bouquetQuantity.toFixed(2))} day(s)
                       </td>
-                      <td className="py-3 pr-4">
+                      {/* <td className="py-3 pr-4">
                         {order.shippingDurationDays ?? "Not set"}
                       </td>
                       <td className="py-3 pr-4">
                         {order.shippingDate
                           ? formatDate(order.shippingDate)
                           : "Not set"}
-                      </td>
+                      </td> */}
                       <td className="py-3 pr-4">
                         {order.productionDeadline
                           ? formatDate(order.productionDeadline)
