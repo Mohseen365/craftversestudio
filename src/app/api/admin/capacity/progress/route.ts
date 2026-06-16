@@ -13,34 +13,52 @@ import { getRemainingCapacity } from "@/lib/capacity";
  * Logs an audit entry.
  */
 export async function POST(req: NextRequest) {
-  const { date, completedUnits } = await req.json();
+  const { orderId, date, completedUnits } = await req.json();
 
   if (!date || typeof completedUnits !== "number") {
-    return NextResponse.json({ error: "Missing or invalid fields" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Missing or invalid fields" },
+      { status: 400 }
+    );
   }
 
   const dateOnly = toDateOnly(new Date(date));
 
   // Find a reservation for this date (any order)
   const reservation = await prisma.capacityReservation.findFirst({
-    where: { capacity: { date: dateOnly } },
-    include: { capacity: true },
+    where: {
+      orderId,
+      capacity: {
+        date: dateOnly,
+      },
+    },
+    include: {
+      capacity: true,
+    },
   });
 
   if (!reservation) {
-    return NextResponse.json({ error: "No reservation found for the given date" }, { status: 404 });
+    return NextResponse.json(
+      { error: "No reservation found for the given date" },
+      { status: 404 }
+    );
   }
 
   // Validate remaining capacity for the date
-  const remaining = await getRemainingCapacity(dateOnly);
-  if (completedUnits > remaining) {
-    return NextResponse.json({ error: "Completed units exceed remaining capacity for the date" }, { status: 400 });
-  }
+  // const remaining = await getRemainingCapacity(dateOnly);
+  // if (completedUnits > remaining) {
+  //   return NextResponse.json(
+  //     { error: "Completed units exceed remaining capacity for the date" },
+  //     { status: 400 }
+  //   );
+  // }
 
   // Update completed quantity
   const updatedReservation = await prisma.capacityReservation.update({
     where: { id: reservation.id },
-    data: { completedQuantity: Number(reservation.completedQuantity) + completedUnits },
+    data: {
+      completedQuantity: Number(reservation.completedQuantity) + completedUnits,
+    },
   });
 
   // Audit log entry
@@ -49,8 +67,12 @@ export async function POST(req: NextRequest) {
       action: "PROGRESS_UPDATE",
       entityId: reservation.id,
       entityType: "CapacityReservation",
-      beforeJson: JSON.stringify({ completedQuantity: reservation.completedQuantity }),
-      afterJson: JSON.stringify({ completedQuantity: updatedReservation.completedQuantity }),
+      beforeJson: JSON.stringify({
+        completedQuantity: reservation.completedQuantity,
+      }),
+      afterJson: JSON.stringify({
+        completedQuantity: updatedReservation.completedQuantity,
+      }),
       userId: null,
     },
   });
@@ -63,7 +85,10 @@ export async function POST(req: NextRequest) {
 
   const used = capacity?.reservations.reduce(
     (sum, res) =>
-      sum + Number(res.plannedQuantity) + Number(res.completedQuantity) + Number(res.manualQuantity || 0),
+      sum +
+        res.plannedQuantity.toNumber() +
+        res.completedQuantity.toNumber() +
+        res.manualQuantity.toNumber() || 0,
     0
   );
 
@@ -71,7 +96,10 @@ export async function POST(req: NextRequest) {
     date: dateOnly.toISOString(),
     dailyCapacity: capacity?.maximumCapacity.toNumber() ?? 0,
     used,
-    remaining: Math.max(0, (capacity?.maximumCapacity.toNumber() ?? 0) - (used ?? 0)),
+    remaining: Math.max(
+      0,
+      (capacity?.maximumCapacity.toNumber() ?? 0) - (used ?? 0)
+    ),
   };
 
   return NextResponse.json(response);

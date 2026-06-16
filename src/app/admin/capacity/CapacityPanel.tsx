@@ -114,7 +114,7 @@ export function CapacityPanel() {
                                 headers: { "Content-Type": "application/json" },
                                 body: JSON.stringify({
                                   date: row.date,
-                                  capacity: newCap,
+                                  maximumCapacity: newCap,
                                 }),
                               }
                             );
@@ -283,7 +283,7 @@ export function CapacityPanel() {
                               const completed = parseFloat(input.value);
                               if (isNaN(completed)) return;
 
-                              const resOver = await fetch(
+                              const resProg = await fetch(
                                 "/api/admin/capacity/progress",
                                 {
                                   method: "POST",
@@ -291,13 +291,14 @@ export function CapacityPanel() {
                                     "Content-Type": "application/json",
                                   },
                                   body: JSON.stringify({
+                                    orderId: order.id,
                                     date: row.date,
                                     completedUnits: completed,
                                   }),
                                 }
                               );
-                              if (!resOver.ok) {
-                                const err = await resOver.text();
+                              if (!resProg.ok) {
+                                const err = await resProg.text();
                                 console.error(err);
                                 return;
                               }
