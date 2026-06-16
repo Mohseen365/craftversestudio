@@ -29,53 +29,10 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // Enforce only one manual override globally
-  const existingGlobalManual = await prisma.capacityReservation.findFirst({
-    where: { isManual: true },
-  });
-  if (existingGlobalManual && existingGlobalManual.capacityId !== capacity.id) {
-    return NextResponse.json(
-      { error: "Only one manual capacity override can exist at a time" },
-      { status: 409 }
-    );
-  }
-
-  // Ensure no other manual override exists for this date (redundant but kept for safety)
-  const existingDateManual = await prisma.capacityReservation.findFirst({
-    where: { capacityId: capacity.id, isManual: true },
-  });
-  if (existingDateManual && existingDateManual.capacityId !== capacity.id) {
-    return NextResponse.json(
-      { error: "A manual capacity override already exists for this date" },
-      { status: 409 }
-    );
-  }
-
-  // Update the capacity (or keep existing if already present)
+  // Update the capacity record
   capacity = await prisma.capacity.update({
     where: { id: capacity.id },
     data: { maximumCapacity },
-  });
-
-  // Create or update the manual CapacityReservation to represent the override
-  const overrideRes = await prisma.capacityReservation.upsert({
-    where: {
-      capacityId_orderId: { capacityId: capacity.id, orderId: "override-system" },
-    },
-    update: {
-      plannedQuantity: maximumCapacity,
-      completedQuantity: 0,
-      isManual: true,
-      manualQuantity: maximumCapacity,
-    },
-    create: {
-      capacityId: capacity.id,
-      orderId: "override-system",
-      plannedQuantity: maximumCapacity,
-      completedQuantity: 0,
-      isManual: true,
-      manualQuantity: maximumCapacity,
-    },
   });
 
   // Audit log for override creation/update
@@ -90,5 +47,5 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  return NextResponse.json({ capacity, overrideReservation: overrideRes });
+  return NextResponse.json({ capacity });
 }

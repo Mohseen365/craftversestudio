@@ -214,13 +214,16 @@ Rebuilds ALL future capacity reservations from scratch.
 Process:
 1. Calls `getSchedulerData(todayKey)`
 2. Runs `scheduleOrdersInMemory()`
-3. In a DB transaction:
-   - Ensures `Capacity` rows exist for all dates
+3. Upserts `Capacity` rows for every allocation date (outside transaction, required before FK inserts)
+4. Builds a `Map<dateKey, capacityId>` from DB
+5. In a DB transaction:
    - Deletes all `isManual: false` reservations with `date >= today`
-   - Creates new `CapacityReservation` records based on allocation map
-4. Calls `getSchedulerPlanningRows()` and returns rows
+   - Creates new `CapacityReservation` records using flat `capacityId` scalar (not nested connect — `createMany` does not support relations)
+6. Calls `getSchedulerPlanningRows()` and returns rows
 
 Throws if `scheduleOrdersInMemory()` returns `success: false`.
+
+**Note:** `rebuildSchedule()` is now only called when a status change actually moves an order into or out of SCHEDULABLE_STATUSES.
 
 ---
 
@@ -420,24 +423,19 @@ Logic:
 1. If `verifyPayment: true`:
    - Sets all PENDING payments → VERIFIED (with verifiedAt)
    - Sets order status → CONFIRMED
-   - Calls `rebuildSchedule()` ← **always runs, even though CONFIRMED is a schedulable status and no capacity actually changes**
-   
+   - **No rebuildSchedule()** — PAYMENT_VERIFICATION and CONFIRMED are both in SCHEDULABLE_STATUSES, schedule is unchanged
+
 2. If `rejectPayment: true`:
    - Sets all PENDING payments → REJECTED
    - Sets order status → PAYMENT_REJECTED
-   - Calls `rebuildSchedule()` ← **should NOT run — PAYMENT_REJECTED is inactive so order drops from schedule, but this is actually correct**
+   - Calls `rebuildSchedule()` — PAYMENT_REJECTED is INACTIVE, order leaves the schedule
 
-3. If `status === "CANCELLED"` or `"REFUNDED"`:
-   - Calls `releaseCapacityReservation(id)` ← **currently a no-op function in lib/capacity.ts — does nothing!**
-   - Then falls through to update order and call `rebuildSchedule()`
-
-4. Otherwise (status change / trackingNumber update):
+3. Generic status / trackingNumber update:
    - Updates order in DB
-   - If `body.status` is present → calls `rebuildSchedule()` ← **runs even for tracking-number-only updates that include a status, and even for non-capacity-affecting status changes like SHIPPED → DELIVERED**
-
-**Known issue:** `releaseCapacityReservation` is a no-op. The actual release happens indirectly because `rebuildSchedule()` only schedules SCHEDULABLE_STATUSES orders — so cancelled orders are dropped from the rebuild naturally.
-
-**Known issue:** `rebuildSchedule()` is called unconditionally on any status change. Should only run when the set of schedulable orders changes (i.e., status transitions into or out of SCHEDULABLE_STATUSES).
+   - Calls `rebuildSchedule()` only if `schedulingAffected(fromStatus, toStatus)` is true — i.e. the transition crosses the SCHEDULABLE ↔ INACTIVE boundary
+   - CONFIRMED → IN_PRODUCTION → READY_TO_SHIP: no rebuild (all schedulable)
+   - SHIPPED, DELIVERED, CANCELLED, REFUNDED: rebuild (leaves schedulable set)
+   - Tracking-number-only update: no rebuild
 
 ---
 
@@ -570,47 +568,210 @@ ProductionProgress
 
 ---
 
-# Known Issues & Improvement Opportunities
+# Fixes Applied (June 2026)
 
-## 1. Double checkAcceptability Call
+## Fix 1 — CRITICAL: rebuildSchedule() createMany used nested relation connect (broke accept)
 
-OrderPanel calls `GET /api/admin/capacity?productionDeadline&orderId` (triggers `checkAcceptability`) every time the shipping duration input changes. Then `POST /api/orders/{id}/accept` calls `checkAcceptability` again inside the API. The second call is the authoritative one; the first is just for preview. This is acceptable but wasteful — the API-side check is the one that actually matters.
+**Root cause:** `rebuildSchedule()` in `lib/scheduler.ts` was building reservation records like:
+```typescript
+creates.push({
+  orderId,
+  capacity: { connect: { date } },  // ← Prisma createMany does NOT support nested relations
+  ...
+});
+await tx.capacityReservation.createMany({ data: creates });
+```
+Prisma's `createMany` only accepts flat scalar fields. The nested `connect` was silently stripped, causing the insert to fail with a constraint violation (missing `capacityId`). This broke every call to `rebuildSchedule()`, which is called at the end of the accept flow — making order acceptance fail.
 
-## 2. rebuildSchedule() Runs Too Often
+**Fix:** Before the transaction, upsert `Capacity` rows for all allocation dates, then build a `Map<dateKey, capacityId>` lookup. The `createMany` now uses flat `capacityId` scalar directly:
+```typescript
+creates.push({ capacityId, orderId, plannedQuantity: a.quantity, ... });
+```
 
-Current triggers in `PATCH /api/admin/orders/[id]`:
-- `verifyPayment` → CONFIRMED: rebuilds, but CONFIRMED is still in SCHEDULABLE_STATUSES so the schedule doesn't change
-- `rejectPayment` → PAYMENT_REJECTED: rebuilds — this IS correct (order leaves schedulable set)
-- Any `status` change: always rebuilds — wrong for status changes that don't cross the schedulable/inactive boundary (e.g. CONFIRMED → IN_PRODUCTION, IN_PRODUCTION → READY_TO_SHIP, READY_TO_SHIP → SHIPPED + trackingNumber)
+Also fixed: the previous code only ensured Capacity rows for dates already in `capacityLimits` (fetched from DB). New orders with deadlines beyond the current DB window had no Capacity row to connect to. Now all allocation dates are upserted before the transaction.
 
-Should only rebuild when:
-- Order enters SCHEDULABLE_STATUSES (acceptance)
-- Order leaves SCHEDULABLE_STATUSES (cancelled, payment rejected, shipped, delivered)
-- productionDeadline or requiredCapacity changes
+Files changed: `src/lib/scheduler.ts`
 
-## 3. releaseCapacityReservation is a No-Op
+---
 
-`lib/capacity.ts → releaseCapacityReservation()` immediately returns without doing anything. Cancellations only clean up capacity because `rebuildSchedule()` naturally excludes cancelled orders. This works, but the explicit release step does nothing — misleading code.
+## Fix 2 — rebuildSchedule() called unconditionally on every status change
 
-## 4. Capacity Override Bug
+**Root cause:** `PATCH /api/admin/orders/[id]` called `rebuildSchedule()` on every `body.status` change regardless of whether the change affected the production schedule.
 
-`POST /api/admin/capacity/override` has a global uniqueness check that prevents more than one `isManual` reservation from existing across ALL dates. This means overriding two different dates will fail on the second call. Should be per-date uniqueness only.
+Unnecessary rebuilds were triggered for:
+- `verifyPayment` → CONFIRMED (both PAYMENT_VERIFICATION and CONFIRMED are in SCHEDULABLE_STATUSES — no change to schedule)
+- CONFIRMED → IN_PRODUCTION (both schedulable — no change)
+- IN_PRODUCTION → READY_TO_SHIP (both schedulable — no change)
 
-## 5. Tracking Number + Status in One PATCH
+**Fix:** Added a `schedulingAffected(fromStatus, toStatus)` helper that checks whether the transition crosses the boundary between SCHEDULABLE_STATUSES and INACTIVE_STATUSES. `rebuildSchedule()` is only called when this returns true.
 
-When sending `SHIPPED` status + `trackingNumber` together, `rebuildSchedule()` fires because `body.status` is present. SHIPPED is in INACTIVE_STATUSES so the order does drop from the schedule — the rebuild IS correct here — but could be avoided by checking status transitions more precisely.
+Rebuild now fires only for:
+- PAYMENT_REJECTED (leaves schedulable set) ✓
+- SHIPPED, DELIVERED, CANCELLED, REFUNDED (leave schedulable set) ✓
 
-## 6. Request-Date Boundary Not Enforced
+Does NOT rebuild for:
+- `verifyPayment` → CONFIRMED ✗ (removed — same schedulable set)
+- CONFIRMED → IN_PRODUCTION ✗
+- IN_PRODUCTION → READY_TO_SHIP ✗
+- Tracking number only update ✗
 
-The scheduler allocates from `todayKey` forward, but doesn't store or check the original order request date. If an order is accepted days after being placed, it won't allocate effort before today (correct) but there's no explicit per-order start-date boundary.
+Files changed: `src/app/api/admin/orders/[id]/route.ts`
 
-## 7. ProductionProgress Model Unused
+---
 
-The `ProductionProgress` DB model exists in the schema but no API writes to it. Progress is tracked via `CapacityReservation.completedQuantity` instead.
+## Fix 3 — Capacity override blocked after first date (multi-date override bug)
 
-## 8. getDailyProductionCapacity() vs DAILY_PRODUCTION_CAPACITY constant
+**Root cause:** `POST /api/admin/capacity/override` contained a global uniqueness check:
+```typescript
+const existingGlobalManual = await prisma.capacityReservation.findFirst({ where: { isManual: true } });
+if (existingGlobalManual && existingGlobalManual.capacityId !== capacity.id) {
+  return 409 "Only one manual capacity override can exist at a time"
+}
+```
+This prevented overriding more than one date. The second date override always failed with 409.
 
-`lib/capacity.ts` has `getDailyProductionCapacity()` which reads from the `Setting` table. `lib/scheduler.ts` uses `DAILY_PRODUCTION_CAPACITY` constant (value: 1) from `lib/constants.ts` as fallback when no `Capacity` row exists. These two mechanisms are not in sync — changing the Setting won't affect the scheduler's fallback.
+**Fix:** Removed both the global uniqueness check and the redundant per-date check. The override now simply upserts `maximumCapacity` on the `Capacity` record and logs to `AuditLog`. The `override-system` CapacityReservation approach was also removed — `maximumCapacity` on the `Capacity` record is the single source of truth for daily limits.
+
+Files changed: `src/app/api/admin/capacity/override/route.ts`
+
+---
+
+## Fix 5 — Product editing broken (PUT vs PATCH mismatch)
+
+`ProductsPanel.tsx` sent `method: "PUT"` but the API route only exports `PATCH`. Every edit product request returned 405 Method Not Allowed.
+
+Fixed: changed `method: "PUT"` → `method: "PATCH"` in `ProductsPanel.tsx`.
+
+Files changed: `src/app/admin/products/ProductsPanel.tsx`
+
+---
+
+## Fix 6 — verifyPayment never actually updated the Payment record
+
+The PATCH route filtered payments `where: { status: "PENDING" }` but `POST /api/orders/[id]/payment` sets payment status to `"UPLOADED"`, not `"PENDING"`. The filter matched zero rows so `verifiedAt` was never set and the payment record stayed in UPLOADED state indefinitely.
+
+Fixed: changed filter to `where: { status: "UPLOADED" }`.
+
+Files changed: `src/app/api/admin/orders/[id]/route.ts`
+
+---
+
+## Fix 7 — POST /api/admin/capacity/progress had no auth guard
+
+The progress update endpoint was callable by anyone without authentication. `requireAdmin()` was missing entirely.
+
+Fixed: added auth guard at the top of the handler. Removed the unused `getRemainingCapacity` import and replaced with `requireAdmin` from `lib/auth`.
+
+Files changed: `src/app/api/admin/capacity/progress/route.ts`
+
+---
+
+## Fix 8 — DB connection string logged to stdout on every cold start
+
+`lib/prisma.ts` had two `console.log` calls that printed the database host parsed from `DATABASE_URL` and `DIRECT_URL`. This leaks connection info to any log aggregator in production.
+
+Fixed: removed both console.log calls.
+
+Files changed: `src/lib/prisma.ts`
+
+---
+
+# Changes Applied (Recommendations Round 2 — June 2026)
+
+## Change 1 — src/middleware.ts (new) — framework-level admin auth
+
+Added Next.js middleware protecting all `/admin/*` pages and `/api/admin/*` routes at the edge.
+- Admin pages redirect to `/admin/login` when unauthenticated
+- Admin API routes return `401` JSON when unauthenticated
+- `/admin/login`, `/api/admin/login`, `/api/admin/logout` are always public
+
+Individual `requireAdmin()` calls in handlers remain as defense-in-depth.
+
+Files changed: `src/middleware.ts` (new)
+
+---
+
+## Change 2 — src/app/api/admin/login/route.ts — rate limiting
+
+Added in-memory rate limiter: max 5 attempts per IP per 60 seconds, returns 429. Clears on successful login.
+
+Files changed: `src/app/api/admin/login/route.ts`
+
+---
+
+## Change 3 — src/app/api/orders/route.ts — userId ownership check + cleanup
+
+Added session ownership check: cross-references `userId` in request body against the authenticated session cookie. Removed all commented-out dead code. Tightened pincode validation to `/^\d{6}$/`.
+
+Files changed: `src/app/api/orders/route.ts`
+
+---
+
+## Change 4 — src/app/api/orders/[id]/accept/route.ts — status guard + input cap
+
+Added guard: order must be in `PENDING_REVIEW` to be accepted (prevents re-accepting). Added `max(365)` on `shippingDurationDays`. Removed commented-out line.
+
+Files changed: `src/app/api/orders/[id]/accept/route.ts`
+
+---
+
+## Change 5 — src/app/admin/orders/OrdersPanel.tsx — remove window.location.reload()
+
+Replaced hard page reload after accepting an order with targeted React state updates: removes the accepted order from the list and clears its preview/duration state.
+
+Files changed: `src/app/admin/orders/OrdersPanel.tsx`
+
+---
+
+## Change 6 — src/lib/capacity.ts — dead code deleted
+
+Removed all dead functions. Kept only `calculateShippingDate` and `calculateProductionDeadline` (still used by accept route).
+
+Files changed: `src/lib/capacity.ts`
+
+---
+
+## Change 7 — src/app/api/capacity/available/route.ts — deleted
+
+Removed the dead `GET /api/capacity/available` endpoint. Never called by any component.
+
+Files changed: `src/app/api/capacity/available/route.ts` (deleted)
+
+---
+
+## Change 8 — src/app/api/customer/login/route.ts — cleanup + security
+
+Removed commented-out schema fields. Added mobile number format validation. Proper try/catch with correct HTTP status codes. Added session-aware guestUserId resolution to prevent order theft.
+
+Files changed: `src/app/api/customer/login/route.ts`
+
+---
+
+# Remaining Known Issues (not yet fixed)
+
+## 1. Customer cookie stores raw userId (unsigned)
+
+The `bouquet_customer` cookie holds the plain Prisma user ID. Any client who can forge this cookie gains access as that user. Low risk for a private tool.
+
+## 2. No ownership check on /api/orders/[id]/payment
+
+Any caller who knows an order ID can submit a payment screenshot for it. Should cross-check against session user.
+
+## 3. ProductionProgress model unused
+
+The `ProductionProgress` DB model exists in the schema but nothing reads or writes it. Safe to drop with a migration.
+
+## 4. getDailyProductionCapacity vs DAILY_PRODUCTION_CAPACITY constant
+
+`lib/scheduler.ts` uses `DAILY_PRODUCTION_CAPACITY = 1` as fallback. The `Setting` table value has no effect on the scheduler unless a `Capacity` row exists for that date.
+
+## 5. Request-Date Boundary Not Enforced
+
+The scheduler allocates from `todayKey` forward but doesn't store the original order request date.
+
+## 6. Double checkAcceptability Call (acceptable, low priority)
+
+OrderPanel preview calls `checkAcceptability` on every shipping duration change. The accept API calls it again authoritatively. The API call is the gate — the preview call is cosmetic.
 
 ---
 

@@ -53,7 +53,7 @@ export function ProductsPanel() {
 
     if (editingProduct) {
       await fetch(`/api/admin/products/${editingProduct.id}`, {
-        method: "PUT",
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });

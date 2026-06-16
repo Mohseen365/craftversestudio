@@ -151,8 +151,18 @@ export function OrdersPanel() {
     });
 
     if (res.ok) {
-      // Reload the page to ensure CapacityPanel fetches latest data
-      window.location.reload();
+      // Remove the accepted order from the current list and clear its preview
+      setOrders((prev) => prev.filter((o) => o.id !== order.id));
+      setCapacityPreviews((prev) => {
+        const next = { ...prev };
+        delete next[order.id];
+        return next;
+      });
+      setShippingDurations((prev) => {
+        const next = { ...prev };
+        delete next[order.id];
+        return next;
+      });
       return;
     }
 

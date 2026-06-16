@@ -2,13 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth";
-import { releaseCapacityReservation } from "@/lib/capacity";
 import { rebuildSchedule } from "@/lib/scheduler";
-import {
-  notifyCustomerOrderConfirmed,
-  notifyCustomerStatusUpdate,
-} from "@/lib/email";
-import { ORDER_STATUS_LABELS } from "@/lib/utils";
+import { SCHEDULABLE_STATUSES, INACTIVE_STATUSES } from "@/lib/constants";
 
 const updateSchema = z.object({
   status: z
@@ -35,6 +30,20 @@ const updateSchema = z.object({
   rejectPayment: z.boolean().optional(),
 });
 
+/**
+ * Returns true when a status transition changes whether the order is part of
+ * the production schedule — i.e. crosses the boundary between SCHEDULABLE and
+ * INACTIVE status sets.  Only these transitions require a rebuildSchedule().
+ */
+function schedulingAffected(fromStatus: string, toStatus: string): boolean {
+  const wasSchedulable = (SCHEDULABLE_STATUSES as readonly string[]).includes(fromStatus);
+  const isSchedulable  = (SCHEDULABLE_STATUSES as readonly string[]).includes(toStatus);
+  const wasInactive    = (INACTIVE_STATUSES as readonly string[]).includes(fromStatus);
+  const isInactive     = (INACTIVE_STATUSES as readonly string[]).includes(toStatus);
+  // Rebuild when order enters or leaves the schedulable set
+  return wasSchedulable !== isSchedulable || wasInactive !== isInactive;
+}
+
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -59,10 +68,13 @@ export async function PATCH(
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
+    // --- Verify payment: PAYMENT_VERIFICATION → CONFIRMED ---
+    // Both statuses are in SCHEDULABLE_STATUSES so the schedule does not change.
+    // No rebuildSchedule() needed.
     if (body.verifyPayment) {
       await prisma.$transaction([
         prisma.payment.updateMany({
-          where: { orderId: id, status: "PENDING" },
+          where: { orderId: id, status: "UPLOADED" },
           data: { status: "VERIFIED", verifiedAt: new Date() },
         }),
         prisma.order.update({
@@ -71,11 +83,11 @@ export async function PATCH(
         }),
       ]);
 
-      await rebuildSchedule();
-
       return NextResponse.json({ success: true, status: "CONFIRMED" });
     }
 
+    // --- Reject payment: PAYMENT_VERIFICATION → PAYMENT_REJECTED ---
+    // PAYMENT_REJECTED is INACTIVE — order leaves the schedule. Rebuild needed.
     if (body.rejectPayment) {
       await prisma.$transaction([
         prisma.payment.updateMany({
@@ -91,10 +103,7 @@ export async function PATCH(
       return NextResponse.json({ success: true, status: "PAYMENT_REJECTED" });
     }
 
-    if (body.status === "CANCELLED" || body.status === "REFUNDED") {
-      await releaseCapacityReservation(id);
-    }
-
+    // --- Generic status / trackingNumber update ---
     const updated = await prisma.order.update({
       where: { id },
       data: {
@@ -103,7 +112,11 @@ export async function PATCH(
       },
     });
 
-    if (body.status) {
+    // Only rebuild when the status change moves the order into or out of the
+    // schedulable set (e.g. SHIPPED, DELIVERED, CANCELLED, REFUNDED).
+    // Pure tracking-number updates and in-schedule progressions
+    // (CONFIRMED → IN_PRODUCTION → READY_TO_SHIP) do NOT need a rebuild.
+    if (body.status && schedulingAffected(order.status, body.status)) {
       await rebuildSchedule();
     }
 

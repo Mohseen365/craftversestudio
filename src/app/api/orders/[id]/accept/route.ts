@@ -9,7 +9,7 @@ import { checkAcceptability, rebuildSchedule } from "@/lib/scheduler";
 import { requireAdmin } from "@/lib/auth";
 
 const acceptSchema = z.object({
-  shippingDurationDays: z.number().int().min(0),
+  shippingDurationDays: z.number().int().min(0).max(365),
 });
 
 export async function POST(
@@ -52,15 +52,20 @@ export async function POST(
     );
   }
 
+  if (order.status !== "PENDING_REVIEW") {
+    return NextResponse.json(
+      { error: "Only orders in PENDING_REVIEW can be accepted" },
+      { status: 409 }
+    );
+  }
+
   const shippingDate = calculateShippingDate(
     order.occasionDate,
     body.data.shippingDurationDays
   );
   const productionDeadline = calculateProductionDeadline(shippingDate);
   const requiredCapacity = order.items.reduce(
-    (sum, item) =>
-      // sum + item.quantity * Math.max(1, item.product.productionDays),
-      sum + item.quantity * item.product.productionDays.toNumber(),
+    (sum, item) => sum + item.quantity * item.product.productionDays.toNumber(),
     0
   );
 

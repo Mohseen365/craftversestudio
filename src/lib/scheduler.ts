@@ -1,6 +1,5 @@
 // src/lib/scheduler.ts
 import { prisma } from "./prisma";
-import { getDailyProductionCapacity } from "./capacity";
 import { SCHEDULABLE_STATUSES, INACTIVE_STATUSES, DAILY_PRODUCTION_CAPACITY } from "./constants";
 
 
@@ -249,8 +248,9 @@ export async function checkAcceptability(candidate: {
 }
 
 /**
- * Rebuilds the future schedule **and** returns fresh planning rows for the UI.
- * It persists allocations via upserts, creates missing capacity rows, and cleans obsolete reservations.
+ * Rebuilds the future schedule and persists allocations.
+ * Cleans obsolete non-manual reservations, creates missing Capacity rows,
+ * then inserts new CapacityReservation rows based on the allocation map.
  */
 export async function rebuildSchedule() {
   const todayKey = formatDateKey(new Date(), false);
@@ -269,30 +269,58 @@ export async function rebuildSchedule() {
     throw new Error(`Cannot rebuild schedule: ${result.reason}`);
   }
 
-  await prisma.$transaction(async (tx) => {
-    // Ensure a capacity row exists for every date we might allocate to
-    for (const dateKey of capacityLimits.keys()) {
-      const date = parseDateKey(dateKey);
-      await tx.capacity.upsert({
-        where: { date },
-        update: {},
-        create: { date, maximumCapacity: DAILY_PRODUCTION_CAPACITY },
-      });
+  // Collect every allocation date so we can ensure Capacity rows exist for them
+  const allAllocationDates = new Set<string>();
+  for (const allocs of result.allocations.values()) {
+    for (const a of allocs) {
+      allAllocationDates.add(a.dateKey);
     }
+  }
 
-    // Delete all *non‑manual* future reservations – they will be regenerated below
+  // Upsert Capacity rows for every date we need to write reservations into
+  for (const dateKey of allAllocationDates) {
+    const date = parseDateKey(dateKey);
+    await prisma.capacity.upsert({
+      where: { date },
+      update: {},
+      create: { date, maximumCapacity: DAILY_PRODUCTION_CAPACITY },
+    });
+  }
+
+  // Build a lookup from dateKey → capacityId so createMany can use scalar FKs
+  // (Prisma createMany does not support nested relation connects)
+  const capacityRows = await prisma.capacity.findMany({
+    where: { date: { gte: todayDate } },
+    select: { id: true, date: true },
+  });
+  const capacityIdByDateKey = new Map<string, string>();
+  for (const row of capacityRows) {
+    capacityIdByDateKey.set(formatDateKey(row.date, true), row.id);
+  }
+
+  await prisma.$transaction(async (tx) => {
+    // Delete all non-manual future reservations — they will be regenerated below
     await tx.capacityReservation.deleteMany({
       where: { capacity: { date: { gte: todayDate } }, isManual: false },
     });
 
-    // Insert new reservations based on the allocation map
-    const creates: any[] = [];
+    // Insert new reservations using flat scalar capacityId (required by createMany)
+    const creates: {
+      capacityId: string;
+      orderId: string;
+      plannedQuantity: number;
+      completedQuantity: number;
+      manualQuantity: number;
+      isManual: boolean;
+    }[] = [];
+
     for (const [orderId, allocs] of result.allocations.entries()) {
       for (const a of allocs) {
-        const date = parseDateKey(a.dateKey);
+        const capacityId = capacityIdByDateKey.get(a.dateKey);
+        if (!capacityId) continue; // should not happen after the upsert above
         creates.push({
+          capacityId,
           orderId,
-          capacity: { connect: { date } },
           plannedQuantity: a.quantity,
           completedQuantity: 0,
           manualQuantity: 0,
@@ -300,8 +328,10 @@ export async function rebuildSchedule() {
         });
       }
     }
-    if (creates.length)
+
+    if (creates.length) {
       await tx.capacityReservation.createMany({ data: creates });
+    }
   });
 
   // Return planning rows in the same shape the UI expects

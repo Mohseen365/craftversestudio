@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { toDateOnly } from "@/lib/utils";
-import { getRemainingCapacity } from "@/lib/capacity";
+import { requireAdmin } from "@/lib/auth";
 
 /**
  * POST /api/admin/capacity/progress
@@ -13,6 +13,10 @@ import { getRemainingCapacity } from "@/lib/capacity";
  * Logs an audit entry.
  */
 export async function POST(req: NextRequest) {
+  if (!(await requireAdmin())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const { orderId, date, completedUnits } = await req.json();
 
   if (!date || typeof completedUnits !== "number") {

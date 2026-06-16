@@ -2,25 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { generateOrderNumber } from "@/lib/utils";
-// import { isDateAvailable, reserveCapacity } from "@/lib/capacity";
-// import { notifyAdminNewOrder } from "@/lib/email";
+import { getCurrentUser } from "@/lib/auth";
 
 const orderSchema = z.object({
   userId: z.string(),
   productId: z.string(),
-  // fullName: z.string().min(2),
-  // instagramUsername: z.string().optional(),
-  // mobileNo: z.string().min(10),
-  // email: z.string().email().optional().or(z.literal("")),
   address: z.string().min(5),
   city: z.string().min(2),
-  pincode: z.string().min(4),
+  pincode: z.string().regex(/^\d{6}$/, "Pincode must be 6 digits"),
   state: z.string().min(2),
   occasionType: z.string().optional(),
   occasionDate: z.string().nullable().optional(),
-  // deliveryDate: z.string(),
   quantity: z.number().int().min(1).max(10),
-  // giftMessage: z.string().optional(),
   notes: z.string().optional(),
 });
 
@@ -32,6 +25,13 @@ export async function POST(req: NextRequest) {
       quantity: Number(body.quantity),
     });
 
+    // Verify the userId in the request matches the authenticated session.
+    // This prevents one customer from attaching orders to another account.
+    const sessionUser = await getCurrentUser();
+    if (!sessionUser || sessionUser.id !== data.userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const product = await prisma.product.findUnique({
       where: { id: data.productId, active: true },
     });
@@ -39,28 +39,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 });
     }
 
-    // const deliveryDate = toDateOnly(new Date(data.deliveryDate));
-    // const available = await isDateAvailable(deliveryDate, data.quantity);
-    // if (!available) {
-    //   return NextResponse.json(
-    //     { error: "Selected date is full. Please choose another date." },
-    //     { status: 400 }
-    //   );
-    // }
-
     const subtotal = product.price * data.quantity;
     const orderNumber = generateOrderNumber();
 
     const order = await prisma.$transaction(async (tx) => {
-      // const user = await tx.user.create({
-      //   data: {
-      //     name: data.fullName,
-      //     instagramUsername: data.instagramUsername || null,
-      //     mobileNo: data.mobileNo,
-      //     email: data.email || null,
-      //   },
-      // });
-
       await tx.address.create({
         data: {
           userId: data.userId,
@@ -78,11 +60,9 @@ export async function POST(req: NextRequest) {
           status: "PENDING_REVIEW",
           occasionType: data.occasionType,
           occasionDate: data.occasionDate ? new Date(data.occasionDate) : null,
-          // deliveryDate,
           quantity: data.quantity,
           subtotal,
           total: subtotal,
-          // giftMessage: data.giftMessage,
           notes: data.notes,
           items: {
             create: {
@@ -101,9 +81,6 @@ export async function POST(req: NextRequest) {
 
       return newOrder;
     });
-
-    // await reserveCapacity(deliveryDate, order.id, data.quantity);
-    // await notifyAdminNewOrder(orderNumber, data.fullName);
 
     return NextResponse.json({
       orderId: order.id,

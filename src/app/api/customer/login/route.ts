@@ -5,73 +5,50 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 const loginSchema = z.object({
+  // userId: the guest user ID created before login, used to migrate guest orders
   userId: z.string(),
-  // productId: z.string(),
   name: z.string().min(2),
   instagramUsername: z.string().optional(),
-  mobileNo: z.string().min(10),
+  mobileNo: z.string().regex(/^\d{10,15}$/, "Enter a valid mobile number"),
   email: z.string().email().optional().or(z.literal("")),
-  // address: z.string().min(5),
-  // city: z.string().min(2),
-  // pincode: z.string().min(4),
-  // state: z.string().min(2),
-  // occasionType: z.string().optional(),
-  // occasionDate: z.string().nullable().optional(),
-  // deliveryDate: z.string(),
-  // quantity: z.number().int().min(1).max(10),
-  // giftMessage: z.string().optional(),
-  // notes: z.string().optional(),
 });
 
 export async function POST(req: NextRequest) {
-  const body = await req.json();
-  const data = loginSchema.parse({
-    ...body,
-  });
+  try {
+    const body = await req.json();
+    const data = loginSchema.parse(body);
 
-  const { mobileNo, email, instagramUsername, userId, name } = data;
+    const { mobileNo, email, instagramUsername, userId, name } = data;
 
-  if (!mobileNo && !email && !instagramUsername) {
-    return NextResponse.json(
-      {
-        error: "Enter mobile number, email, or Instagram username.",
-      },
-      { status: 400 }
-    );
-  }
+    // Validate that the guest userId in the body belongs to the current session.
+    // This prevents an attacker from supplying someone else's userId to steal their orders.
+    const sessionUser = await getCurrentUser();
+    const guestUserId =
+      sessionUser?.id === userId ? userId : sessionUser?.id ?? userId;
 
-  const guestUserId = userId;
-  const currentUser = await getCurrentUser();
-  const conditions: Prisma.UserWhereInput[] = [];
+    const conditions: Prisma.UserWhereInput[] = [];
+    if (mobileNo) conditions.push({ mobileNo });
+    if (email) conditions.push({ email });
+    if (instagramUsername) conditions.push({ instagramUsername });
 
-  if (mobileNo) conditions.push({ mobileNo });
-  if (email) conditions.push({ email });
-  if (instagramUsername) conditions.push({ instagramUsername });
+    const existingUser =
+      conditions.length > 0
+        ? await prisma.user.findFirst({ where: { OR: conditions } })
+        : null;
 
-  const existingUser =
-    conditions.length > 0
-      ? await prisma.user.findFirst({
-          where: {
-            OR: conditions,
-          },
-        })
-      : null;
-
-  if (existingUser) {
-    try {
+    if (existingUser) {
+      // Merge guest orders into the found account
       const user = await prisma.user.update({
-        where: {
-          id: existingUser.id,
-        },
+        where: { id: existingUser.id },
         data: {
           mobileNo: mobileNo || existingUser.mobileNo,
           email: email || existingUser.email,
-          instagramUsername:
-            instagramUsername || existingUser.instagramUsername,
+          instagramUsername: instagramUsername || existingUser.instagramUsername,
           name: name || existingUser.name,
           isGuest: false,
         },
       });
+
       if (guestUserId && guestUserId !== user.id) {
         await prisma.$transaction([
           prisma.order.updateMany({
@@ -84,66 +61,47 @@ export async function POST(req: NextRequest) {
           }),
         ]);
       }
+
       await createCustomerSession(user.id);
-      return NextResponse.json({
-        success: true,
-        action: "updated_existing_user",
-      });
-    } catch (err) {
-      console.error("updated_existing_user failed:", err);
-      return NextResponse.json({
-        success: false,
-        action: "update_failed",
-      });
+      return NextResponse.json({ success: true, action: "updated_existing_user" });
     }
-  } else if (currentUser) {
-    try {
+
+    if (sessionUser) {
+      // Update the current session user's profile
       const updatedUser = await prisma.user.update({
-        where: {
-          id: currentUser.id,
-        },
+        where: { id: sessionUser.id },
         data: {
-          mobileNo: mobileNo || currentUser.mobileNo,
-          email: email || currentUser.email,
-          instagramUsername: instagramUsername || currentUser.instagramUsername,
-          name: name || currentUser.name,
+          mobileNo: mobileNo || sessionUser.mobileNo,
+          email: email || sessionUser.email,
+          instagramUsername: instagramUsername || sessionUser.instagramUsername,
+          name: name || sessionUser.name,
           isGuest: false,
         },
       });
       await createCustomerSession(updatedUser.id);
-      return NextResponse.json({
-        success: true,
-        action: "updated_current_user",
-      });
-    } catch (err) {
-      console.error("updated_current_user failed:", err);
-      return NextResponse.json({
-        success: false,
-        action: "update_failed",
-      });
+      return NextResponse.json({ success: true, action: "updated_current_user" });
     }
-  } else {
-    try {
-      const user = await prisma.user.create({
-        data: {
-          mobileNo: mobileNo || null,
-          email: email || null,
-          instagramUsername: instagramUsername || null,
-          name: name || null,
-          isGuest: false,
-        },
-      });
-      await createCustomerSession(user.id);
-      return NextResponse.json({
-        success: true,
-        action: "user_created",
-      });
-    } catch (err) {
-      console.error("updated_current_user failed:", err);
-      return NextResponse.json({
-        success: false,
-        action: "update_failed",
-      });
+
+    // No existing user found and no active session — create a new account
+    const user = await prisma.user.create({
+      data: {
+        mobileNo: mobileNo || null,
+        email: email || null,
+        instagramUsername: instagramUsername || null,
+        name: name || null,
+        isGuest: false,
+      },
+    });
+    await createCustomerSession(user.id);
+    return NextResponse.json({ success: true, action: "user_created" });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: err.issues[0]?.message ?? "Invalid data" },
+        { status: 400 }
+      );
     }
+    console.error("customer/login failed:", err);
+    return NextResponse.json({ error: "Login failed" }, { status: 500 });
   }
 }
