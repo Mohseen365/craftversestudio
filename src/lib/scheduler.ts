@@ -318,12 +318,15 @@ export async function getSchedulerPlanningRows() {
   const latestOrder = await prisma.order.findFirst({
     where: {
       status: { notIn: [...INACTIVE_STATUSES] },
-      productionDeadline: { gte: todayDate },
+      occasionDate: {
+        not: null,
+        gte: todayDate,
+      },
     },
-    orderBy: { productionDeadline: "desc" },
-    select: { productionDeadline: true },
+    orderBy: { occasionDate: "desc" },
+    select: { occasionDate: true },
   });
-  const endDate = latestOrder?.productionDeadline ?? todayDate;
+  const endDate = latestOrder?.occasionDate ?? todayDate;
 
   const capacities = await prisma.capacity.findMany({
     where: { date: { gte: todayDate, lte: endDate } },
@@ -359,7 +362,7 @@ export async function getSchedulerPlanningRows() {
   const rows = [];
 
   for (
-    let current = todayDate;
+    let current = new Date(todayDate);
     current <= endDate;
     current.setUTCDate(current.getUTCDate() + 1)
   ) {
@@ -377,7 +380,7 @@ export async function getSchedulerPlanningRows() {
       (sum, r) => sum + r.plannedQuantity.toNumber(),
       0
     );
-    if (!cap) {
+    if (cap) {
       rows.push({
         date: new Date(current),
         dailyCapacity: maxCap,
@@ -393,6 +396,7 @@ export async function getSchedulerPlanningRows() {
           order: r.order,
         })),
       });
+    } else {
       continue;
     }
   }
