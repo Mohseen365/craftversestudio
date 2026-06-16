@@ -5,6 +5,7 @@ import { OrderStatusBadge } from "@/components/OrderStatusBadge";
 import { addDays, formatDate, formatPrice } from "@/lib/utils";
 
 type Order = {
+  //Only used in setOrder dont need to send anywhere
   id: string;
   orderNumber: string;
   status: string;
@@ -150,7 +151,8 @@ export function OrdersPanel() {
     });
 
     if (res.ok) {
-      loadOrders(tab);
+      // Reload the page to ensure CapacityPanel fetches latest data
+      window.location.reload();
       return;
     }
 
@@ -327,10 +329,17 @@ export function OrdersPanel() {
                                 : "text-red-700"
                             }`}
                           >
-                            {capacityPreviews[order.id].canAccept ? "Available" : "No Capacity"}
+                            {capacityPreviews[order.id].canAccept
+                              ? "Available"
+                              : "No Capacity"}
                           </span>
                           <span className="mt-1 block text-xs text-stone-500">
-                            Required capacity: {Number(capacityPreviews[order.id].requiredCapacity.toFixed(2))}
+                            Required capacity:{" "}
+                            {Number(
+                              capacityPreviews[
+                                order.id
+                              ].requiredCapacity.toFixed(2)
+                            )}
                           </span>
                         </div>
                       ) : (
@@ -344,18 +353,24 @@ export function OrdersPanel() {
                     <div className="mt-3 text-sm">
                       {capacityPreviews[order.id].canAccept ? (
                         <div className="text-emerald-700">
-                          <span className="font-semibold">Suggested schedule:</span>
+                          <span className="font-semibold">
+                            Suggested schedule:
+                          </span>
                           <ul className="list-disc list-inside mt-1 text-xs">
-                            {capacityPreviews[order.id].suggestedDates.map((d, i) => (
-                              <li key={i}>
-                                {formatDate(d.date)}: {Number(d.quantity.toFixed(2))} day(s)
-                              </li>
-                            ))}
+                            {capacityPreviews[order.id].suggestedDates.map(
+                              (d, i) => (
+                                <li key={i}>
+                                  {formatDate(d.date)}:{" "}
+                                  {Number(d.quantity.toFixed(2))} day(s)
+                                </li>
+                              )
+                            )}
                           </ul>
                         </div>
                       ) : (
                         <p className="font-medium text-red-700">
-                          {capacityPreviews[order.id].reason ?? "Accepting this order exceeds available production capacity."}
+                          {capacityPreviews[order.id].reason ??
+                            "Accepting this order exceeds available production capacity."}
                         </p>
                       )}
                     </div>

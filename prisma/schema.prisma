@@ -29,6 +29,12 @@ enum OrderStatus {
   
 }
 
+enum OrderUrgency {
+  NORMAL
+  URGENT
+}
+
+
 enum PaymentStatus {
   PENDING
   UPLOADED

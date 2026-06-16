@@ -107,14 +107,9 @@ export function CapacityPanel() {
         )}
       </div>
 
-      <div>expandedDate: {expandedDate}</div>
+      {/* <div>expandedDate: {expandedDate}</div> */}
       {rows
-        .filter((row) => {
-          console.log("row.date", row.date);
-          console.log("expandedDate", expandedDate);
-
-          return row.date === expandedDate;
-        })
+        .filter((row) => row.date === expandedDate)
         .map((row) => (
           <section
             key={row.date}
