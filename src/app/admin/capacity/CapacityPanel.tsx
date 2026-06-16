@@ -4,16 +4,28 @@ import { useEffect, useState } from "react";
 import { formatDate } from "@/lib/utils";
 import { OrderStatusBadge } from "@/components/OrderStatusBadge";
 
+type OrderItem = {
+  productName: string;
+  quantity: number;
+  productionDays: number;
+};
+
 type PlanningOrder = {
   id: string;
   orderNumber: string;
   customerName: string | null;
   occasionDate: string | null;
-  bouquetQuantity: number;
+  // Effort allocated to this specific production date
+  allocatedToday: number;
+  // Order-level effort totals
+  totalRequiredEffort: number;
+  completedEffort: number;
+  remainingEffort: number;
   shippingDurationDays: number | null;
   shippingDate: string | null;
   productionDeadline: string | null;
   status: string;
+  items: OrderItem[];
 };
 
 type CapacityRow = {
@@ -31,6 +43,8 @@ export function CapacityPanel() {
   const [windowEnd, setWindowEnd] = useState<string>("");
   const [maxDate, setMaxDate] = useState<string>("");
   const [isUpdating, setIsUpdating] = useState(false);
+  // Track per-reservation optimistic completedEffort updates
+  const [progressOverrides, setProgressOverrides] = useState<Record<string, number>>({});
 
   function addDays(dateStr: string, days: number): string {
     const d = new Date(dateStr);
@@ -53,75 +67,8 @@ export function CapacityPanel() {
       prev ? prev : initialEnd > farthest ? farthest : initialEnd
     );
     setRows(fetchedRows);
+    setProgressOverrides({});
   }
-
-  const smartUpdateAfterCapacityChange = async (
-    changedDate: string,
-    newCapacity: number
-  ) => {
-    const res = await fetch("/api/admin/capacity");
-    const data = await res.json();
-    const freshRows: CapacityRow[] = data.capacities ?? [];
-
-    const changedRowIndex = rows.findIndex((r) => r.date === changedDate);
-    if (changedRowIndex === -1) return;
-
-    const affectedIndices = new Set<number>();
-    affectedIndices.add(changedRowIndex);
-
-    for (let i = 1; i <= 3 && changedRowIndex + i < rows.length; i++) {
-      affectedIndices.add(changedRowIndex + i);
-    }
-
-    setRows((prevRows) => {
-      const updated = [...prevRows];
-      affectedIndices.forEach((idx) => {
-        const dateStr = prevRows[idx]?.date;
-        const freshRow = freshRows.find((r) => r.date === dateStr);
-        if (freshRow) {
-          updated[idx] = freshRow;
-        }
-      });
-      return updated;
-    });
-  };
-
-  const smartUpdateAfterProgressChange = async (
-    changedDate: string,
-    orderId: string
-  ) => {
-    const res = await fetch("/api/admin/capacity");
-    const data = await res.json();
-    const freshRows: CapacityRow[] = data.capacities ?? [];
-
-    const changedRowIndex = rows.findIndex((r) => r.date === changedDate);
-    if (changedRowIndex === -1) return;
-
-    const affectedIndices = new Set<number>();
-    affectedIndices.add(changedRowIndex);
-
-    if (changedRowIndex + 1 < rows.length) {
-      const nextRow = rows[changedRowIndex + 1];
-      const hasRelatedOrders = nextRow?.orders.some(
-        (o) => o.productionDeadline === addDays(changedDate, 1)
-      );
-      if (hasRelatedOrders) {
-        affectedIndices.add(changedRowIndex + 1);
-      }
-    }
-
-    setRows((prevRows) => {
-      const updated = [...prevRows];
-      affectedIndices.forEach((idx) => {
-        const dateStr = prevRows[idx]?.date;
-        const freshRow = freshRows.find((r) => r.date === dateStr);
-        if (freshRow) {
-          updated[idx] = freshRow;
-        }
-      });
-      return updated;
-    });
-  };
 
   useEffect(() => {
     load();
@@ -129,13 +76,14 @@ export function CapacityPanel() {
 
   return (
     <div className="space-y-6">
+      {/* Table 1 — Daily capacity overview */}
       <div className="overflow-x-auto rounded-lg border border-stone-200 bg-white">
         <table className="w-full min-w-[680px] text-left text-sm">
           <thead className="border-b border-stone-100 text-stone-500">
             <tr>
               <th className="px-4 py-3 font-medium">Production Date</th>
-              <th className="px-4 py-3 font-medium">Used Capacity</th>
-              <th className="px-4 py-3 font-medium">Available Capacity</th>
+              <th className="px-4 py-3 font-medium">Used / Daily Capacity</th>
+              <th className="px-4 py-3 font-medium">Available</th>
               <th className="px-4 py-3 font-medium">Status</th>
               <th className="px-4 py-3 font-medium">Orders</th>
             </tr>
@@ -150,7 +98,7 @@ export function CapacityPanel() {
                   </td>
                   <td className="px-4 py-3">
                     <div>
-                      {Number(row.used.toFixed(2))} /
+                      {Number(row.used.toFixed(2))} /{" "}
                       {Number(row.dailyCapacity.toFixed(2))}
                     </div>
                     {expandedDate === row.date && (
@@ -173,32 +121,22 @@ export function CapacityPanel() {
                             ) as HTMLInputElement;
                             const newCap = parseFloat(input.value);
                             if (isNaN(newCap) || newCap < 0) return;
-
                             setIsUpdating(true);
                             try {
-                              const resOver = await fetch(
-                                "/api/admin/capacity/override",
-                                {
-                                  method: "POST",
-                                  headers: {
-                                    "Content-Type": "application/json",
-                                  },
-                                  body: JSON.stringify({
-                                    date: row.date,
-                                    maximumCapacity: newCap,
-                                  }),
-                                }
-                              );
-                              if (!resOver.ok) {
-                                const err = await resOver.text();
+                              const res = await fetch("/api/admin/capacity/override", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                  date: row.date,
+                                  maximumCapacity: newCap,
+                                }),
+                              });
+                              if (!res.ok) {
+                                const err = await res.text();
                                 console.error(err);
                                 return;
                               }
-
-                              await smartUpdateAfterCapacityChange(
-                                row.date,
-                                newCap
-                              );
+                              await load();
                             } finally {
                               setIsUpdating(false);
                             }
@@ -210,11 +148,7 @@ export function CapacityPanel() {
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <span
-                      className={
-                        row.remaining <= 0 ? "text-red-600" : "text-emerald-600"
-                      }
-                    >
+                    <span className={row.remaining <= 0 ? "text-red-600" : "text-emerald-600"}>
                       {Number(row.remaining.toFixed(2))}
                     </span>
                   </td>
@@ -232,14 +166,12 @@ export function CapacityPanel() {
                   <td className="px-4 py-3">
                     <button
                       onClick={() =>
-                        setExpandedDate(
-                          expandedDate === row.date ? null : row.date
-                        )
+                        setExpandedDate(expandedDate === row.date ? null : row.date)
                       }
                       className="rounded border border-stone-200 px-3 py-1 text-xs font-medium text-stone-700 hover:bg-stone-50"
                       disabled={isUpdating}
                     >
-                      {expandedDate === row.date ? "Hide" : "View"}
+                      {expandedDate === row.date ? "Hide" : "View"}{" "}
                       {row.orders.length}
                     </button>
                   </td>
@@ -250,7 +182,7 @@ export function CapacityPanel() {
             new Date(windowEnd).getTime() < new Date(maxDate).getTime() && (
               <tfoot>
                 <tr>
-                  <td colSpan={6} className="p-4 text-center">
+                  <td colSpan={5} className="p-4 text-center">
                     <button
                       className="rounded bg-sky-600 px-4 py-2 text-sm text-white hover:bg-sky-700 disabled:bg-sky-400"
                       disabled={isUpdating}
@@ -270,6 +202,7 @@ export function CapacityPanel() {
         )}
       </div>
 
+      {/* Table 2 — Expanded order detail for the selected date */}
       {rows
         .filter((row) => row.date === expandedDate)
         .map((row) => (
@@ -283,121 +216,144 @@ export function CapacityPanel() {
                   {formatDate(row.date)}
                 </h2>
                 <p className="text-sm text-stone-500">
-                  Capacity Used: {Number(row.used.toFixed(2))} /
+                  Capacity used: {Number(row.used.toFixed(2))} /{" "}
                   {Number(row.dailyCapacity.toFixed(2))}
                 </p>
               </div>
             </div>
 
             <div className="mt-5 overflow-x-auto">
-              <table className="w-full min-w-[1200px] text-left text-sm">
+              <table className="w-full min-w-[1100px] text-left text-sm">
                 <thead className="border-b border-stone-100 text-stone-500">
                   <tr>
-                    <th className="py-2 pr-4 font-medium">Order ID</th>
+                    <th className="py-2 pr-4 font-medium">Order</th>
                     <th className="py-2 pr-4 font-medium">Customer</th>
-                    <th className="py-2 pr-4 font-medium">Occasion Date</th>
-                    <th className="py-2 pr-4 font-medium">Production Days</th>
-                    <th className="py-2 pr-4 font-medium">Allocated</th>
+                    <th className="py-2 pr-4 font-medium">Items</th>
+                    <th className="py-2 pr-4 font-medium">Total Effort</th>
+                    <th className="py-2 pr-4 font-medium">Allocated Today</th>
                     <th className="py-2 pr-4 font-medium">Completed</th>
                     <th className="py-2 pr-4 font-medium">Remaining</th>
-                    <th className="py-2 pr-4 font-medium">
-                      Production Deadline
-                    </th>
+                    <th className="py-2 pr-4 font-medium">Deadline</th>
                     <th className="py-2 pr-4 font-medium">Status</th>
-                    <th className="py-2 pr-4 font-medium">Work Done Today</th>
+                    <th className="py-2 pr-4 font-medium">Mark Work Done</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {row.orders.map((order) => (
-                    <tr key={order.id} className="border-b border-stone-50">
-                      <td className="py-3 pr-4 font-mono text-xs">
-                        {order.orderNumber}
-                      </td>
-                      <td className="py-3 pr-4">
-                        {order.customerName ?? "Guest"}
-                      </td>
-                      <td className="py-3 pr-4">
-                        {order.occasionDate
-                          ? formatDate(order.occasionDate)
-                          : "Not set"}
-                      </td>
-                      <td className="py-3 pr-4">
-                        {Number(order.bouquetQuantity.toFixed(2))}
-                      </td>
-                      <td className="py-3 pr-4">
-                        {Number(order.bouquetQuantity.toFixed(2))} day(s)
-                      </td>
-                      <td className="py-3 pr-4">0</td>
-                      <td className="py-3 pr-4">
-                        {Number(order.bouquetQuantity.toFixed(2))}
-                      </td>
-                      <td className="py-3 pr-4">
-                        {order.productionDeadline
-                          ? formatDate(order.productionDeadline)
-                          : "Not set"}
-                      </td>
-                      <td className="py-3 pr-4">
-                        <OrderStatusBadge status={order.status} />
-                      </td>
-                      <td className="py-3 pr-4">
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            placeholder="Work done"
-                            className="w-20 rounded border px-2 py-1 text-sm"
-                            id={`progress-input-${order.id}`}
-                            disabled={isUpdating}
-                          />
-                          <button
-                            className="rounded bg-emerald-600 px-2 py-1 text-xs text-white hover:bg-emerald-700 disabled:bg-emerald-400"
-                            disabled={isUpdating}
-                            onClick={async () => {
-                              const input = document.getElementById(
-                                `progress-input-${order.id}`
-                              ) as HTMLInputElement;
-                              const completed = parseFloat(input.value);
-                              if (isNaN(completed) || completed < 0) return;
+                  {row.orders.map((order) => {
+                    // Apply any optimistic update from this session
+                    const overrideKey = `${order.id}`;
+                    const displayCompleted =
+                      progressOverrides[overrideKey] ?? order.completedEffort;
+                    const displayRemaining = Math.max(
+                      0,
+                      order.totalRequiredEffort - displayCompleted
+                    );
 
-                              setIsUpdating(true);
-                              try {
-                                const resProg = await fetch(
-                                  "/api/admin/capacity/progress",
-                                  {
-                                    method: "POST",
-                                    headers: {
-                                      "Content-Type": "application/json",
-                                    },
-                                    body: JSON.stringify({
-                                      orderId: order.id,
-                                      date: row.date,
-                                      completedUnits: completed,
-                                    }),
+                    return (
+                      <tr key={order.id} className="border-b border-stone-50">
+                        <td className="py-3 pr-4 font-mono text-xs">
+                          {order.orderNumber}
+                        </td>
+                        <td className="py-3 pr-4">
+                          {order.customerName ?? "Guest"}
+                        </td>
+                        <td className="py-3 pr-4 text-xs text-stone-500">
+                          {order.items.map((item, i) => (
+                            <div key={i}>
+                              {item.productName} ×{item.quantity} ({item.productionDays}d)
+                            </div>
+                          ))}
+                        </td>
+                        {/* Total required effort = Σ(productionDays × qty) */}
+                        <td className="py-3 pr-4 font-medium">
+                          {Number(order.totalRequiredEffort.toFixed(2))} day(s)
+                        </td>
+                        {/* Effort slice allocated specifically on this date */}
+                        <td className="py-3 pr-4">
+                          {Number(order.allocatedToday.toFixed(2))} day(s)
+                        </td>
+                        {/* Completed = sum of completedQuantity across all reservations */}
+                        <td className="py-3 pr-4 text-emerald-700">
+                          {Number(displayCompleted.toFixed(2))} day(s)
+                        </td>
+                        {/* Remaining = totalRequired - completed */}
+                        <td
+                          className={`py-3 pr-4 font-medium ${
+                            displayRemaining <= 0
+                              ? "text-stone-400"
+                              : "text-amber-700"
+                          }`}
+                        >
+                          {Number(displayRemaining.toFixed(2))} day(s)
+                        </td>
+                        <td className="py-3 pr-4">
+                          {order.productionDeadline
+                            ? formatDate(order.productionDeadline)
+                            : "Not set"}
+                        </td>
+                        <td className="py-3 pr-4">
+                          <OrderStatusBadge status={order.status} />
+                        </td>
+                        <td className="py-3 pr-4">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              min="0.01"
+                              max={Number(order.allocatedToday.toFixed(2))}
+                              step="0.01"
+                              placeholder={`max ${Number(order.allocatedToday.toFixed(2))}`}
+                              className="w-24 rounded border px-2 py-1 text-sm"
+                              id={`progress-input-${order.id}-${row.date}`}
+                              disabled={isUpdating}
+                            />
+                            <button
+                              className="rounded bg-emerald-600 px-2 py-1 text-xs text-white hover:bg-emerald-700 disabled:bg-emerald-400"
+                              disabled={isUpdating}
+                              onClick={async () => {
+                                const inputEl = document.getElementById(
+                                  `progress-input-${order.id}-${row.date}`
+                                ) as HTMLInputElement;
+                                const completed = parseFloat(inputEl.value);
+                                if (isNaN(completed) || completed <= 0) return;
+
+                                setIsUpdating(true);
+                                try {
+                                  const res = await fetch(
+                                    "/api/admin/capacity/progress",
+                                    {
+                                      method: "POST",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({
+                                        orderId: order.id,
+                                        date: row.date,
+                                        completedUnits: completed,
+                                      }),
+                                    }
+                                  );
+                                  if (!res.ok) {
+                                    const err = await res.json().catch(() => ({}));
+                                    alert(err.error ?? "Failed to update progress");
+                                    return;
                                   }
-                                );
-                                if (!resProg.ok) {
-                                  const err = await resProg.text();
-                                  console.error(err);
-                                  return;
+                                  const result = await res.json();
+                                  // Optimistically update the display without a full reload
+                                  setProgressOverrides((prev) => ({
+                                    ...prev,
+                                    [overrideKey]: result.completedQuantity,
+                                  }));
+                                  inputEl.value = "";
+                                } finally {
+                                  setIsUpdating(false);
                                 }
-
-                                await smartUpdateAfterProgressChange(
-                                  row.date,
-                                  order.id
-                                );
-                                (input as HTMLInputElement).value = "";
-                              } finally {
-                                setIsUpdating(false);
-                              }
-                            }}
-                          >
-                            Update
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                              }}
+                            >
+                              Update
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

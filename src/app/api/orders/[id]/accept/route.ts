@@ -9,7 +9,7 @@ import { checkAcceptability, rebuildSchedule } from "@/lib/scheduler";
 import { requireAdmin } from "@/lib/auth";
 
 const acceptSchema = z.object({
-  shippingDurationDays: z.number().int().min(0).max(365),
+  shippingDurationDays: z.number().min(0).max(365),
 });
 
 export async function POST(

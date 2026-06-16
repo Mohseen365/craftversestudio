@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { toDateOnly } from "@/lib/utils";
 import { requireAdmin } from "@/lib/auth";
+import { formatDateKey, parseDateKey } from "@/lib/scheduler";
 
 /**
  * POST /api/admin/capacity/progress
- * Body: { date: string (ISO), completedUnits: number }
+ * Body: { orderId: string, date: string (ISO), completedUnits: number }
  *
- * Records production progress for a specific date.
- * Validates that completedUnits do not exceed the remaining capacity for that date.
- * Updates the reservation's completedQuantity (first matching reservation).
+ * Records production progress for a specific order on a specific date.
+ * Increments completedQuantity on the matching CapacityReservation.
  * Logs an audit entry.
  */
 export async function POST(req: NextRequest) {
@@ -17,94 +16,57 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { orderId, date, completedUnits } = await req.json();
+  const body = await req.json();
+  const { orderId, date, completedUnits } = body;
 
-  if (!date || typeof completedUnits !== "number") {
+  if (!orderId || !date || typeof completedUnits !== "number" || completedUnits <= 0) {
     return NextResponse.json(
       { error: "Missing or invalid fields" },
       { status: 400 }
     );
   }
 
-  const dateOnly = toDateOnly(new Date(date));
+  // Use UTC-based date parsing to match how Capacity.date is stored in the DB
+  const dateKey = formatDateKey(new Date(date), true);
+  const dateOnly = parseDateKey(dateKey);
 
-  // Find a reservation for this date (any order)
   const reservation = await prisma.capacityReservation.findFirst({
     where: {
       orderId,
-      capacity: {
-        date: dateOnly,
-      },
+      capacity: { date: dateOnly },
     },
-    include: {
-      capacity: true,
-    },
+    include: { capacity: true },
   });
 
   if (!reservation) {
     return NextResponse.json(
-      { error: "No reservation found for the given date" },
+      { error: "No reservation found for this order on the given date" },
       { status: 404 }
     );
   }
 
-  // Validate remaining capacity for the date
-  // const remaining = await getRemainingCapacity(dateOnly);
-  // if (completedUnits > remaining) {
-  //   return NextResponse.json(
-  //     { error: "Completed units exceed remaining capacity for the date" },
-  //     { status: 400 }
-  //   );
-  // }
+  const currentCompleted = Number(reservation.completedQuantity);
+  const planned = Number(reservation.plannedQuantity);
+  const newCompleted = Math.min(currentCompleted + completedUnits, planned);
 
-  // Update completed quantity
   const updatedReservation = await prisma.capacityReservation.update({
     where: { id: reservation.id },
-    data: {
-      completedQuantity: Number(reservation.completedQuantity) + completedUnits,
-    },
+    data: { completedQuantity: newCompleted },
   });
 
-  // Audit log entry
   await prisma.auditLog.create({
     data: {
       action: "PROGRESS_UPDATE",
       entityId: reservation.id,
       entityType: "CapacityReservation",
-      beforeJson: JSON.stringify({
-        completedQuantity: reservation.completedQuantity,
-      }),
-      afterJson: JSON.stringify({
-        completedQuantity: updatedReservation.completedQuantity,
-      }),
+      beforeJson: JSON.stringify({ completedQuantity: currentCompleted }),
+      afterJson: JSON.stringify({ completedQuantity: newCompleted }),
       userId: null,
     },
   });
 
-  // Return updated capacity summary for the date
-  const capacity = await prisma.capacity.findUnique({
-    where: { id: reservation.capacityId },
-    include: { reservations: true },
+  return NextResponse.json({
+    success: true,
+    completedQuantity: Number(updatedReservation.completedQuantity),
   });
-
-  const used = capacity?.reservations.reduce(
-    (sum, res) =>
-      sum +
-        res.plannedQuantity.toNumber() +
-        res.completedQuantity.toNumber() +
-        res.manualQuantity.toNumber() || 0,
-    0
-  );
-
-  const response = {
-    date: dateOnly.toISOString(),
-    dailyCapacity: capacity?.maximumCapacity.toNumber() ?? 0,
-    used,
-    remaining: Math.max(
-      0,
-      (capacity?.maximumCapacity.toNumber() ?? 0) - (used ?? 0)
-    ),
-  };
-
-  return NextResponse.json(response);
 }

@@ -373,6 +373,9 @@ export async function getSchedulerPlanningRows() {
                 },
               },
               items: { include: { product: true } },
+              // Include ALL reservations for the order so the API can compute
+              // completedEffort and totalRequiredEffort across all dates
+              capacityReservations: true,
             },
           },
         },
