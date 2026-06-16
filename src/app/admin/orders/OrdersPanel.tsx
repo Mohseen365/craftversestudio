@@ -153,10 +153,7 @@ export function OrdersPanel() {
 
   async function acceptOrder(id: string) {
     const shippingDurationDays = shippingDurations[id];
-    if (
-      shippingDurationDays === undefined ||
-      Number.isNaN(shippingDurationDays)
-    ) {
+    if (shippingDurationDays === undefined || Number.isNaN(shippingDurationDays)) {
       alert("Enter shipping duration before accepting this order");
       return;
     }
@@ -168,24 +165,17 @@ export function OrdersPanel() {
     });
 
     if (res.ok) {
-      console.log("accept response is ok");
-      // Remove the accepted order from the current list and clear its preview
       setOrders((prev) => prev.filter((o) => o.id !== id));
-      setCapacityPreviews((prev) => {
-        const next = { ...prev };
-        delete next[id];
-        return next;
-      });
-      setShippingDurations((prev) => {
-        const next = { ...prev };
-        delete next[id];
-        return next;
-      });
+      setCapacityPreviews((prev) => { const n = { ...prev }; delete n[id]; return n; });
+      setShippingDurations((prev) => { const n = { ...prev }; delete n[id]; return n; });
       return;
     }
 
-    const data = await res.json();
-    alert(data.error ?? "Could not accept order");
+    // Safely parse the error body — some server errors return empty bodies
+    const errorMessage = await res.json()
+      .then((d) => d?.error ?? `Server error (${res.status})`)
+      .catch(() => `Server error (${res.status})`);
+    alert(errorMessage);
   }
 
   return (
