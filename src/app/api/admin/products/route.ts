@@ -3,18 +3,17 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth";
 import { slugify } from "@/lib/utils";
-import { Decimal } from "@prisma/client/runtime/library";
+import { Decimal } from "@/generated/prisma/runtime/library";
 
 const productSchema = z.object({
   name: z.string().min(2),
   category: z.string().min(2),
   description: z.string().min(10),
   price: z.number().int().positive(),
-  productionDays: z
-    .string()
-    .transform((val) => new Decimal(val))
-    .optional(),
-  imageUrl: z.string(),
+  productionDays: z.coerce
+  .string()
+  .transform((val) => new Decimal(val)),
+  imageUrl: z.string().default(""),
   instagramUrl: z.string().optional(),
   active: z.boolean().default(true),
 });
@@ -53,7 +52,7 @@ export async function POST(req: NextRequest) {
         price: body.price,
         productionDays: body.productionDays,
         active: body.active,
-        imageUrl: body.imageUrl,
+        imageUrl: body.imageUrl || "",
         instagramUrl: body.instagramUrl,
       },
     });
@@ -61,11 +60,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ product });
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: "Invalid product data" },
-        { status: 400 }
-      );
-    }
+  console.error(err.flatten());
+
+  return NextResponse.json(
+    {
+      error: "Invalid product data",
+      details: err.flatten(),
+    },
+    { status: 400 }
+  );
+}
     return NextResponse.json(
       { error: "Failed to create product" },
       { status: 500 }

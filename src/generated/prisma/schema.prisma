@@ -1,0 +1,239 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum OrderStatus {
+  PENDING_REVIEW
+  ACCEPTED
+  REJECTED
+  PAYMENT_PENDING
+  PAYMENT_SUBMITTED
+  PAYMENT_VERIFICATION
+  PAYMENT_REJECTED
+
+  CONFIRMED
+  IN_PRODUCTION
+  READY_TO_SHIP
+  SHIPPED
+  DELIVERED
+
+  WAITLISTED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  UPLOADED
+  VERIFIED
+  REJECTED
+}
+
+model Event {
+  id String @id @default(cuid())
+
+  userId    String? @map("user_id")
+  productId String? @map("product_id")
+  orderId   String? @map("order_id")
+  paymentId String? @map("payment_id")
+
+  eventType String @map("event_type")
+  metadata  Json?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user    User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  order   Order?   @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  payment Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([productId])
+  @@index([orderId])
+  @@index([paymentId])
+  @@index([eventType])
+  @@map("events")
+}
+
+model User {
+  id String @id @default(cuid())
+
+  name String?
+
+  mobileNo          String? @unique @map("mobile_no")
+  email             String? @unique
+  instagramUsername String? @unique @map("instagram_username")
+
+  isGuest Boolean @default(false)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  addresses Address[]
+  orders    Order[]
+  events    Event[]
+
+  @@map("users")
+}
+
+model Address {
+  id      String @id @default(cuid())
+  userId  String @map("user_id")
+  address String
+  city    String
+  state   String @default("")
+  pincode String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("addresses")
+}
+
+model Product {
+  id             String   @id @default(cuid())
+  name           String
+  slug           String   @unique
+  category       String
+  description    String
+  price          Int
+  productionDays Decimal  @default(1) @map("production_days") @db.Decimal(10, 2)
+  active         Boolean  @default(true)
+  orderCount     Int      @default(0) @map("order_count")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  imageUrl     String  @map("image_url")
+  instagramUrl String? @map("instagram_url")
+
+  orderItems OrderItem[]
+  events     Event[]
+
+  @@index([active, category])
+  @@map("products")
+}
+
+model Order {
+  id                   String      @id @default(cuid())
+  orderNumber          String      @unique @map("order_number")
+  userId               String      @map("user_id")
+  status               OrderStatus @default(PAYMENT_PENDING)
+  occasionType         String?     @map("occasion_type")
+  occasionDate         DateTime?   @map("occasion_date")
+  deliveryDate         DateTime?   @map("delivery_date")
+  shippingDurationDays Int?        @map("shipping_duration_days")
+  shippingDate         DateTime?   @map("shipping_date")
+  productionDeadline   DateTime?   @map("production_deadline")
+  quantity             Int         @default(1)
+  subtotal             Int
+  total                Int
+  notes                String?
+  giftMessage          String?     @map("gift_message")
+  trackingNumber       String?     @map("tracking_number")
+  createdAt            DateTime    @default(now()) @map("created_at")
+
+  user                 User                  @relation(fields: [userId], references: [id])
+  items                OrderItem[]
+  payments             Payment[]
+  capacityReservations CapacityReservation[]
+  events               Event[]
+
+  @@index([status])
+  @@index([occasionDate])
+  @@index([createdAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String @id @default(cuid())
+  orderId   String @map("order_id")
+  productId String @map("product_id")
+  quantity  Int
+  price     Int
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@map("order_items")
+}
+
+model Payment {
+  id            String        @id @default(cuid())
+  orderId       String        @map("order_id")
+  amount        Int
+  screenshotUrl String?       @map("screenshot_url")
+  status        PaymentStatus @default(PENDING)
+  verifiedAt    DateTime?     @map("verified_at")
+  createdAt     DateTime      @default(now()) @map("created_at")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  events Event[]
+
+  @@map("payments")
+}
+
+model Capacity {
+  id              String   @id @default(cuid())
+  date            DateTime @unique @db.Date
+  maximumCapacity Decimal  @map("maximum_capacity") @db.Decimal(10, 2)
+
+  reservations CapacityReservation[]
+
+  @@map("capacity")
+}
+
+model CapacityReservation {
+  id                String  @id @default(cuid())
+  capacityId        String  @map("capacity_id")
+  orderId           String  @map("order_id")
+  plannedQuantity   Decimal @map("planned_quantity") @db.Decimal(10, 2)
+  completedQuantity Decimal @default(0) @map("completed_quantity") @db.Decimal(10, 2)
+  isManual          Boolean @default(false)
+  manualQuantity    Decimal @default(0) @db.Decimal(10, 2)
+
+  capacity Capacity @relation(fields: [capacityId], references: [id], onDelete: Cascade)
+  order    Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@unique([capacityId, orderId])
+  @@map("capacity_reservations")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  action     String
+  entityId   String
+  entityType String
+  beforeJson String?
+  afterJson  String?
+  userId     String?
+  createdAt  DateTime @default(now())
+
+  @@map("audit_logs")
+}
+
+model Setting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("settings")
+}
+
+model ProductionProgress {
+  id             String   @id @default(cuid())
+  date           DateTime @unique @db.Date
+  completedUnits Decimal  @db.Decimal(10, 2)
+  remainingUnits Decimal  @db.Decimal(10, 2)
+  scheduledDates Json // dates with allocated units
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("production_progress")
+}

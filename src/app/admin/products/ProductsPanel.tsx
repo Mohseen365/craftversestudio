@@ -27,6 +27,11 @@ export function ProductsPanel() {
     setLoading(true);
     const res = await fetch("/api/admin/products");
     const data = await res.json();
+    if (!res.ok) {
+  console.log(data);
+  alert(JSON.stringify(data, null, 2));
+  return;
+}
     setProducts(data.products ?? []);
     setLoading(false);
   }
@@ -52,17 +57,33 @@ export function ProductsPanel() {
     };
 
     if (editingProduct) {
-      await fetch(`/api/admin/products/${editingProduct.id}`, {
+      const res =await fetch(`/api/admin/products/${editingProduct.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+
+const data = await res.json();
+
+if (!res.ok) {
+  console.log(data);
+  alert(JSON.stringify(data, null, 2));
+  return;
+}
     } else {
-      await fetch("/api/admin/products", {
+      const res =await fetch("/api/admin/products", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+
+const data = await res.json();
+
+if (!res.ok) {
+  console.log(data);
+  alert(JSON.stringify(data, null, 2));
+  return;
+}
     }
 
     setEditingProduct(null);

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createCustomerSession, getCurrentUser } from "@/lib/auth";
-import { Prisma } from "@prisma/client";
+import { Prisma } from "@/generated/prisma";
 import { z } from "zod";
 
 const loginSchema = z.object({
