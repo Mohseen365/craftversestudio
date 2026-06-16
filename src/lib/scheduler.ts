@@ -332,7 +332,14 @@ export async function getSchedulerPlanningRows() {
         include: {
           order: {
             include: {
-              user: true,
+              user: {
+                include: {
+                  addresses: {
+                    orderBy: { id: "desc" },
+                    take: 1,
+                  },
+                },
+              },
               items: { include: { product: true } },
             },
           },
