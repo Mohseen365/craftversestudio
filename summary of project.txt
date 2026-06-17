@@ -892,6 +892,107 @@ Files changed: `src/app/products/[slug]/page.tsx`, `src/app/order/[slug]/page.ts
 
 ---
 
+# Changes Applied (Round 8 — June 2026)
+
+## Fix 15 — Prisma Validation Error in Scheduler
+
+**Problem:** The "Accept Order" button failed with a 500 error. Logs showed `PrismaClientValidationError` in `getSchedulerData` because the query for order items was using both `select` and `include` at the same level, which is not allowed in Prisma.
+
+**Fix:** Updated `src/lib/scheduler.ts` to remove the redundant `select: { quantity: true }` and only use `include` for the items relation. Since the quantity field is part of the model, it is included by default when using `include`.
+
+Files changed: `src/lib/scheduler.ts`.
+
+---
+
+# Changes Applied (Round 9 — June 2026)
+
+## Performance Audit & Query Optimization
+
+**Objective:** Reduce database load and JSON payload sizes by eliminating data over-fetching across the entire application.
+
+**Fixes:**
+- **Scheduler Optimization:** Replaced massive nested `include` trees in `getSchedulerData` and `getSchedulerPlanningRows` (in `src/lib/scheduler.ts`) with precise `select` trees. This drastically reduces the number of fields fetched from the database for Orders, Users, Products, and Addresses.
+- **Admin API Optimization:**
+  - `GET /api/admin/capacity`: Optimized order preview and planning row queries.
+  - `GET /api/admin/orders`: Refactored to fetch only fields displayed in the UI.
+  - `PATCH /api/admin/orders/[id]`: Reduced initial fetch to `id` and `status` only, removing unused relation loads.
+- **Customer API Optimization:**
+  - `GET /api/orders/track`: Refactored to return only necessary tracking and status info.
+  - `POST /api/orders`: Optimized product fetch during order creation.
+  - `POST /api/orders/[id]/accept`: Optimized order fetch before acceptance.
+  - `POST /api/customer/login` & `/api/customer/guest`: Optimized user creation and updates with targeted `select`.
+- **Auth Library Optimization:** Refactored `getCurrentUser` and `getOrCreateCustomer` (in `src/lib/auth.ts`) to use `select`, avoiding full User object loads on every authenticated request.
+- **Frontend State Optimization:**
+  - `CapacityPanel.tsx`: Converted derived states (like `maxDate`) to `useMemo` to prevent redundant re-renders.
+  - Migrated initial data fetching for the Capacity Panel to the server-side (`src/app/admin/capacity/page.tsx`) to improve First Contentful Paint (FCP) and reduce client-side loading flashes.
+
+**Impact:** These changes significantly improve system stability and responsiveness, especially under the constraints of a single-connection database pool, by minimizing both DB query execution time and network transfer volume.
+
+Files changed: `src/lib/scheduler.ts`, `src/lib/auth.ts`, `src/app/admin/capacity/page.tsx`, `src/app/admin/capacity/CapacityPanel.tsx`, `src/app/api/admin/capacity/route.ts`, `src/app/api/admin/orders/route.ts`, `src/app/api/admin/orders/[id]/route.ts`, `src/app/api/orders/route.ts`, `src/app/api/orders/track/route.ts`, `src/app/api/orders/[id]/accept/route.ts`, `src/app/api/customer/login/route.ts`, `src/app/api/customer/guest/route.ts`.
+
+---
+
+# Changes Applied (Round 10 — June 2026)
+
+## Full-Stack Architecture & Performance Refinement
+
+**Objective:** Complete the optimization effort by migrating all major frontend panels to Server-Side Data Fetching and ensuring consistent query optimization across all customer and admin flows.
+
+**Fixes:**
+- **Server-Side Data Migration:**
+  - **Admin Orders:** Migrated initial order fetching for the default "Pending Verification" tab to the server (`src/app/admin/orders/page.tsx`).
+  - **Admin Products:** Migrated the entire product list fetch to the server (`src/app/admin/products/page.tsx`).
+  - **Order Tracking:** Added server-side lookups for orders when tracking via URL parameters (`src/app/track/page.tsx`).
+  - **Result:** Faster page loads, improved SEO/metadata potential, and elimination of client-side loading flashes for primary data.
+- **Frontend State Refinement:** Updated `OrdersPanel`, `ProductsPanel`, and `TrackForm` to accept `initialData` props, using them for initial state while maintaining the ability to refresh data client-side after mutations.
+- **Extended Query Optimization:**
+  - **Admin Dashboard:** Refined the overview stats query to fetch only the minimum set of order statuses required for revenue and count calculations.
+  - **Product Management:** Optimized the product list and update queries to use precise `select` trees.
+  - **Payment Flow:** Reduced the order fetch during payment upload to only `status`, `total`, and `orderNumber`.
+- **UI Performance:** Prevented redundant client-side effects by checking for `initialData` presence before triggering background fetches.
+
+**Impact:** The application now follows a modern Next.js architecture where the server handles the heavy lifting of data retrieval and initial formatting, while client components handle interactivity and optimistic updates. This minimizes the performance penalty of the single-connection database limit and provides a significantly smoother user experience.
+
+Files changed: `src/app/admin/page.tsx`, `src/app/admin/orders/page.tsx`, `src/app/admin/orders/OrdersPanel.tsx`, `src/app/admin/products/page.tsx`, `src/app/admin/products/ProductsPanel.tsx`, `src/app/track/page.tsx`, `src/app/track/TrackForm.tsx`, `src/app/api/admin/products/route.ts`, `src/app/api/admin/products/[id]/route.ts`, `src/app/api/orders/[id]/payment/route.ts`, `src/lib/auth.ts`, `src/app/api/customer/login/route.ts`, `src/app/api/customer/guest/route.ts`.
+
+---
+
+# Changes Applied (Round 11 — June 2026)
+
+## Frontend State Isolation & Rendering Efficiency
+
+**Objective:** Prevent unnecessary re-renders of large lists (Orders, Products) and optimize client-side calculations.
+
+**Fixes:**
+- **State Isolation in `OrdersPanel.tsx`**: Extracted the `OrderCard` component. Previously, changing the shipping duration or loading a capacity preview for a single order would cause React to re-render the entire list of up to 100 orders. Now, order-specific state (duration, preview, debounce timers) is local to `OrderCard`.
+- **State Isolation in `ProductsPanel.tsx`**: Extracted the `ProductItem` component to isolate list interactions (Edit, Archive) from the main panel state.
+- **Memoized Calculations**: Added `useMemo` to `OrderForm.tsx` for the subtotal calculation and to `OrdersPanel.tsx` for planning date derivations.
+- **Server-Side Alignment**: Refactored `ProductCard.tsx` to remove the redundant `memo` wrapper, simplifying it for server-rendered contexts.
+
+**Impact:** These changes ensure that the UI remains highly responsive even as the number of orders or products grows. By localizing state and memoizing calculations, we've eliminated the primary sources of frame drops and UI lag during admin operations.
+
+Files changed: `src/app/admin/orders/OrdersPanel.tsx`, `src/app/admin/products/ProductsPanel.tsx`, `src/app/order/[slug]/OrderForm.tsx`, `src/components/ProductCard.tsx`.
+
+---
+
+# Changes Applied (Round 12 — June 2026)
+
+## Checkout Flow Integrity & Personalization
+
+**Objective:** Enhance the security and user experience of the checkout flow by adding server-side verification and personalized context.
+
+**Fixes:**
+- **Server-Side Order Verification in `PaymentPage`**: Refactored the payment upload page (`src/app/order/[slug]/payment/page.tsx`) to verify the `orderId` against the database before rendering. This ensures that only valid orders can proceed to the payment step and provides the client with verified `orderNumber` and `mobileNo` data directly from the server.
+- **Personalized Context in `LoginPage`**: Updated the login page (`src/app/login/page.tsx`) to fetch the name of the product being ordered. The UI now displays a more welcoming message like "Complete your order for [Product Name]" instead of a generic prompt.
+- **Enhanced Redirect Logic**: Added server-side redirects in checkout pages to guide users back to the catalog if they arrive without a valid session or order context, preventing dead-ends.
+- **Data Integrity**: By fetching primary order and product data on the server during the checkout flow, we've reduced the reliance on URL parameters for sensitive logic, moving closer to a more secure and robust state management model.
+
+**Impact:** These refinements provide a more professional and secure "Order to Payment" journey for customers. By validating data on the server and providing personalized feedback, we've increased the perceived quality of the application while further reducing unnecessary client-side logic.
+
+Files changed: `src/app/order/[slug]/payment/page.tsx`, `src/app/login/page.tsx`.
+
+---
+
 # Remaining Known Issues (not yet fixed)
 
 ## 1. Customer cookie stores raw userId (unsigned)

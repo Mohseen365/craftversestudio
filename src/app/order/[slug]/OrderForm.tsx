@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { formatPrice } from "@/lib/utils";
 
@@ -30,7 +30,7 @@ export function OrderForm({ product, userId }: OrderFormProps) {
   const [error, setError] = useState("");
   const [quantity, setQuantity] = useState(1);
 
-  const subtotal = product.price * quantity;
+  const subtotal = useMemo(() => product.price * quantity, [product.price, quantity]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();

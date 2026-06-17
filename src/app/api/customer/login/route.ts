@@ -33,13 +33,23 @@ export async function POST(req: NextRequest) {
 
     const existingUser =
       conditions.length > 0
-        ? await prisma.user.findFirst({ where: { OR: conditions } })
+        ? await prisma.user.findFirst({
+            where: { OR: conditions },
+            select: {
+              id: true,
+              mobileNo: true,
+              email: true,
+              instagramUsername: true,
+              name: true,
+            },
+          })
         : null;
 
     if (existingUser) {
       // Merge guest orders into the found account
       const user = await prisma.user.update({
         where: { id: existingUser.id },
+        select: { id: true },
         data: {
           mobileNo: mobileNo || existingUser.mobileNo,
           email: email || existingUser.email,
@@ -70,6 +80,7 @@ export async function POST(req: NextRequest) {
       // Update the current session user's profile
       const updatedUser = await prisma.user.update({
         where: { id: sessionUser.id },
+        select: { id: true },
         data: {
           mobileNo: mobileNo || sessionUser.mobileNo,
           email: email || sessionUser.email,
@@ -84,6 +95,7 @@ export async function POST(req: NextRequest) {
 
     // No existing user found and no active session — create a new account
     const user = await prisma.user.create({
+      select: { id: true },
       data: {
         mobileNo: mobileNo || null,
         email: email || null,

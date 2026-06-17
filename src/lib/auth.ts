@@ -52,6 +52,7 @@ export async function getOrCreateCustomer() {
     data: {
       isGuest: true,
     },
+    select: { id: true },
   });
 
   await createCustomerSession(guestUser.id);
@@ -80,6 +81,13 @@ export async function getCurrentUser() {
 
   return prisma.user.findUnique({
     where: { id: userId },
+    select: {
+      id: true,
+      name: true,
+      mobileNo: true,
+      email: true,
+      instagramUsername: true,
+    },
   });
 }
 

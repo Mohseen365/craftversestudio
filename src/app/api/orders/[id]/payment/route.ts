@@ -24,7 +24,10 @@ export async function POST(
     const { id } = await params;
     const body = schema.parse(await req.json());
 
-    const order = await prisma.order.findUnique({ where: { id } });
+    const order = await prisma.order.findUnique({
+      where: { id },
+      select: { id: true, status: true, total: true, orderNumber: true },
+    });
     if (!order) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }

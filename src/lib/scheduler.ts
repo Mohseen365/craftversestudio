@@ -139,12 +139,20 @@ export async function getSchedulerData(todayKey: string): Promise<SchedulerData>
       status: { in: [...SCHEDULABLE_STATUSES] },
       productionDeadline: { not: null },
     },
-    include: {
+    select: {
+      id: true,
+      orderNumber: true,
+      productionDeadline: true,
+      status: true,
       items: {
-        select: { quantity: true },
-        include: { product: { select: { productionDays: true } } },
+        select: {
+          quantity: true,
+          product: { select: { productionDays: true } },
+        },
       },
-      capacityReservations: { include: { capacity: true } },
+      capacityReservations: {
+        select: { completedQuantity: true },
+      },
     },
   });
 
@@ -369,18 +377,50 @@ export async function getSchedulerPlanningRows() {
 
   const capacities = await prisma.capacity.findMany({
     where: { date: { gte: todayDate, lte: endDate } },
-    include: {
+    select: {
+      id: true,
+      date: true,
+      maximumCapacity: true,
       reservations: {
-        include: {
+        select: {
+          id: true,
+          plannedQuantity: true,
+          completedQuantity: true,
+          manualQuantity: true,
+          isManual: true,
           order: {
-            include: {
+            select: {
+              id: true,
+              orderNumber: true,
+              occasionDate: true,
+              status: true,
+              shippingDurationDays: true,
+              shippingDate: true,
+              productionDeadline: true,
               user: {
-                include: {
-                  addresses: { orderBy: { id: "desc" }, take: 1 },
+                select: {
+                  name: true,
+                  addresses: {
+                    select: {
+                      address: true,
+                      city: true,
+                      state: true,
+                      pincode: true,
+                    },
+                    orderBy: { id: "desc" },
+                    take: 1,
+                  },
                 },
               },
-              items: { include: { product: true } },
-              capacityReservations: true,
+              items: {
+                select: {
+                  quantity: true,
+                  product: { select: { name: true, productionDays: true } },
+                },
+              },
+              capacityReservations: {
+                select: { completedQuantity: true },
+              },
             },
           },
         },

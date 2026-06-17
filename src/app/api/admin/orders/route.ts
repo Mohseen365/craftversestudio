@@ -11,12 +11,22 @@ export async function GET(req: NextRequest) {
 
   const orders = await prisma.order.findMany({
     where: status ? { status: status as never } : undefined,
-    include: {
+    select: {
+      id: true,
+      orderNumber: true,
+      status: true,
+      occasionDate: true,
+      deliveryDate: true,
+      productionDeadline: true,
+      shippingDate: true,
+      shippingDurationDays: true,
+      total: true,
+      trackingNumber: true,
+      quantity: true,
       user: {
         select: {
           name: true,
           mobileNo: true,
-          email: true,
           addresses: {
             select: {
               address: true,
@@ -28,11 +38,16 @@ export async function GET(req: NextRequest) {
         },
       },
       items: {
-        include: {
+        select: {
+          quantity: true,
           product: { select: { name: true, productionDays: true } },
         },
       },
-      payments: { orderBy: { createdAt: "desc" }, take: 1 },
+      payments: {
+        select: { screenshotUrl: true, status: true },
+        orderBy: { createdAt: "desc" },
+        take: 1,
+      },
     },
     orderBy: { createdAt: "desc" },
     take: 100,

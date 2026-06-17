@@ -33,6 +33,7 @@ export async function PATCH(
 
     const product = await prisma.product.update({
       where: { id },
+      select: { id: true },
       data: {
         name: body.name,
         category: body.category,
