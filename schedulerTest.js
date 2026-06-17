@@ -1,4 +1,4 @@
-// Updated scheduler test for Mid-Day Reallocation Logic
+// Updated scheduler test for Mid-Day Reallocation Logic (Exhaustive)
 const DAILY_PRODUCTION_CAPACITY = 1;
 
 function addDaysToKey(key, days) {
@@ -42,7 +42,6 @@ function scheduleOrdersInMemory(todayKey, orders, capacityLimits, completedWorkM
     })
     .filter((x) => x !== null);
 
-  // Most constrained first
   toSchedule.sort((a, b) => {
     if (a.windowSize !== b.windowSize) return a.windowSize - b.windowSize;
     if (Math.abs(a.slack - b.slack) > 0.001) return a.slack - b.slack;
@@ -75,59 +74,78 @@ function scheduleOrdersInMemory(todayKey, orders, capacityLimits, completedWorkM
   return { success: true, allocations: futureAllocations };
 }
 
-function testMidDayReallocation() {
-  console.log("--- Testing Mid-Day Reallocation Logic ---");
-
-  const today = "2026-06-17";
-
-  // Scenario:
-  // Order 1 needs 2.0 units total.
-  // Admin records 0.5 units completed TODAY (17th).
-  // Urgent Order 2 arrives, needs 0.5 units, deadline TODAY (17th).
-
-  const orders = [
-    {
-      id: "O1",
-      orderNumber: "O1",
-      productionDeadlineKey: "2026-06-20",
-      requiredCapacity: 2.0,
-      lockedCapacity: 0.5, // 0.5 already done
-      status: "ACCEPTED"
-    },
-    {
-      id: "O2",
-      orderNumber: "O2",
-      productionDeadlineKey: "2026-06-17", // Deadline is TODAY
-      requiredCapacity: 0.5,
-      lockedCapacity: 0,
-      status: "ACCEPTED"
-    }
-  ];
-
-  const capacityLimits = new Map(); // Default 1.0 per day
-  const completedWorkMap = new Map();
-  completedWorkMap.set("2026-06-17", 0.5); // 0.5 already consumed by O1's progress
-
-  const result = scheduleOrdersInMemory(today, orders, capacityLimits, completedWorkMap);
-
-  console.log("Success:", result.success);
-  if (result.success) {
-    for (const [id, allocs] of result.allocations) {
-      console.log(`Order ${id} allocations:`);
-      allocs.forEach(a => console.log(`  Date: ${a.dateKey}, Quantity: ${a.quantity}`));
-    }
-
-    // Check if O2 got the remaining 0.5 on the 17th
-    const o2Alloc = result.allocations.get("O2");
-    const o2Today = o2Alloc.find(a => a.dateKey === "2026-06-17");
-    if (o2Today && o2Today.quantity === 0.5) {
-      console.log("\nPASS: Urgent Order 2 took the remaining 0.5 capacity on 17 Jun.");
+function runScenario(label, today, orders, capacityLimits, completedWorkMap) {
+    console.log(`\n>>> SCENARIO: ${label}`);
+    const result = scheduleOrdersInMemory(today, orders, capacityLimits, completedWorkMap);
+    console.log("Success:", result.success);
+    if (result.success) {
+        for (const [id, allocs] of result.allocations) {
+            console.log(`  Order ${id} allocations:`);
+            allocs.forEach(a => console.log(`    Date: ${a.dateKey}, Quantity: ${a.quantity}`));
+        }
     } else {
-      console.log("\nFAIL: Urgent Order 2 did not get the expected allocation.");
+        console.log("  Failure Reason:", result.reason);
     }
-  } else {
-    console.log("Reason:", result.reason);
-  }
+    return result;
 }
 
-testMidDayReallocation();
+function main() {
+  const today = "2026-06-17";
+  let capacityLimits = new Map();
+  let completedWorkMap = new Map();
+
+  // CASE 1: Standard Multi-day Order A
+  const orders1 = [
+    { id: "O1", orderNumber: "O1", productionDeadlineKey: "2026-06-20", requiredCapacity: 2.0, lockedCapacity: 0, status: "ACCEPTED" }
+  ];
+  runScenario("Order A (2.0) with no constraints", today, orders1, capacityLimits, completedWorkMap);
+
+  // CASE 2: Mid-Day Progress recorded for O1 (0.5 units done today)
+  completedWorkMap.set("2026-06-17", 0.5);
+  const orders2 = [
+    { id: "O1", orderNumber: "O1", productionDeadlineKey: "2026-06-20", requiredCapacity: 2.0, lockedCapacity: 0.5, status: "ACCEPTED" }
+  ];
+  runScenario("Order A after 0.5 progress today", today, orders2, capacityLimits, completedWorkMap);
+
+  // CASE 3: Urgent Order O2 added (0.5 units, deadline TODAY)
+  const orders3 = [
+    { id: "O1", orderNumber: "O1", productionDeadlineKey: "2026-06-20", requiredCapacity: 2.0, lockedCapacity: 0.5, status: "ACCEPTED" },
+    { id: "O2", orderNumber: "O2", productionDeadlineKey: "2026-06-17", requiredCapacity: 0.5, lockedCapacity: 0, status: "ACCEPTED" }
+  ];
+  runScenario("Urgent Order O2 arrives (Deadline Today)", today, orders3, capacityLimits, completedWorkMap);
+
+  // CASE 4: Capacity Override (Staff Shortage Tomorrow)
+  capacityLimits.set("2026-06-18", 0.2);
+  runScenario("O1 and O2 with shortage tomorrow (0.2)", today, orders3, capacityLimits, completedWorkMap);
+
+  // CASE 5: Holiday (Tomorrow limit = 0)
+  capacityLimits.set("2026-06-18", 0);
+  runScenario("Holiday Tomorrow (0 capacity)", today, orders3, capacityLimits, completedWorkMap);
+
+  // CASE 6: Complex Multi-Order shuffle
+  // O1: 0.5 locked today, needs 1.5 more. Deadline 20th.
+  // O2: Needs 0.5. Deadline Today (17th).
+  // O3: Needs 1.0. Deadline 19th.
+  // Tomorrow (18th) is 0 capacity.
+  // 17th: 0.5 used by O1-lock. 0.5 remaining. O2 takes it.
+  // 18th: 0 used. 0 remaining.
+  // 19th: 1.0 limit. O3 takes it (more constrained than O1).
+  // 20th: 1.0 limit. O1 takes 1.0.
+  // 21st: O1 needs 0.5 more. BUT Deadline is 20th. FAIL.
+  const orders6 = [
+    ...orders3,
+    { id: "O3", orderNumber: "O3", productionDeadlineKey: "2026-06-19", requiredCapacity: 1.0, lockedCapacity: 0, status: "ACCEPTED" }
+  ];
+  runScenario("Complex Multi-Order shuffle (Should Fail if O1 deadline tight)", today, orders6, capacityLimits, completedWorkMap);
+
+  // CASE 7: Adjusting O1 progress down to 0.1 to make room for O4
+  console.log("\n>>> SCENARIO: Reducing O1 progress to free up today's capacity");
+  completedWorkMap.set("2026-06-17", 0.1);
+  const orders7 = [
+    { id: "O1", orderNumber: "O1", productionDeadlineKey: "2026-06-20", requiredCapacity: 2.0, lockedCapacity: 0.1, status: "ACCEPTED" },
+    { id: "O4", orderNumber: "O4", productionDeadlineKey: "2026-06-17", requiredCapacity: 0.9, lockedCapacity: 0, status: "ACCEPTED" }
+  ];
+  runScenario("Freeing capacity for O4 (0.9 today)", today, orders7, capacityLimits, completedWorkMap);
+}
+
+main();

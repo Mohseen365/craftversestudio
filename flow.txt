@@ -122,3 +122,27 @@ Solve the "Capacity Constraint" problem: Can we finish a new bouquet order befor
 - **Current:** 1 direct connection limit.
 - **Status:** Already optimized queries to the bone.
 - **Suggestion:** If scaling, use Supabase's transaction pooler (port 6543) instead of direct (port 5432) to handle more concurrent light queries.
+
+---
+
+## 7. Logic Validation Scenarios (Verified)
+
+### [Scenario 1] Mid-Day Progress (Locking)
+- **State:** Order A needs 2.0 units. Daily limit is 1.0.
+- **Action:** Admin records 0.5 units done today.
+- **Result:** Scheduler locks those 0.5 units for Order A. Order A's remaining 1.5 units are pushed to future dates if necessary. Today's "Planned" total for Order A is exactly 0.5.
+
+### [Scenario 2] Urgent Order (Stealing Remaining Capacity)
+- **State:** Order A has 0.5 units locked today. Limit is 1.0. Remaining today = 0.5.
+- **Action:** Urgent Order B arrives (needs 0.5, deadline TODAY).
+- **Result:** Order B is allocated the remaining 0.5 units today. Order A is pushed to the next available slot. Both meet their deadlines.
+
+### [Scenario 3] Capacity Override (Staff Shortage)
+- **State:** Limit is 1.0.
+- **Action:** Admin overrides limit for tomorrow to 0.2.
+- **Result:** Scheduler only allocates 0.2 units across all orders for tomorrow, pushing the overflow to the following days.
+
+### [Scenario 4] Constraint Failure
+- **State:** Order A has 0.5 locked today. Remaining today = 0.5.
+- **Action:** Urgent Order C arrives (needs 0.8, deadline TODAY).
+- **Result:** Scheduler rejects Order C with "Missing 0.30 units" reason. System integrity is maintained; Order A is not jeopardized.
