@@ -904,6 +904,34 @@ Files changed: `src/lib/scheduler.ts`.
 
 ---
 
+# Changes Applied (Round 9 — June 2026)
+
+## Performance Audit & Query Optimization
+
+**Objective:** Reduce database load and JSON payload sizes by eliminating data over-fetching across the entire application.
+
+**Fixes:**
+- **Scheduler Optimization:** Replaced massive nested `include` trees in `getSchedulerData` and `getSchedulerPlanningRows` (in `src/lib/scheduler.ts`) with precise `select` trees. This drastically reduces the number of fields fetched from the database for Orders, Users, Products, and Addresses.
+- **Admin API Optimization:**
+  - `GET /api/admin/capacity`: Optimized order preview and planning row queries.
+  - `GET /api/admin/orders`: Refactored to fetch only fields displayed in the UI.
+  - `PATCH /api/admin/orders/[id]`: Reduced initial fetch to `id` and `status` only, removing unused relation loads.
+- **Customer API Optimization:**
+  - `GET /api/orders/track`: Refactored to return only necessary tracking and status info.
+  - `POST /api/orders`: Optimized product fetch during order creation.
+  - `POST /api/orders/[id]/accept`: Optimized order fetch before acceptance.
+  - `POST /api/customer/login` & `/api/customer/guest`: Optimized user creation and updates with targeted `select`.
+- **Auth Library Optimization:** Refactored `getCurrentUser` and `getOrCreateCustomer` (in `src/lib/auth.ts`) to use `select`, avoiding full User object loads on every authenticated request.
+- **Frontend State Optimization:**
+  - `CapacityPanel.tsx`: Converted derived states (like `maxDate`) to `useMemo` to prevent redundant re-renders.
+  - Migrated initial data fetching for the Capacity Panel to the server-side (`src/app/admin/capacity/page.tsx`) to improve First Contentful Paint (FCP) and reduce client-side loading flashes.
+
+**Impact:** These changes significantly improve system stability and responsiveness, especially under the constraints of a single-connection database pool, by minimizing both DB query execution time and network transfer volume.
+
+Files changed: `src/lib/scheduler.ts`, `src/lib/auth.ts`, `src/app/admin/capacity/page.tsx`, `src/app/admin/capacity/CapacityPanel.tsx`, `src/app/api/admin/capacity/route.ts`, `src/app/api/admin/orders/route.ts`, `src/app/api/admin/orders/[id]/route.ts`, `src/app/api/orders/route.ts`, `src/app/api/orders/track/route.ts`, `src/app/api/orders/[id]/accept/route.ts`, `src/app/api/customer/login/route.ts`, `src/app/api/customer/guest/route.ts`.
+
+---
+
 # Remaining Known Issues (not yet fixed)
 
 ## 1. Customer cookie stores raw userId (unsigned)

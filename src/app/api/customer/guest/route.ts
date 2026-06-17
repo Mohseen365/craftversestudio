@@ -10,6 +10,7 @@ export async function POST() {
   }
 
   const user = await prisma.user.create({
+    select: { id: true },
     data: {
       isGuest: true,
     },

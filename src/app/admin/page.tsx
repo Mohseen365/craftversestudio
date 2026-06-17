@@ -25,7 +25,14 @@ export default async function AdminDashboardPage() {
       where: {
         createdAt: { gte: startOfDay },
         status: {
-          notIn: ["CANCELLED", "REFUNDED", "PENDING_REVIEW", "PAYMENT_PENDING"],
+          notIn: [
+            "CANCELLED",
+            "REFUNDED",
+            "PENDING_REVIEW",
+            "PAYMENT_PENDING",
+            "REJECTED",
+            "PAYMENT_REJECTED",
+          ],
         },
       },
       _sum: { total: true },
@@ -34,7 +41,14 @@ export default async function AdminDashboardPage() {
       where: {
         createdAt: { gte: startOfMonth },
         status: {
-          notIn: ["CANCELLED", "REFUNDED", "PENDING_REVIEW", "PAYMENT_PENDING"],
+          notIn: [
+            "CANCELLED",
+            "REFUNDED",
+            "PENDING_REVIEW",
+            "PAYMENT_PENDING",
+            "REJECTED",
+            "PAYMENT_REJECTED",
+          ],
         },
       },
       _sum: { total: true },
