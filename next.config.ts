@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  env: {
+    NEXT_PHASE: process.env.NEXT_PHASE || "",
+  },
   images: {
     remotePatterns: [
       {

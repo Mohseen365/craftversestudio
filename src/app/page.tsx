@@ -26,7 +26,7 @@ export default async function HomePage() {
     }),
   ]);
 
-  await trackEvent({
+  trackEvent({
     userId: user?.id,
     eventType: "WEBSITE_OPENED",
     metadata: { source: "homepage" },

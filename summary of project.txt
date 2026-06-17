@@ -853,6 +853,27 @@ Files changed: `src/lib/scheduler.ts`, `src/app/api/admin/capacity/route.ts`, `s
 
 ---
 
+# Changes Applied (Round 6 — June 2026)
+
+## Fix 12 — Build-time database connection exhaustion
+
+**Problem:** Netlify builds intermittently failed with "Timed out fetching a new connection from the connection pool". Next.js was attempting to pre-render pages (Home, Catalog) during `next build`, which triggered concurrent database queries that exceeded the Supabase free-tier connection limit (1).
+
+**Fix:**
+- Added a guard in `src/lib/eventLogger.ts` to skip event tracking during the `next build` phase (`process.env.NEXT_PHASE === "phase-production-build"`).
+- Marked data-heavy pages (Home, Catalog, Admin sub-pages) as `force-dynamic` to prevent build-time database queries.
+- Ensured the Prisma client is correctly generated to a custom path (`src/generated/prisma`) to avoid stale client issues.
+
+## Performance Optimization — Event Tracking
+
+**Problem:** Waiting for `trackEvent` (database write) during page render increased TTFB.
+
+**Fix:** Reverted `trackEvent` calls to be unawaited (fire-and-forget). The build-phase guard ensures these don't cause issues during `next build`, while allowing faster response times during runtime.
+
+Files changed: `src/lib/eventLogger.ts`, `src/app/page.tsx`, `src/app/catalog/page.tsx`, `src/app/admin/orders/page.tsx`, `src/app/admin/products/page.tsx`, `src/app/admin/capacity/page.tsx`, `src/app/products/[slug]/page.tsx`, `src/app/order/[slug]/page.tsx`, `src/app/track/page.tsx`.
+
+---
+
 # Remaining Known Issues (not yet fixed)
 
 ## 1. Customer cookie stores raw userId (unsigned)

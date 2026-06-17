@@ -37,7 +37,7 @@ export default async function OrderPage({
 
   if (!product) notFound();
 
-  await trackEvent({
+  trackEvent({
     userId: user?.id,
     eventType: "ORDER_PAGE_VIEWED",
     metadata: {

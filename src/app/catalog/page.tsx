@@ -68,7 +68,7 @@ export default async function CatalogPage({
     }),
   ]);
 
-  await trackEvent({
+  trackEvent({
     userId: user?.id,
     eventType: "CATALOG_VIEWED",
     metadata: {

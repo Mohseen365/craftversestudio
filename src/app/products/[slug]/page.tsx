@@ -46,7 +46,7 @@ export default async function ProductPage({
 
   if (!product) notFound();
 
-  await trackEvent({
+  trackEvent({
     userId: user?.id,
     productId: product.id,
     eventType: "PRODUCT_VIEW",
