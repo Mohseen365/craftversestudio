@@ -1,0 +1,121 @@
+# Bouquet Project – Comprehensive Mindmap & Flow
+
+## 1. Core Objective
+Solve the "Capacity Constraint" problem: Can we finish a new bouquet order before its deadline without making existing orders late?
+
+---
+
+## 2. Global Architecture
+- **Framework:** Next.js (Server-First approach).
+- **ORM:** Prisma (Optimized with precise `select` trees).
+- **Database:** Supabase/PostgreSQL (Strict 1-connection limit on free tier).
+- **Rendering:** All data-heavy pages marked `force-dynamic` to protect build-time stability.
+- **State Management:** Localized to components (`OrderCard`, `ProductItem`) to prevent mass re-renders.
+
+---
+
+## 3. Customer Flow (Who Calls What)
+
+### [A] Discovery & Product View
+- **Home (`/`) / Catalog (`/catalog`):**
+  - Calls `prisma.product.findMany` (Server-side).
+  - Renders `ProductCard`.
+- **Product Page (`/products/[slug]`):**
+  - Calls `prisma.product.findUnique`.
+  - Tracks `PRODUCT_VIEW` (Fire-and-forget).
+
+### [B] Ordering & Identity
+- **Order Page (`/order/[slug]`):**
+  - Renders `OrderForm`.
+- **Order Submission (`POST /api/orders`):**
+  - Creates Guest User if no session (`/api/customer/guest`).
+  - Creates `Order` (status: `PENDING_REVIEW`).
+  - Creates `OrderItem` & `Address`.
+  - Redirects to Login.
+- **Login/Contact Details (`/login`):**
+  - Customer provides Name/Mobile.
+  - Calls `POST /api/customer/login`.
+  - Merges guest order to the "permanent" user record.
+
+### [C] Payment & Tracking
+- **Payment Page (`/order/[slug]/payment`):**
+  - **NEW:** Server-side verification of `orderId`.
+  - Renders `PaymentUpload`.
+- **Upload (`POST /api/upload` -> `POST /api/orders/[id]/payment`):**
+  - Saves screenshot URL.
+  - Moves Order status to `PAYMENT_VERIFICATION`.
+- **Track Order (`/track`):**
+  - **NEW:** Server-side lookup if query params present.
+  - Calls `GET /api/orders/track`.
+  - Displays `OrderStatusBadge`.
+
+---
+
+## 4. Admin Flow (What Happens Where)
+
+### [A] Order Management (`/admin/orders`)
+- **Reviewing:** Admin enters `shippingDurationDays`.
+- **Capacity Preview:** Keystroke triggers `GET /api/admin/capacity?productionDeadline=...`.
+  - Calls `checkAcceptability` (In-memory algorithm run).
+- **Acceptance:** Admin clicks "Accept Order".
+  - Calls `POST /api/orders/[id]/accept`.
+  - Updates status to `ACCEPTED`.
+  - Triggers `persistAllocations` (Writes to `CapacityReservation` table).
+
+### [B] Production Workflow
+- **Status Progression:** Admin moves order through buttons:
+  - `CONFIRMED` -> `IN_PRODUCTION` -> `READY_TO_SHIP` -> `SHIPPED`.
+  - Calls `PATCH /api/admin/orders/[id]`.
+  - Only triggers `rebuildSchedule()` if status leaves schedulable set (e.g., `SHIPPED`).
+
+### [C] Capacity Planning (`/admin/capacity`)
+- **Dashboard:** Server-side fetch of all capacity rows.
+- **Manual Overrides:** Admin changes daily limit.
+  - Calls `POST /api/admin/capacity/override`.
+- **Progress Tracking:** Admin updates `completedUnits` for an order on a specific date.
+  - Calls `POST /api/admin/capacity/progress`.
+
+---
+
+## 5. Scheduling Engine Logic (Deep Dive)
+
+### [Step 1] Data Loading (`getSchedulerData`)
+- Fetches all `SCHEDULABLE` orders.
+- Optimized: Only selects `id`, `items(quantity, productionDays)`, `reservations(completedQuantity)`.
+
+### [Step 2] In-Memory Algorithm (`scheduleOrdersInMemory`)
+- Calculates `remainingEffort` (Required - Locked).
+- Identifies viable date window (Today -> Deadline).
+- Calculates `slack` (Window Capacity - Remaining Need).
+- **Sorting:** Most constrained orders first (Fewest dates -> Lowest slack -> Earliest deadline).
+- **Allocation:** Greedy forward-filling of daily capacity.
+
+### [Step 3] Persistence (`persistAllocations`)
+- Deletes old `isManual: false` reservations.
+- Performs `createMany` with flat scalar IDs.
+
+---
+
+## 6. Detected Inconsistencies & Improvement Suggestions
+
+### [!] Inconsistency: User Identity Security
+- **Current:** `bouquet_customer` cookie stores raw, unsigned User ID.
+- **Risk:** Any user can change their cookie value to any other ID and "steal" orders.
+- **Suggestion:** Use signed cookies or a proper JWT-based session in `lib/auth.ts`.
+
+### [!] Inconsistency: Payment Submission Ownership
+- **Current:** `POST /api/orders/[id]/payment` doesn't check if the current user owns the order.
+- **Suggestion:** Cross-reference `order.userId` with `sessionUser.id` before allowing a screenshot upload.
+
+### [!] Inconsistency: `ProductionProgress` Model
+- **Current:** Exists in schema but never read or written to.
+- **Suggestion:** Remove from `schema.prisma` to keep the DB lean.
+
+### [!] Logic Suggestion: Waitlist Automation
+- **Current:** Waitlist exists as a status but is manually managed.
+- **Suggestion:** If `checkAcceptability` fails, offer a "Waitlist Me" button to the customer instead of just a rejection to the admin.
+
+### [!] Performance Suggestion: DB Connection Pooler
+- **Current:** 1 direct connection limit.
+- **Status:** Already optimized queries to the bone.
+- **Suggestion:** If scaling, use Supabase's transaction pooler (port 6543) instead of direct (port 5432) to handle more concurrent light queries.

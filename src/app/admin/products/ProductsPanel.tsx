@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { formatPrice } from "@/lib/utils";
 // import { Decimal } from "@prisma/client/runtime/library";
 
@@ -28,23 +28,29 @@ export function ProductsPanel({
   const [loading, setLoading] = useState(false);
 
   async function load() {
-    setLoading(true);
-    const res = await fetch("/api/admin/products");
-    const data = await res.json();
-    if (!res.ok) {
-      console.log(data);
-      alert(JSON.stringify(data, null, 2));
-      return;
+    try {
+      setLoading(true);
+
+      const res = await fetch("/api/admin/products");
+      const data = await res.json();
+
+      if (!res.ok) {
+        console.log(data);
+        alert(JSON.stringify(data, null, 2));
+        return;
+      }
+
+      setProducts(data.products ?? []);
+    } finally {
+      setLoading(false);
     }
-    setProducts(data.products ?? []);
-    setLoading(false);
   }
 
-  useEffect(() => {
-    if (products !== initialProducts) {
-      load();
-    }
-  }, []);
+  // useEffect(() => {
+  //   if (products !== initialProducts) {
+  //     load();
+  //   }
+  // }, []);
 
   const onUpdate = () => {
     load();
@@ -67,33 +73,33 @@ export function ProductsPanel({
     };
 
     if (editingProduct) {
-      const res =await fetch(`/api/admin/products/${editingProduct.id}`, {
+      const res = await fetch(`/api/admin/products/${editingProduct.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
-const data = await res.json();
+      const data = await res.json();
 
-if (!res.ok) {
-  console.log(data);
-  alert(JSON.stringify(data, null, 2));
-  return;
-}
+      if (!res.ok) {
+        console.log(data);
+        alert(JSON.stringify(data, null, 2));
+        return;
+      }
     } else {
-      const res =await fetch("/api/admin/products", {
+      const res = await fetch("/api/admin/products", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
-const data = await res.json();
+      const data = await res.json();
 
-if (!res.ok) {
-  console.log(data);
-  alert(JSON.stringify(data, null, 2));
-  return;
-}
+      if (!res.ok) {
+        console.log(data);
+        alert(JSON.stringify(data, null, 2));
+        return;
+      }
     }
 
     setEditingProduct(null);
