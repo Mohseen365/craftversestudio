@@ -11,6 +11,11 @@ export async function trackEvent({
   eventType: string;
   metadata?: any;
 }) {
+  // Skip event tracking during build phase to avoid database connection exhaustion
+  if (process.env.NEXT_PHASE === "phase-production-build") {
+    return;
+  }
+
   try {
     await prisma.event.create({
       data: {

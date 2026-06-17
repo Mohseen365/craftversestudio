@@ -1,4 +1,4 @@
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { Header } from "@/components/Header";
@@ -26,7 +26,7 @@ export default async function HomePage() {
     }),
   ]);
 
-  trackEvent({
+  await trackEvent({
     userId: user?.id,
     eventType: "WEBSITE_OPENED",
     metadata: { source: "homepage" },

@@ -15,9 +15,12 @@ export default async function TrackPage({
   const orderNumber = params.orderNumber ?? "";
   const mobileNo = params.mobileNo ?? "";
 
-  getCurrentUser()
-    .then((user) => trackEvent({ userId: user?.id, eventType: "TRACK_ORDER" }))
-    .catch((err) => console.error("Customer creation failed:", err));
+  try {
+    const user = await getCurrentUser();
+    await trackEvent({ userId: user?.id, eventType: "TRACK_ORDER" });
+  } catch (err) {
+    console.error("Tracking event failed:", err);
+  }
 
   return (
     <>
