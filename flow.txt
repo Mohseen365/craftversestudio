@@ -70,10 +70,13 @@ Solve the "Capacity Constraint" problem: Can we finish a new bouquet order befor
 
 ### [C] Capacity Planning (`/admin/capacity`)
 - **Dashboard:** Server-side fetch of all capacity rows.
-- **Manual Overrides:** Admin changes daily limit.
+- **Manual Overrides:** Admin changes daily limit (e.g., Holidays = 0).
   - Calls `POST /api/admin/capacity/override`.
-- **Progress Tracking:** Admin updates `completedUnits` for an order on a specific date.
+- **Progress Tracking (Mid-Day Reallocation):**
+  - Admin records work done (e.g., "Order 1: 0.5 units done today").
   - Calls `POST /api/admin/capacity/progress`.
+  - **Logic:** This locks 0.5 units. If the day's capacity is 1.0, the remaining 0.5 becomes "Available" for other orders.
+  - Subsequent `rebuildSchedule()` calls respect this lock and reallocate the remaining 0.5 to higher-priority or urgent orders.
 
 ---
 
