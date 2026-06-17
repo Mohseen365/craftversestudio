@@ -975,6 +975,24 @@ Files changed: `src/app/admin/orders/OrdersPanel.tsx`, `src/app/admin/products/P
 
 ---
 
+# Changes Applied (Round 12 — June 2026)
+
+## Checkout Flow Integrity & Personalization
+
+**Objective:** Enhance the security and user experience of the checkout flow by adding server-side verification and personalized context.
+
+**Fixes:**
+- **Server-Side Order Verification in `PaymentPage`**: Refactored the payment upload page (`src/app/order/[slug]/payment/page.tsx`) to verify the `orderId` against the database before rendering. This ensures that only valid orders can proceed to the payment step and provides the client with verified `orderNumber` and `mobileNo` data directly from the server.
+- **Personalized Context in `LoginPage`**: Updated the login page (`src/app/login/page.tsx`) to fetch the name of the product being ordered. The UI now displays a more welcoming message like "Complete your order for [Product Name]" instead of a generic prompt.
+- **Enhanced Redirect Logic**: Added server-side redirects in checkout pages to guide users back to the catalog if they arrive without a valid session or order context, preventing dead-ends.
+- **Data Integrity**: By fetching primary order and product data on the server during the checkout flow, we've reduced the reliance on URL parameters for sensitive logic, moving closer to a more secure and robust state management model.
+
+**Impact:** These refinements provide a more professional and secure "Order to Payment" journey for customers. By validating data on the server and providing personalized feedback, we've increased the perceived quality of the application while further reducing unnecessary client-side logic.
+
+Files changed: `src/app/order/[slug]/payment/page.tsx`, `src/app/login/page.tsx`.
+
+---
+
 # Remaining Known Issues (not yet fixed)
 
 ## 1. Customer cookie stores raw userId (unsigned)

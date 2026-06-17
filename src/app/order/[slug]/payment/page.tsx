@@ -1,9 +1,9 @@
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { PaymentUpload } from "./PaymentUpload";
-import { redirect } from "next/navigation";
-// import { getCurrentUser } from "@/lib/auth";
+import { notFound, redirect } from "next/navigation";
 import { trackEvent } from "@/lib/eventLogger";
+import { prisma } from "@/lib/prisma";
 
 export default async function PaymentPage({
   searchParams,
@@ -17,10 +17,34 @@ export default async function PaymentPage({
 }) {
   const params = await searchParams;
   const orderId = params.orderId ?? "";
-  const orderNumber = params.orderNumber ?? "";
-  // const user = await getCurrentUser();
-  const userId = params.userId ?? "";
-  const mobileNo = params.mobileNo ?? "";
+
+  if (!orderId) {
+    redirect("/catalog");
+  }
+
+  // Verify order on server
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    select: {
+      id: true,
+      orderNumber: true,
+      userId: true,
+      status: true,
+      user: {
+        select: {
+          mobileNo: true,
+        },
+      },
+    },
+  });
+
+  if (!order) {
+    notFound();
+  }
+
+  const orderNumber = order.orderNumber;
+  const userId = order.userId;
+  const mobileNo = order.user.mobileNo ?? "";
 
   if (!mobileNo) {
     redirect("/login");

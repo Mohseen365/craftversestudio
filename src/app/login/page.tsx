@@ -1,5 +1,6 @@
 import { LoginForm } from "./LoginForm";
 import { trackEvent } from "@/lib/eventLogger";
+import { prisma } from "@/lib/prisma";
 
 export default async function LoginPage({
   searchParams,
@@ -17,6 +18,15 @@ export default async function LoginPage({
   const productId = params.productId ?? "";
   const userId = params.userId ?? "";
 
+  let productName = "";
+  if (productId) {
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+      select: { name: true },
+    });
+    productName = product?.name ?? "";
+  }
+
   void trackEvent({
     userId: userId,
     eventType: "LOGIN",
@@ -29,8 +39,9 @@ export default async function LoginPage({
   return (
     <main className="mx-auto max-w-md px-4 py-20">
       <h1 className="text-3xl font-semibold">
-        We need your contact details in order to reach out to you regarding your
-        order
+        {productName
+          ? `Complete your order for ${productName}`
+          : "We need your contact details to proceed with your order"}
       </h1>
       <p className="mt-2 text-stone-600">
         First we will check that we can provide you bouquet on required date
