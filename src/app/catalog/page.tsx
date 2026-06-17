@@ -1,4 +1,4 @@
-export const revalidate = 1800;
+export const dynamic = "force-dynamic";
 
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
@@ -68,7 +68,7 @@ export default async function CatalogPage({
     }),
   ]);
 
-  trackEvent({
+  await trackEvent({
     userId: user?.id,
     eventType: "CATALOG_VIEWED",
     metadata: {
