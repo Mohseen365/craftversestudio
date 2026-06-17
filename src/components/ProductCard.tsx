@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { formatPrice } from "@/lib/utils";
 import Image from "next/image";
-import { memo } from "react";
 
 type ProductCardProps = {
   id: string;
@@ -12,7 +11,7 @@ type ProductCardProps = {
   imageUrl?: string | null;
 };
 
-export const ProductCard = memo(function ProductCard({
+export function ProductCard({
   id,
   name,
   slug,
@@ -54,4 +53,4 @@ export const ProductCard = memo(function ProductCard({
       </div>
     </Link>
   );
-});
+}

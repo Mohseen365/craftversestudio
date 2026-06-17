@@ -957,6 +957,24 @@ Files changed: `src/app/admin/page.tsx`, `src/app/admin/orders/page.tsx`, `src/a
 
 ---
 
+# Changes Applied (Round 11 — June 2026)
+
+## Frontend State Isolation & Rendering Efficiency
+
+**Objective:** Prevent unnecessary re-renders of large lists (Orders, Products) and optimize client-side calculations.
+
+**Fixes:**
+- **State Isolation in `OrdersPanel.tsx`**: Extracted the `OrderCard` component. Previously, changing the shipping duration or loading a capacity preview for a single order would cause React to re-render the entire list of up to 100 orders. Now, order-specific state (duration, preview, debounce timers) is local to `OrderCard`.
+- **State Isolation in `ProductsPanel.tsx`**: Extracted the `ProductItem` component to isolate list interactions (Edit, Archive) from the main panel state.
+- **Memoized Calculations**: Added `useMemo` to `OrderForm.tsx` for the subtotal calculation and to `OrdersPanel.tsx` for planning date derivations.
+- **Server-Side Alignment**: Refactored `ProductCard.tsx` to remove the redundant `memo` wrapper, simplifying it for server-rendered contexts.
+
+**Impact:** These changes ensure that the UI remains highly responsive even as the number of orders or products grows. By localizing state and memoizing calculations, we've eliminated the primary sources of frame drops and UI lag during admin operations.
+
+Files changed: `src/app/admin/orders/OrdersPanel.tsx`, `src/app/admin/products/ProductsPanel.tsx`, `src/app/order/[slug]/OrderForm.tsx`, `src/components/ProductCard.tsx`.
+
+---
+
 # Remaining Known Issues (not yet fixed)
 
 ## 1. Customer cookie stores raw userId (unsigned)

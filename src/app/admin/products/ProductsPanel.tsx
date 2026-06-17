@@ -32,10 +32,10 @@ export function ProductsPanel({
     const res = await fetch("/api/admin/products");
     const data = await res.json();
     if (!res.ok) {
-  console.log(data);
-  alert(JSON.stringify(data, null, 2));
-  return;
-}
+      console.log(data);
+      alert(JSON.stringify(data, null, 2));
+      return;
+    }
     setProducts(data.products ?? []);
     setLoading(false);
   }
@@ -45,6 +45,10 @@ export function ProductsPanel({
       load();
     }
   }, []);
+
+  const onUpdate = () => {
+    load();
+  };
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -94,11 +98,6 @@ if (!res.ok) {
 
     setEditingProduct(null);
     setShowForm(false);
-    load();
-  }
-
-  async function archive(id: string) {
-    await fetch(`/api/admin/products/${id}`, { method: "DELETE" });
     load();
   }
 
@@ -183,42 +182,59 @@ if (!res.ok) {
       ) : (
         <ul className="mt-8 space-y-3">
           {products.map((p) => (
-            <li
+            <ProductItem
               key={p.id}
-              className="flex items-center justify-between rounded-xl border bg-white p-4"
-            >
-              <div>
-                <p className="font-medium">{p.name}</p>
-                <p className="text-sm text-stone-500">
-                  {p.category} · {formatPrice(p.price)} ·{" "}
-                  {p.active ? "Active" : "Archived"}
-                </p>
-              </div>
-              <div className="flex gap-3">
-                {p.active && (
-                  <button
-                    onClick={() => {
-                      setEditingProduct(p); // set product to edit
-                      setShowForm(true); // open the form
-                    }}
-                    className="text-sm text-blue-500"
-                  >
-                    Edit
-                  </button>
-                )}
-                {p.active && (
-                  <button
-                    onClick={() => archive(p.id)}
-                    className="text-sm text-red-500"
-                  >
-                    Archive
-                  </button>
-                )}
-              </div>
-            </li>
+              product={p}
+              onEdit={() => {
+                setEditingProduct(p);
+                setShowForm(true);
+              }}
+              onUpdate={onUpdate}
+            />
           ))}
         </ul>
       )}
     </div>
+  );
+}
+
+function ProductItem({
+  product,
+  onEdit,
+  onUpdate,
+}: {
+  product: Product;
+  onEdit: () => void;
+  onUpdate: () => void;
+}) {
+  async function archive() {
+    const res = await fetch(`/api/admin/products/${product.id}`, {
+      method: "DELETE",
+    });
+    if (res.ok) onUpdate();
+  }
+
+  return (
+    <li className="flex items-center justify-between rounded-xl border bg-white p-4">
+      <div>
+        <p className="font-medium">{product.name}</p>
+        <p className="text-sm text-stone-500">
+          {product.category} · {formatPrice(product.price)} ·{" "}
+          {product.active ? "Active" : "Archived"}
+        </p>
+      </div>
+      <div className="flex gap-3">
+        {product.active && (
+          <button onClick={onEdit} className="text-sm text-blue-500">
+            Edit
+          </button>
+        )}
+        {product.active && (
+          <button onClick={archive} className="text-sm text-red-500">
+            Archive
+          </button>
+        )}
+      </div>
+    </li>
   );
 }
