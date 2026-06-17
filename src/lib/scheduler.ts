@@ -141,7 +141,6 @@ export async function getSchedulerData(todayKey: string): Promise<SchedulerData>
     },
     include: {
       items: {
-        select: { quantity: true },
         include: { product: { select: { productionDays: true } } },
       },
       capacityReservations: { include: { capacity: true } },

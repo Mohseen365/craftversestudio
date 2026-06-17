@@ -892,6 +892,18 @@ Files changed: `src/app/products/[slug]/page.tsx`, `src/app/order/[slug]/page.ts
 
 ---
 
+# Changes Applied (Round 8 — June 2026)
+
+## Fix 15 — Prisma Validation Error in Scheduler
+
+**Problem:** The "Accept Order" button failed with a 500 error. Logs showed `PrismaClientValidationError` in `getSchedulerData` because the query for order items was using both `select` and `include` at the same level, which is not allowed in Prisma.
+
+**Fix:** Updated `src/lib/scheduler.ts` to remove the redundant `select: { quantity: true }` and only use `include` for the items relation. Since the quantity field is part of the model, it is included by default when using `include`.
+
+Files changed: `src/lib/scheduler.ts`.
+
+---
+
 # Remaining Known Issues (not yet fixed)
 
 ## 1. Customer cookie stores raw userId (unsigned)
