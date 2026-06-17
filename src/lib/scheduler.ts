@@ -300,9 +300,19 @@ export async function persistAllocations(
   }
 
   await prisma.$transaction(async (tx) => {
+    // Delete only future reservations that have no completed work and are not manual.
+    // This preserves production progress and manual overrides.
     await tx.capacityReservation.deleteMany({
-      where: { capacity: { date: { gte: todayDate } }, isManual: false },
+      where: {
+        capacity: { date: { gte: todayDate } },
+        isManual: false,
+        completedQuantity: 0,
+      },
     });
+
+    // For the remaining future reservations (those with completed work),
+    // we will update them if they are in the new allocation, or leave them
+    // as-is if they are not (but since they have completed work, they stay).
 
     const creates: {
       capacityId: string;
@@ -317,14 +327,29 @@ export async function persistAllocations(
       for (const a of allocs) {
         const capacityId = capacityIdByDateKey.get(a.dateKey);
         if (!capacityId) continue;
-        creates.push({
-          capacityId,
-          orderId,
-          plannedQuantity: a.quantity,
-          completedQuantity: 0,
-          manualQuantity: 0,
-          isManual: false,
+
+        // Check if a reservation already exists (one that wasn't deleted)
+        const existing = await tx.capacityReservation.findUnique({
+          where: { capacityId_orderId: { capacityId, orderId } },
         });
+
+        if (existing) {
+          // Update existing reservation with the new planned quantity
+          await tx.capacityReservation.update({
+            where: { id: existing.id },
+            data: { plannedQuantity: a.quantity },
+          });
+        } else {
+          // Create new reservation
+          creates.push({
+            capacityId,
+            orderId,
+            plannedQuantity: a.quantity,
+            completedQuantity: 0,
+            manualQuantity: 0,
+            isManual: false,
+          });
+        }
       }
     }
 
