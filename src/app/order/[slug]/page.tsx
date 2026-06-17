@@ -6,8 +6,7 @@ import { OrderForm } from "./OrderForm";
 import { getCurrentUser } from "@/lib/auth";
 import { trackEvent } from "@/lib/eventLogger";
 
-export const revalidate = 3600;
-export const dynamicParams = true;
+export const dynamic = "force-dynamic";
 
 // Return no static params — generated on first request and cached.
 export async function generateStaticParams() {
@@ -37,7 +36,7 @@ export default async function OrderPage({
 
   if (!product) notFound();
 
-  await trackEvent({
+  trackEvent({
     userId: user?.id,
     eventType: "ORDER_PAGE_VIEWED",
     metadata: {

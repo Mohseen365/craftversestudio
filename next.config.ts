@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  env: {
+    NEXT_PHASE: process.env.NEXT_PHASE || "",
+  },
   images: {
     remotePatterns: [
       {
@@ -11,7 +14,12 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "images.unsplash.com",
-        pathname: "/**", // Allows all paths from Unsplash
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "unsplash.com",
+        pathname: "/**",
       },
     ],
   },

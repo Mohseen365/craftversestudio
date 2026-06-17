@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { TrackForm } from "./TrackForm";
@@ -15,12 +17,9 @@ export default async function TrackPage({
   const orderNumber = params.orderNumber ?? "";
   const mobileNo = params.mobileNo ?? "";
 
-  try {
-    const user = await getCurrentUser();
-    await trackEvent({ userId: user?.id, eventType: "TRACK_ORDER" });
-  } catch (err) {
-    console.error("Tracking event failed:", err);
-  }
+  getCurrentUser()
+    .then((user) => trackEvent({ userId: user?.id, eventType: "TRACK_ORDER" }))
+    .catch((err) => console.error("Tracking event failed:", err));
 
   return (
     <>
