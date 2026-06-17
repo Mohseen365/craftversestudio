@@ -874,6 +874,24 @@ Files changed: `src/lib/eventLogger.ts`, `src/app/page.tsx`, `src/app/catalog/pa
 
 ---
 
+# Changes Applied (Round 7 — June 2026)
+
+## Fix 13 — Dynamic Rendering for Product and Order pages
+
+**Problem:** Users encountered 500 errors when visiting product or order pages. The logs indicated "Page changed from static to dynamic at runtime" because these pages were using `cookies()` (via `getCurrentUser()`) but were not explicitly marked as dynamic, and were using `revalidate`.
+
+**Fix:** Changed `export const revalidate = 3600;` and `export const dynamicParams = true;` to `export const dynamic = "force-dynamic";` in `src/app/products/[slug]/page.tsx` and `src/app/order/[slug]/page.tsx`. This ensures they are always server-rendered at request time, which is required when accessing cookies and also helps avoid build-time database connections.
+
+## Fix 14 — Image Domain Configuration
+
+**Problem:** Images from Unsplash were failing to load with 400 (Bad Request) errors because `unsplash.com` was not in the `remotePatterns` list in `next.config.ts`.
+
+**Fix:** Added `unsplash.com` to `next.config.ts`. (Note: `images.unsplash.com` was already present).
+
+Files changed: `src/app/products/[slug]/page.tsx`, `src/app/order/[slug]/page.tsx`, `next.config.ts`.
+
+---
+
 # Remaining Known Issues (not yet fixed)
 
 ## 1. Customer cookie stores raw userId (unsigned)

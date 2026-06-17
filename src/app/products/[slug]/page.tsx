@@ -1,8 +1,4 @@
-export const revalidate = 3600;
-// Do not pre-render product pages at build time — generate on first request
-// and cache for 1 hour. This avoids hitting the DB during next build, which
-// exhausts the single-connection Supabase free-tier pool.
-export const dynamicParams = true;
+export const dynamic = "force-dynamic";
 
 import { notFound } from "next/navigation";
 import Link from "next/link";
