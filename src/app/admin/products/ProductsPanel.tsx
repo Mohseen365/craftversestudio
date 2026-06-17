@@ -11,17 +11,21 @@ type Product = {
   category: string;
   price: number;
   active: boolean;
-  imageUrl: string;
-  instagramUrl: string;
+  imageUrl: string | null;
+  instagramUrl: string | null;
   productionDays: string;
   description: string;
 };
 
-export function ProductsPanel() {
-  const [products, setProducts] = useState<Product[]>([]);
+export function ProductsPanel({
+  initialProducts,
+}: {
+  initialProducts: Product[];
+}) {
+  const [products, setProducts] = useState<Product[]>(initialProducts);
   const [showForm, setShowForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -37,7 +41,9 @@ export function ProductsPanel() {
   }
 
   useEffect(() => {
-    load();
+    if (products !== initialProducts) {
+      load();
+    }
   }, []);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -146,13 +152,13 @@ if (!res.ok) {
               name="imageUrl"
               placeholder="Image URL (optional)"
               className="rounded-lg border px-3 py-2 text-sm sm:col-span-2"
-              defaultValue={editingProduct?.imageUrl}
+              defaultValue={editingProduct?.imageUrl ?? ""}
             />
             <input
               name="instagramUrl"
               placeholder="instagram URL (optional)"
               className="rounded-lg border px-3 py-2 text-sm sm:col-span-2"
-              defaultValue={editingProduct?.instagramUrl}
+              defaultValue={editingProduct?.instagramUrl ?? ""}
             />
           </div>
           <textarea

@@ -65,10 +65,16 @@ const NEXT_STATUS: Record<string, string> = {
   SHIPPED: "DELIVERED",
 };
 
-export function OrdersPanel() {
-  const [tab, setTab] = useState("PAYMENT_VERIFICATION");
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
+export function OrdersPanel({
+  initialOrders,
+  initialTab,
+}: {
+  initialOrders: Order[];
+  initialTab: string;
+}) {
+  const [tab, setTab] = useState(initialTab);
+  const [orders, setOrders] = useState<Order[]>(initialOrders);
+  const [loading, setLoading] = useState(false);
   const [shippingDurations, setShippingDurations] = useState<
     Record<string, number>
   >({});
@@ -87,7 +93,9 @@ export function OrdersPanel() {
   }
 
   useEffect(() => {
-    loadOrders(tab);
+    if (tab !== initialTab || orders !== initialOrders) {
+      loadOrders(tab);
+    }
   }, [tab]);
 
   async function updateOrder(id: string, body: Record<string, unknown>) {

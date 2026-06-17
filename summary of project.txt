@@ -932,6 +932,31 @@ Files changed: `src/lib/scheduler.ts`, `src/lib/auth.ts`, `src/app/admin/capacit
 
 ---
 
+# Changes Applied (Round 10 — June 2026)
+
+## Full-Stack Architecture & Performance Refinement
+
+**Objective:** Complete the optimization effort by migrating all major frontend panels to Server-Side Data Fetching and ensuring consistent query optimization across all customer and admin flows.
+
+**Fixes:**
+- **Server-Side Data Migration:**
+  - **Admin Orders:** Migrated initial order fetching for the default "Pending Verification" tab to the server (`src/app/admin/orders/page.tsx`).
+  - **Admin Products:** Migrated the entire product list fetch to the server (`src/app/admin/products/page.tsx`).
+  - **Order Tracking:** Added server-side lookups for orders when tracking via URL parameters (`src/app/track/page.tsx`).
+  - **Result:** Faster page loads, improved SEO/metadata potential, and elimination of client-side loading flashes for primary data.
+- **Frontend State Refinement:** Updated `OrdersPanel`, `ProductsPanel`, and `TrackForm` to accept `initialData` props, using them for initial state while maintaining the ability to refresh data client-side after mutations.
+- **Extended Query Optimization:**
+  - **Admin Dashboard:** Refined the overview stats query to fetch only the minimum set of order statuses required for revenue and count calculations.
+  - **Product Management:** Optimized the product list and update queries to use precise `select` trees.
+  - **Payment Flow:** Reduced the order fetch during payment upload to only `status`, `total`, and `orderNumber`.
+- **UI Performance:** Prevented redundant client-side effects by checking for `initialData` presence before triggering background fetches.
+
+**Impact:** The application now follows a modern Next.js architecture where the server handles the heavy lifting of data retrieval and initial formatting, while client components handle interactivity and optimistic updates. This minimizes the performance penalty of the single-connection database limit and provides a significantly smoother user experience.
+
+Files changed: `src/app/admin/page.tsx`, `src/app/admin/orders/page.tsx`, `src/app/admin/orders/OrdersPanel.tsx`, `src/app/admin/products/page.tsx`, `src/app/admin/products/ProductsPanel.tsx`, `src/app/track/page.tsx`, `src/app/track/TrackForm.tsx`, `src/app/api/admin/products/route.ts`, `src/app/api/admin/products/[id]/route.ts`, `src/app/api/orders/[id]/payment/route.ts`, `src/lib/auth.ts`, `src/app/api/customer/login/route.ts`, `src/app/api/customer/guest/route.ts`.
+
+---
+
 # Remaining Known Issues (not yet fixed)
 
 ## 1. Customer cookie stores raw userId (unsigned)

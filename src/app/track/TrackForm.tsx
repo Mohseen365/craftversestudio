@@ -29,12 +29,13 @@ type TrackFormProps = {
     mobileNo: string;
     orderNumber: string;
   };
+  initialResult?: OrderResult | null;
 };
 
-export function TrackForm({ contact }: TrackFormProps) {
+export function TrackForm({ contact, initialResult }: TrackFormProps) {
   const [orderNumber, setOrderNumber] = useState(contact.orderNumber ?? "");
   const [mobileNo, setMobileNo] = useState(contact.mobileNo ?? "");
-  const [result, setResult] = useState<OrderResult | null>(null);
+  const [result, setResult] = useState<OrderResult | null>(initialResult ?? null);
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
 
