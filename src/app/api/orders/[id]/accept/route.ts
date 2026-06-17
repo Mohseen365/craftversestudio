@@ -35,9 +35,16 @@ export async function POST(
 
     const order = await prisma.order.findUnique({
       where: { id },
-      include: {
+      select: {
+        id: true,
+        orderNumber: true,
+        status: true,
+        occasionDate: true,
         items: {
-          include: { product: { select: { productionDays: true } } },
+          select: {
+            quantity: true,
+            product: { select: { productionDays: true } },
+          },
         },
       },
     });

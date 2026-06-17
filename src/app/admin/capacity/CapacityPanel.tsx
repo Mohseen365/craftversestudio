@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { formatDate } from "@/lib/utils";
 import { OrderStatusBadge } from "@/components/OrderStatusBadge";
 
@@ -37,14 +37,18 @@ type CapacityRow = {
   orders: PlanningOrder[];
 };
 
-export function CapacityPanel() {
-  const [rows, setRows] = useState<CapacityRow[]>([]);
+export function CapacityPanel({
+  initialData,
+}: {
+  initialData: CapacityRow[];
+}) {
+  const [rows, setRows] = useState<CapacityRow[]>(initialData);
   const [expandedDate, setExpandedDate] = useState<string | null>(null);
-  const [windowEnd, setWindowEnd] = useState<string>("");
-  const [maxDate, setMaxDate] = useState<string>("");
   const [isUpdating, setIsUpdating] = useState(false);
   // Track per-reservation optimistic completedEffort updates
-  const [progressOverrides, setProgressOverrides] = useState<Record<string, number>>({});
+  const [progressOverrides, setProgressOverrides] = useState<
+    Record<string, number>
+  >({});
 
   function addDays(dateStr: string, days: number): string {
     const d = new Date(dateStr);
@@ -52,27 +56,26 @@ export function CapacityPanel() {
     return d.toISOString().split("T")[0];
   }
 
+  const maxDate = useMemo(() => {
+    return rows.reduce(
+      (max, row) => (new Date(row.date) > new Date(max) ? row.date : max),
+      rows[0]?.date ?? ""
+    );
+  }, [rows]);
+
+  const [windowEnd, setWindowEnd] = useState<string>(() => {
+    const today = new Date().toISOString().split("T")[0];
+    const initialEnd = addDays(today, 7);
+    return initialEnd > maxDate ? maxDate : initialEnd;
+  });
+
   async function load() {
     const res = await fetch("/api/admin/capacity");
     const data = await res.json();
     const fetchedRows: CapacityRow[] = data.capacities ?? [];
-    const farthest = fetchedRows.reduce(
-      (max, row) => (new Date(row.date) > new Date(max) ? row.date : max),
-      fetchedRows[0]?.date ?? ""
-    );
-    setMaxDate(farthest);
-    const today = new Date().toISOString().split("T")[0];
-    const initialEnd = addDays(today, 7);
-    setWindowEnd((prev) =>
-      prev ? prev : initialEnd > farthest ? farthest : initialEnd
-    );
     setRows(fetchedRows);
     setProgressOverrides({});
   }
-
-  useEffect(() => {
-    load();
-  }, []);
 
   return (
     <div className="space-y-6">

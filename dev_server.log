@@ -1,0 +1,12 @@
+
+> bouquet-orders@0.1.0 dev
+> next dev
+
+▲ Next.js 16.2.9 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.0.2:3000
+✓ Ready in 1335ms
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+
+○ Compiling /admin/login ...
+ GET /admin/login 200 in 7.1s (next.js: 6.3s, proxy.ts: 5ms, application-code: 843ms)

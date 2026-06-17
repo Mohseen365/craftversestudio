@@ -16,10 +16,22 @@ export async function GET(req: NextRequest) {
     where: orderNumber
       ? { orderNumber: orderNumber.toUpperCase() }
       : { user: { mobileNo: mobileNo! } },
-    include: {
-      payments: true,
+    select: {
+      id: true,
+      orderNumber: true,
+      status: true,
+      occasionDate: true,
+      deliveryDate: true,
+      total: true,
+      trackingNumber: true,
+      payments: {
+        select: { status: true, screenshotUrl: true },
+        orderBy: { createdAt: "desc" },
+        take: 1,
+      },
       items: {
-        include: {
+        select: {
+          quantity: true,
           product: { select: { name: true, productionDays: true } },
         },
       },

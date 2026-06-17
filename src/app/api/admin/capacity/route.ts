@@ -14,9 +14,11 @@ export async function GET(req: NextRequest) {
   if (productionDeadline && orderId) {
     const order = await prisma.order.findUnique({
       where: { id: orderId },
-      include: {
+      select: {
+        orderNumber: true,
         items: {
-          include: {
+          select: {
+            quantity: true,
             product: { select: { productionDays: true } },
           },
         },

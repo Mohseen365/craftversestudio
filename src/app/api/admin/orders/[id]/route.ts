@@ -58,10 +58,7 @@ export async function PATCH(
 
     const order = await prisma.order.findUnique({
       where: { id },
-      include: {
-        user: true,
-        payments: { orderBy: { createdAt: "desc" }, take: 1 },
-      },
+      select: { id: true, status: true },
     });
 
     if (!order) {
