@@ -300,10 +300,35 @@ export async function persistAllocations(
   }
 
   await prisma.$transaction(async (tx) => {
+    // 1. Delete future reservations that have no production progress and aren't manual.
     await tx.capacityReservation.deleteMany({
-      where: { capacity: { date: { gte: todayDate } }, isManual: false },
+      where: {
+        capacity: { date: { gte: todayDate } },
+        isManual: false,
+        completedQuantity: 0,
+      },
     });
 
+    // 2. Reset all remaining future non-manual reservations so planned = completed.
+    // This "frees up" any unfulfilled capacity from the previous plan before
+    // we apply the new one. Reservations with progress stay, but their
+    // planned workload is shrunk to only what was finished.
+    const remaining = await tx.capacityReservation.findMany({
+      where: {
+        capacity: { date: { gte: todayDate } },
+        isManual: false,
+      },
+      select: { id: true, completedQuantity: true },
+    });
+
+    for (const res of remaining) {
+      await tx.capacityReservation.update({
+        where: { id: res.id },
+        data: { plannedQuantity: res.completedQuantity },
+      });
+    }
+
+    // 3. Apply the new allocations from the scheduling engine.
     const creates: {
       capacityId: string;
       orderId: string;
@@ -317,14 +342,29 @@ export async function persistAllocations(
       for (const a of allocs) {
         const capacityId = capacityIdByDateKey.get(a.dateKey);
         if (!capacityId) continue;
-        creates.push({
-          capacityId,
-          orderId,
-          plannedQuantity: a.quantity,
-          completedQuantity: 0,
-          manualQuantity: 0,
-          isManual: false,
+
+        const existing = await tx.capacityReservation.findUnique({
+          where: { capacityId_orderId: { capacityId, orderId } },
         });
+
+        if (existing) {
+          // "Top up" the reservation: Planned = Progress (already there) + New planned effort
+          await tx.capacityReservation.update({
+            where: { id: existing.id },
+            data: {
+              plannedQuantity: Number(existing.completedQuantity) + a.quantity,
+            },
+          });
+        } else {
+          creates.push({
+            capacityId,
+            orderId,
+            plannedQuantity: a.quantity,
+            completedQuantity: 0,
+            manualQuantity: 0,
+            isManual: false,
+          });
+        }
       }
     }
 

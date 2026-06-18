@@ -47,7 +47,11 @@ export async function POST(req: NextRequest) {
 
   const currentCompleted = Number(reservation.completedQuantity);
   const planned = Number(reservation.plannedQuantity);
-  const newCompleted = Math.min(currentCompleted + completedUnits, planned);
+  // User can either provide an increment or we can allow direct setting.
+  // The request "edit to 0.5" suggests direct setting is useful.
+  // We'll interpret 'completedUnits' as the new total for that day,
+  // but cap it at planned quantity to ensure consistency.
+  const newCompleted = Math.min(completedUnits, planned);
 
   const updatedReservation = await prisma.capacityReservation.update({
     where: { id: reservation.id },
