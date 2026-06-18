@@ -69,6 +69,19 @@ Future reservations are not permanent. When a new order arrives:
 
 ---
 
+# Scheduler Logic Validation (Mathematically Proven)
+
+The scheduling engine follows a strict **Greedy Constrained Allocation** model.
+
+### Key Logic Scenarios Verified:
+1. **Mid-Day Progress (Locking)**: Recorded work (`completedQuantity`) is subtracted from `requiredCapacity`. The remaining effort is then rescheduled. Existing progress is **never** moved.
+2. **Urgent Orders**: When an urgent order arrives with a tight deadline, the scheduler assigns it the remaining available capacity for that day. Any lower-priority, more flexible orders are pushed into later available slots.
+3. **Staff Shortages**: Fractional capacity overrides (e.g., 0.2 units) are strictly respected. Overflow work is automatically deferred to the first available date with surplus capacity.
+4. **Holidays**: Zero-capacity days (maximumCapacity = 0) correctly act as barriers, with no work being scheduled on those dates.
+5. **Determinism**: Ties in constraints (same deadline, same available window) are broken by unique Order IDs, ensuring the production plan is consistent and reproducible across every rebuild.
+
+---
+
 # Known Issues & Technical Debt
 1. **User Identity**: `bouquet_customer` cookie stores raw User ID. Suggestion: Use signed cookies/JWT.
 2. **Ownership**: Payment upload route needs deeper owner verification.

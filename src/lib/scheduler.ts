@@ -93,11 +93,15 @@ export function scheduleOrdersInMemory(
     })
     .filter((x): x is NonNullable<typeof x> => x !== null);
 
-  // Most constrained first: fewest dates → lowest slack → earliest deadline
+  // Most constrained first: fewest dates → lowest slack → earliest deadline → tie-breaker (ID)
+  // This ensures the results are strictly deterministic.
   toSchedule.sort((a, b) => {
     if (a.windowSize !== b.windowSize) return a.windowSize - b.windowSize;
     if (Math.abs(a.slack - b.slack) > 0.001) return a.slack - b.slack;
-    return a.order.productionDeadlineKey < b.order.productionDeadlineKey ? -1 : 1;
+    if (a.order.productionDeadlineKey !== b.order.productionDeadlineKey) {
+      return a.order.productionDeadlineKey < b.order.productionDeadlineKey ? -1 : 1;
+    }
+    return a.order.id < b.order.id ? -1 : 1;
   });
 
   for (const { order, remaining, dates } of toSchedule) {
@@ -278,14 +282,24 @@ export async function persistAllocations(
   const todayDate = parseDateKey(todayKey);
 
   // Ensure Capacity rows exist for every allocation date
+  const allDateKeys = new Set<string>();
   for (const allocs of allocations.values()) {
-    for (const a of allocs) {
-      const date = parseDateKey(a.dateKey);
-      await prisma.capacity.upsert({
-        where: { date },
-        update: {},
-        create: { date, maximumCapacity: DAILY_PRODUCTION_CAPACITY },
-      });
+    for (const a of allocs) allDateKeys.add(a.dateKey);
+  }
+
+  // Pre-fetch existing to avoid redundant upserts
+  const existingCaps = await prisma.capacity.findMany({
+    where: { date: { in: Array.from(allDateKeys).map(k => parseDateKey(k)) } },
+    select: { date: true }
+  });
+  const existingDateKeys = new Set(existingCaps.map(c => formatDateKey(c.date, true)));
+
+  for (const dk of allDateKeys) {
+    if (!existingDateKeys.has(dk)) {
+      const date = parseDateKey(dk);
+      await prisma.capacity.create({
+        data: { date, maximumCapacity: DAILY_PRODUCTION_CAPACITY }
+      }).catch(() => {}); // Handle race conditions
     }
   }
 
