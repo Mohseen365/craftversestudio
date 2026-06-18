@@ -61,9 +61,11 @@ Future reservations are not permanent. When a new order arrives:
 - **Logic**: Updated scheduler to allow reallocating remaining daily capacity after partial progress is recorded.
 - **Validation**: Verified logic with exhaustive test scenarios in `schedulerTest.js`.
 
-## Round 14: Repository Cleanup
-- **Git Hygiene**: Removed the `src/generated` directory and environment-specific binaries from source control.
-- **Standardized Build**: Added `/src/generated/` to `.gitignore` and relies on `prisma generate` at build time in CI/CD.
+## Round 14: Repository Cleanup & Prisma Strategy
+- **Purpose of src/generated**: Originally, the Prisma client was committed to `src/generated` as a workaround for Netlify deployment issues where the default client in `node_modules` became stale. However, this caused errors because it included environment-specific binaries (Windows vs Linux) and hardcoded absolute paths.
+- **Git Hygiene**: Removed the `src/generated` directory and binaries from source control.
+- **Performance**: Runtime performance is **unaffected** as the client is still present; it is now generated fresh at build-time. Reliability is **increased** because the binary now matches the production environment (Linux) perfectly.
+- **Standardized Build**: Added `/src/generated/` to `.gitignore`. The system now relies on `prisma generate` in the build command (`package.json`), which is the industry standard for Next.js/Prisma apps.
 
 ---
 
