@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { OrderStatusBadge } from "@/components/OrderStatusBadge";
 import { addDays, formatDate, formatPrice } from "@/lib/utils";
 
@@ -79,18 +79,30 @@ export function OrdersPanel({
   const [loading, setLoading] = useState(false);
 
   async function loadOrders(status: string) {
-    setLoading(true);
-    const res = await fetch(`/api/admin/orders?status=${status}`);
-    const data = await res.json();
-    setOrders(data.orders ?? []);
-    setLoading(false);
+    try {
+      setLoading(true);
+
+      const res = await fetch(`/api/admin/orders?status=${status}`);
+
+      if (!res.ok) {
+        throw new Error("Failed to load orders");
+      }
+
+      const data = await res.json();
+
+      setOrders(data.orders ?? []);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
   }
 
-  useEffect(() => {
-    if (tab !== initialTab || orders !== initialOrders) {
-      loadOrders(tab);
-    }
-  }, [tab]);
+  // useEffect(() => {
+  //   if (tab !== initialTab || orders !== initialOrders) {
+  //     loadOrders(tab);
+  //   }
+  // }, [tab]);
 
   const onOrderUpdate = (id: string, removed = false) => {
     if (removed) {
@@ -106,7 +118,12 @@ export function OrdersPanel({
         {TABS.map((t) => (
           <button
             key={t.key}
-            onClick={() => setTab(t.key)}
+            onClick={async () => {
+              if (t.key === tab) return;
+
+              setTab(t.key);
+              await loadOrders(t.key);
+            }}
             className={`rounded-lg px-4 py-2 text-sm font-medium ${
               tab === t.key
                 ? "bg-stone-900 text-white"
