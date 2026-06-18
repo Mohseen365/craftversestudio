@@ -3,129 +3,74 @@
 ## Project Objective
 A bouquet order management and production planning system that ensures orders are only accepted when sufficient production capacity exists between the order request date and production deadline.
 
-The system combines:
-* Product catalog management
-* Customer order management
-* Payment verification
-* Production capacity planning
-* Automatic scheduling
-* Delivery tracking
-
-The core problem being solved is:
-> "Given limited production effort per day, can a new order be completed before its production deadline without causing existing accepted orders to miss theirs?"
-
 ---
 
 # Core Concepts
 
 ## Capacity Unit
 Capacity is measured in **production effort days**, not bouquet quantity.
-
-**Examples:**
-```text
-Order X: productionDays = 1, quantity = 2 -> requiredCapacity = 2
-Daily capacity = 1
-Result: This order requires two full production days.
-
-Order Y: productionDays = 0.5, quantity = 4 -> requiredCapacity = 2
-Result: This order consumes two production days even though four bouquets are ordered.
-```
+**Formula:** `requiredCapacity = Σ (orderItem.quantity × product.productionDays)`
 
 ## Daily Capacity
-Each date has a configurable production capacity stored in the `Capacity` table (field: `maximumCapacity`).
-- Default: `DAILY_PRODUCTION_CAPACITY = 1` (defined in `lib/constants.ts`).
-- Per-date overrides take precedence and are stored in the `Capacity` table.
-
-### Capacity Override
-Used when available production effort differs from the default. Overrides affect scheduling calculations but do not represent order work.
-- **Holiday**: capacity = 0
-- **Half Day**: capacity = 0.5
-- **Extra Staff**: capacity = 2
+Each date has a configurable production capacity stored in the `Capacity` table.
+- Default: `DAILY_PRODUCTION_CAPACITY = 1`.
+- Per-date overrides affect scheduling but do not represent order work (e.g. Holidays = 0).
 
 ## Work Lifecycle
 - **plannedQuantity**: Future work reservation created by the scheduling engine.
 - **completedQuantity**: Work already performed and recorded by an admin. This work is **locked**.
 - **remainingWorkForOrder**: `requiredCapacity - totalCompletedQuantity`.
 
-Only remaining work participates in future scheduling. **Completed work is never moved by rebuildSchedule()**.
-
-## Production Progress (Recording Work)
-At the end of a production day, admins record how much effort was completed per order via `POST /api/admin/capacity/progress`.
-- Recorded effort is capped at the `plannedQuantity` for that date.
-- Once recorded, this effort becomes locked. Future rebuilds only consider unfinished effort.
-
-### Mid-Day Reallocation of Capacity
-Admins can manually adjust progress to react to urgent requests.
-1. Admin reduces completed effort for a lower-priority order.
-2. Remaining available effort for the day increases.
-3. The remaining capacity can be assigned to an urgent order.
-4. `rebuildSchedule()` recalculates future allocations using the updated totals.
-
-## Order Required Capacity (Effort Formula)
-Calculated from order items at multiple points.
-**Formula:** `requiredCapacity = Σ (orderItem.quantity × product.productionDays)`
-
----
-
-# Order Status Flow
-
-## Schedulable Statuses (Order State vs Scheduler State)
-Only orders in `SCHEDULABLE_STATUSES` participate in scheduling.
-- **Included**: `ACCEPTED`, `PAYMENT_PENDING`, `PAYMENT_SUBMITTED`, `PAYMENT_VERIFICATION`, `CONFIRMED`, `IN_PRODUCTION`, `READY_TO_SHIP`.
-- **Excluded (Inactive)**: `CANCELLED`, `REFUNDED`, `REJECTED`, `SHIPPED`, `DELIVERED`, `PAYMENT_REJECTED`.
-
-`rebuildSchedule()` only runs when an order enters or leaves a schedulable status.
-
-## Status Transitions
-```
-PENDING_REVIEW -> ACCEPTED -> PAYMENT_PENDING -> PAYMENT_VERIFICATION -> CONFIRMED -> IN_PRODUCTION -> READY_TO_SHIP -> SHIPPED -> DELIVERED
-```
-
 ---
 
 # Scheduling Engine
-
-Location: `lib/scheduler.ts`
 
 ## Dynamic Rescheduling (Urgent Order Philosophy)
 Future reservations are not permanent. When a new order arrives:
 1. Completed work remains locked.
 2. Future reservations may be reassigned.
 3. Orders with earlier production deadlines receive priority.
-4. Orders with later deadlines may be pushed into later available dates.
 
 ## Scheduler Invariants
-The scheduler must always guarantee:
 1. No date exceeds `maximumCapacity`.
 2. Completed work is never modified.
 3. An order cannot be scheduled after its `productionDeadline`.
-4. `Remaining effort` = `requiredCapacity - totalCompletedQuantity`.
-5. Fractional allocations are allowed.
-6. Scheduling results must be deterministic.
-
-## Sorting Strategy
-Orders are sorted: **most constrained first** (fewest dates -> lowest slack -> earliest deadline).
-*Reason: Orders with the least scheduling flexibility are allocated first. This prevents flexible long-deadline orders from consuming capacity needed by urgent orders.*
 
 ---
 
-# Admin System
+# Full-Stack Optimization History (June 2026)
 
-## Capacity Management (`/admin/capacity`)
-The Capacity Panel is a projection of future planned work, completed work, and remaining capacity.
-- `used = Σ(plannedQuantity)`
-- `remaining = maximumCapacity - used`
-Values may change after `rebuildSchedule()` because future work is dynamically rescheduled.
+## Rounds 1-9: Performance Audit & Query Optimization
+- **Database Efficiency**: Replaced massive `include` trees with precise `select` statements in `scheduler.ts` and all API routes.
+- **Security**: Added auth guards and ownership checks.
+- **Prisma Fixes**: Resolved `PrismaClientValidationError` in scheduler.
+
+## Round 10: Server-Side Data Migration
+- Transitioned Admin Orders, Products, and Capacity panels to fetch initial data in Server Components.
+- Eliminated client-side "loading flashes" and improved FCP.
+
+## Round 11: Frontend Rendering Efficiency
+- **State Isolation**: Extracted `OrderCard` and `ProductItem` sub-components. Changing one order no longer re-renders the entire list.
+- **Memoization**: Used `useMemo` for subtotal and planning date calculations.
+
+## Round 12: Checkout Integrity
+- **Payment Verification**: Added server-side check for `orderId` in the payment flow.
+- **Personalization**: Added product context to the login page.
+
+## Round 13: Mid-Day Reallocation
+- **Logic**: Updated scheduler to allow reallocating remaining daily capacity after partial progress is recorded.
+- **Validation**: Verified logic with exhaustive test scenarios in `schedulerTest.js`.
+
+## Round 14: Repository Cleanup
+- **Git Hygiene**: Removed the `src/generated` directory and environment-specific binaries from source control.
+- **Standardized Build**: Added `/src/generated/` to `.gitignore` and relies on `prisma generate` at build time in CI/CD.
 
 ---
 
-# Known Issues & Considerations
-1. **User Identity**: `bouquet_customer` cookie stores raw User ID. Suggestion: Use signed cookies or JWT.
-2. **Ownership**: `POST /api/orders/[id]/payment` needs owner verification.
-3. **Redundancy**: `ProductionProgress` model is currently unused; safe to drop.
-4. **Boundary**: Scheduler allocates from `todayKey` forward; does not enforce original request date.
-5. **Rebuild Frequency**: Capacity rebuilds may occur more frequently than strictly necessary.
-6. **Dead Endpoint**: `GET /api/admin/capacity/available` is unused.
+# Known Issues & Technical Debt
+1. **User Identity**: `bouquet_customer` cookie stores raw User ID. Suggestion: Use signed cookies/JWT.
+2. **Ownership**: Payment upload route needs deeper owner verification.
+3. **Redundancy**: `ProductionProgress` model is currently unused.
 
 ---
 
