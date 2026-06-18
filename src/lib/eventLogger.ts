@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@/lib/prisma"; // only types, no runtime cost
 
 export async function trackEvent({
   userId,
@@ -9,7 +10,7 @@ export async function trackEvent({
   userId?: string;
   productId?: string;
   eventType: string;
-  metadata?: any;
+  metadata?: Prisma.InputJsonValue; // ✅ matches prisma.event.create input
 }) {
   // Skip event tracking during build phase to avoid database connection exhaustion
   if (process.env.NEXT_PHASE === "phase-production-build") {
