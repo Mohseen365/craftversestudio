@@ -267,12 +267,16 @@ Future reservations are not permanent. The scheduler follows a "most constrained
 1. Completed work remains locked.
 2. Future reservations may be reassigned to make room.
 3. Orders with earlier production deadlines receive priority.
+4. Orders with later deadlines may be pushed into later available dates.
 
 ## Scheduler Invariants
+The scheduler must always guarantee:
 1. No date exceeds `maximumCapacity`.
 2. Completed work is never modified.
 3. An order cannot be scheduled after its `productionDeadline`.
-
+4. `Remaining effort` = `requiredCapacity - totalCompletedQuantity`.
+5. Fractional allocations are allowed.
+6. Scheduling results must be deterministic.
 ---
 
 # Full-Stack Optimization History (June 2026)
