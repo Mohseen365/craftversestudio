@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createCustomerSession, getCurrentUser } from "@/lib/auth";
-import { Prisma } from "@/generated/prisma";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 const loginSchema = z.object({
@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
     // This prevents an attacker from supplying someone else's userId to steal their orders.
     const sessionUser = await getCurrentUser();
     const guestUserId =
-      sessionUser?.id === userId ? userId : sessionUser?.id ?? userId;
+      sessionUser?.id === userId ? userId : (sessionUser?.id ?? userId);
 
     const conditions: Prisma.UserWhereInput[] = [];
     if (mobileNo) conditions.push({ mobileNo });
@@ -53,7 +53,8 @@ export async function POST(req: NextRequest) {
         data: {
           mobileNo: mobileNo || existingUser.mobileNo,
           email: email || existingUser.email,
-          instagramUsername: instagramUsername || existingUser.instagramUsername,
+          instagramUsername:
+            instagramUsername || existingUser.instagramUsername,
           name: name || existingUser.name,
           isGuest: false,
         },
@@ -73,7 +74,10 @@ export async function POST(req: NextRequest) {
       }
 
       await createCustomerSession(user.id);
-      return NextResponse.json({ success: true, action: "updated_existing_user" });
+      return NextResponse.json({
+        success: true,
+        action: "updated_existing_user",
+      });
     }
 
     if (sessionUser) {
@@ -90,7 +94,10 @@ export async function POST(req: NextRequest) {
         },
       });
       await createCustomerSession(updatedUser.id);
-      return NextResponse.json({ success: true, action: "updated_current_user" });
+      return NextResponse.json({
+        success: true,
+        action: "updated_current_user",
+      });
     }
 
     // No existing user found and no active session — create a new account
@@ -110,7 +117,7 @@ export async function POST(req: NextRequest) {
     if (err instanceof z.ZodError) {
       return NextResponse.json(
         { error: err.issues[0]?.message ?? "Invalid data" },
-        { status: 400 }
+        { status: 400 },
       );
     }
     console.error("customer/login failed:", err);

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth";
 import { slugify } from "@/lib/utils";
-import { Decimal } from "@/generated/prisma/runtime/library";
+import { Decimal } from "@prisma/client/runtime/library";
 
 const productSchema = z.object({
   name: z.string().min(2),
