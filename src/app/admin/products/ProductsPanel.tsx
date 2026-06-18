@@ -11,9 +11,9 @@ type Product = {
   category: string;
   price: number;
   active: boolean;
-  imageUrl: string | null;
+  imageUrl: string;
   instagramUrl: string | null;
-  productionDays: string;
+  productionDays: number;
   description: string;
 };
 
@@ -65,10 +65,12 @@ export function ProductsPanel({
       name: fd.get("name"),
       category: fd.get("category"),
       description: fd.get("description"),
-      price: Number(fd.get("price")),
+      price: fd.get("price"),
+      // price: Number(fd.get("price")),
       active: true,
-      productionDays: fd.get("productionDays")?.toString() ?? "1",
-      imageUrl: fd.get("imageUrl") || undefined,
+      productionDays: fd.get("productionDays"),
+      // productionDays: fd.get("productionDays")?.toString() ?? "1",
+      imageUrl: fd.get("imageUrl"),
       instagramUrl: fd.get("instagramUrl") || undefined,
     };
 
@@ -151,11 +153,12 @@ export function ProductsPanel({
               // value={1}
               step="0.01" // allows decimals like 1.0, 10.25
               className="rounded-lg border px-3 py-2 text-sm"
-              defaultValue={editingProduct?.productionDays?.toString() ?? "1"}
+              defaultValue={editingProduct?.productionDays}
+              // defaultValue={editingProduct?.productionDays?.toString() ?? "1"}
             />
             <input
               name="imageUrl"
-              placeholder="Image URL (optional)"
+              placeholder="Image URL"
               className="rounded-lg border px-3 py-2 text-sm sm:col-span-2"
               defaultValue={editingProduct?.imageUrl ?? ""}
             />

@@ -6,7 +6,29 @@ import { TrackForm } from "./TrackForm";
 import { trackEvent } from "@/lib/eventLogger";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-
+// import { PaymentStatus } from "@prisma/client";
+// type OrderResult = {
+//   id: string;
+//   orderNumber: string;
+//   status: string;
+//   paymentStatus: string;
+//   createdAt: string;
+//   // productionDeadline: string | null;
+//   shippingDate: string | null;
+//   deliveryDate: string | null;
+//   occasionDate: string | null;
+//   trackingNumber: string | null;
+//   total: number;
+//   items: Array<{
+//     product: { name: string; productionDays: number };
+//     quantity: number;
+//   }>;
+//   payments: Array<{ status: PaymentStatus; screenshotUrl: string | null }>;
+//   user: {
+//     mobileNo: string | null;
+//     id: string;
+//   };
+// };
 export default async function TrackPage({
   searchParams,
 }: {
@@ -16,6 +38,7 @@ export default async function TrackPage({
   const orderNumber = params.orderNumber ?? "";
   const mobileNo = params.mobileNo ?? "";
 
+  // let initialResult: OrderResult | null = null;
   let initialResult = null;
   if (orderNumber || mobileNo) {
     const order = await prisma.order.findFirst({
@@ -28,9 +51,10 @@ export default async function TrackPage({
         status: true,
         occasionDate: true,
         deliveryDate: true,
+        createdAt: true,
+        shippingDate: true,
         total: true,
         trackingNumber: true,
-        createdAt: true,
         payments: {
           select: { status: true, screenshotUrl: true },
           orderBy: { createdAt: "desc" },
@@ -51,9 +75,12 @@ export default async function TrackPage({
       initialResult = {
         ...order,
         createdAt: order.createdAt.toISOString(),
+        shippingDate: order.shippingDate?.toISOString() ?? null,
         occasionDate: order.occasionDate?.toISOString() ?? null,
-        deliveryDate: (order.deliveryDate ?? order.occasionDate)?.toISOString() ?? null,
+        deliveryDate:
+          (order.deliveryDate ?? order.occasionDate)?.toISOString() ?? null,
         paymentStatus: order.payments[0]?.status ?? "PENDING",
+
         items: order.items.map((i) => ({
           ...i,
           product: {
@@ -63,6 +90,7 @@ export default async function TrackPage({
         })),
       };
     }
+    // const test: OrderResult | null = initialResult;
   }
 
   getCurrentUser()
@@ -83,7 +111,7 @@ export default async function TrackPage({
               mobileNo: mobileNo,
               orderNumber: orderNumber,
             }}
-            initialResult={initialResult as any}
+            initialResult={initialResult}
           />
         </div>
       </main>

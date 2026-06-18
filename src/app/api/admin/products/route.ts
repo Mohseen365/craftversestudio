@@ -11,8 +11,9 @@ const productSchema = z.object({
   description: z.string().min(10),
   price: z.number().int().positive(),
   productionDays: z.coerce
-  .string()
-  .transform((val) => new Decimal(val)),
+    .number()
+    .finite()
+    .transform((val) => new Decimal(val)),
   imageUrl: z.string().default(""),
   instagramUrl: z.string().optional(),
   active: z.boolean().default(true),
@@ -62,7 +63,7 @@ export async function POST(req: NextRequest) {
         price: body.price,
         productionDays: body.productionDays,
         active: body.active,
-        imageUrl: body.imageUrl || "",
+        imageUrl: body.imageUrl,
         instagramUrl: body.instagramUrl,
       },
     });
@@ -70,19 +71,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ product });
   } catch (err) {
     if (err instanceof z.ZodError) {
-  console.error(err.flatten());
+      console.error(err.flatten());
 
-  return NextResponse.json(
-    {
-      error: "Invalid product data",
-      details: err.flatten(),
-    },
-    { status: 400 }
-  );
-}
+      return NextResponse.json(
+        {
+          error: "Invalid product data",
+          details: err.flatten(),
+        },
+        { status: 400 },
+      );
+    }
     return NextResponse.json(
       { error: "Failed to create product" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

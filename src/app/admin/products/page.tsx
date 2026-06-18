@@ -27,7 +27,7 @@ export default async function AdminProductsPage() {
 
   const serializedProducts = products.map((p) => ({
     ...p,
-    productionDays: p.productionDays.toString(),
+    productionDays: p.productionDays.toNumber(),
   }));
 
   return (
