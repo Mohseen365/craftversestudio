@@ -32,6 +32,13 @@ export default async function HomePage() {
     metadata: { source: "homepage" },
   }).catch(() => {});
 
+  // Serialize product decimals for React
+  const serializedFeatured = featured.map((p) => ({
+    ...p,
+    // (featured query selects id, name, slug, price, category, imageUrl)
+    // Actually featured query doesn't select productionDays, but if it did, we'd need .toNumber()
+  }));
+
   return (
     <>
       <Header />
@@ -69,7 +76,7 @@ export default async function HomePage() {
           </div>
         </section>
 
-        {featured.length > 0 && (
+        {serializedFeatured.length > 0 && (
           <section className="mx-auto max-w-6xl px-4 py-16">
             <div className="flex items-end justify-between">
               <h2 className="font-serif text-2xl text-stone-900">Popular bouquets</h2>
@@ -78,7 +85,7 @@ export default async function HomePage() {
               </Link>
             </div>
             <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-              {featured.map((product) => (
+              {serializedFeatured.map((product) => (
                 <ProductCard
                   key={product.id}
                   id={product.id}

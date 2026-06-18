@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth";
-import { Decimal } from "@prisma/client/runtime/library";
+
 /**
  * POST /api/admin/capacity/override
  * Body: { date: string (ISO), maximumCapacity: number }
@@ -19,22 +19,20 @@ export async function POST(req: NextRequest) {
   if (!date || typeof maximumCapacity !== "number") {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
-  const maximumCapacityDecimal = new Decimal(maximumCapacity);
+
   const targetDate = new Date(date);
   // Find or create the Capacity record for the given date
-  let capacity = await prisma.capacity.findUnique({
-    where: { date: targetDate },
-  });
+  let capacity = await prisma.capacity.findUnique({ where: { date: targetDate } });
   if (!capacity) {
     capacity = await prisma.capacity.create({
-      data: { date: targetDate, maximumCapacity: maximumCapacityDecimal },
+      data: { date: targetDate, maximumCapacity },
     });
   }
 
   // Update the capacity record
   capacity = await prisma.capacity.update({
     where: { id: capacity.id },
-    data: { maximumCapacity: maximumCapacityDecimal },
+    data: { maximumCapacity },
   });
 
   // Audit log for override creation/update
@@ -44,7 +42,7 @@ export async function POST(req: NextRequest) {
       entityId: capacity.id,
       entityType: "Capacity",
       beforeJson: JSON.stringify({ maximumCapacity: capacity.maximumCapacity }),
-      afterJson: JSON.stringify({ maximumCapacity: maximumCapacityDecimal }),
+      afterJson: JSON.stringify({ maximumCapacity }),
       userId: "admin",
     },
   });

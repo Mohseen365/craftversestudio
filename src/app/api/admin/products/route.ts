@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth";
 import { slugify } from "@/lib/utils";
-import { Decimal } from "@prisma/client/runtime/library";
+import { Decimal } from "@/generated/prisma/runtime/library";
 
 const productSchema = z.object({
   name: z.string().min(2),
@@ -11,9 +11,8 @@ const productSchema = z.object({
   description: z.string().min(10),
   price: z.number().int().positive(),
   productionDays: z.coerce
-    .number()
-    .finite()
-    .transform((val) => new Decimal(val)),
+  .string()
+  .transform((val) => new Decimal(val)),
   imageUrl: z.string().default(""),
   instagramUrl: z.string().optional(),
   active: z.boolean().default(true),
@@ -39,7 +38,13 @@ export async function GET() {
     orderBy: { createdAt: "desc" },
   });
 
-  return NextResponse.json({ products });
+  // Serialize Decimal to number for React
+  const serializedProducts = products.map((p) => ({
+    ...p,
+    productionDays: p.productionDays.toNumber(),
+  }));
+
+  return NextResponse.json({ products: serializedProducts });
 }
 
 export async function POST(req: NextRequest) {
@@ -63,27 +68,33 @@ export async function POST(req: NextRequest) {
         price: body.price,
         productionDays: body.productionDays,
         active: body.active,
-        imageUrl: body.imageUrl,
+        imageUrl: body.imageUrl || "",
         instagramUrl: body.instagramUrl,
       },
     });
 
-    return NextResponse.json({ product });
+    // Serialize Decimal for response
+    const serialized = {
+      ...product,
+      productionDays: product.productionDays.toNumber(),
+    };
+
+    return NextResponse.json({ product: serialized });
   } catch (err) {
     if (err instanceof z.ZodError) {
-      console.error(err.flatten());
+  console.error(err.flatten());
 
-      return NextResponse.json(
-        {
-          error: "Invalid product data",
-          details: err.flatten(),
-        },
-        { status: 400 },
-      );
-    }
+  return NextResponse.json(
+    {
+      error: "Invalid product data",
+      details: err.flatten(),
+    },
+    { status: 400 }
+  );
+}
     return NextResponse.json(
       { error: "Failed to create product" },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }

@@ -42,6 +42,10 @@ export default async function ProductPage({
 
   if (!product) notFound();
 
+  const serializedProduct = {
+    ...product,
+  };
+
   trackEvent({
     userId: user?.id,
     productId: product.id,

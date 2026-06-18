@@ -61,6 +61,18 @@ export async function GET(req: NextRequest) {
 
     return {
       ...order,
+      // Serialize dates and decimals for React
+      occasionDate: order.occasionDate?.toISOString() ?? null,
+      deliveryDate: order.deliveryDate?.toISOString() ?? null,
+      productionDeadline: order.productionDeadline?.toISOString() ?? null,
+      shippingDate: order.shippingDate?.toISOString() ?? null,
+      items: order.items.map((i) => ({
+        ...i,
+        product: {
+          ...i.product,
+          productionDays: i.product.productionDays.toNumber(),
+        },
+      })),
       maxProductionDays,
     };
   });

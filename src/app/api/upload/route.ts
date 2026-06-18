@@ -1,9 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  v2 as cloudinary,
-  UploadApiResponse,
-  UploadApiErrorResponse,
-} from "cloudinary";
+import { v2 as cloudinary } from "cloudinary";
 // import { writeFile, mkdir } from "fs/promises";
 // import path from "path";
 
@@ -25,14 +21,14 @@ export async function POST(req: NextRequest) {
     if (!file.type.startsWith("image/")) {
       return NextResponse.json(
         { error: "Only images allowed" },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
     if (file.size > 5 * 1024 * 1024) {
       return NextResponse.json(
         { error: "File too large (max 5MB)" },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
@@ -44,18 +40,16 @@ export async function POST(req: NextRequest) {
 
     // await mkdir(uploadDir, { recursive: true });
     // await writeFile(path.join(uploadDir, filename), buffer);
-    const result = await new Promise<UploadApiResponse>((resolve, reject) => {
+    const result = await new Promise<any>((resolve, reject) => {
       cloudinary.uploader
         .upload_stream(
-          { folder: "payments" },
-          (
-            error: UploadApiErrorResponse | undefined,
-            result: UploadApiResponse | undefined,
-          ) => {
-            if (error) reject(error);
-            else if (result) resolve(result);
-            else reject(new Error("Unknown Cloudinary error"));
+          {
+            folder: "payments",
           },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result);
+          }
         )
         .end(buffer);
     });
@@ -73,7 +67,7 @@ export async function POST(req: NextRequest) {
       {
         error: error instanceof Error ? error.message : "Upload failed",
       },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }

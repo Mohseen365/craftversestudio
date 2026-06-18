@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
   if (!orderNumber && !mobileNo) {
     return NextResponse.json(
       { error: "Provide order number or Mobile No" },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
@@ -20,12 +20,11 @@ export async function GET(req: NextRequest) {
       id: true,
       orderNumber: true,
       status: true,
-      createdAt: true,
-      shippingDate: true,
       occasionDate: true,
       deliveryDate: true,
       total: true,
       trackingNumber: true,
+      createdAt: true,
       payments: {
         select: { status: true, screenshotUrl: true },
         orderBy: { createdAt: "desc" },
@@ -51,8 +50,18 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     order: {
       ...order,
+      // Serialize dates and decimals for React
+      createdAt: order.createdAt.toISOString(),
+      occasionDate: order.occasionDate?.toISOString() ?? null,
+      deliveryDate: (order.deliveryDate ?? order.occasionDate)?.toISOString() ?? null,
+      items: order.items.map((i) => ({
+        ...i,
+        product: {
+          ...i.product,
+          productionDays: i.product.productionDays.toNumber(),
+        },
+      })),
       paymentStatus,
-      deliveryDate: order.deliveryDate ?? order.occasionDate,
     },
   });
 }

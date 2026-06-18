@@ -79,6 +79,10 @@ export default async function CatalogPage({
     },
   }).catch(() => {});
 
+  const serializedProducts = products.map((p) => ({
+    ...p,
+  }));
+
   return (
     <>
       <Header />
@@ -135,13 +139,13 @@ export default async function CatalogPage({
           ) : null}
         </form>
 
-        {products.length === 0 ? (
+        {serializedProducts.length === 0 ? (
           <p className="mt-12 text-center text-stone-500">
             No bouquets match your filters.
           </p>
         ) : (
           <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {products.map((product) => (
+            {serializedProducts.map((product) => (
               <ProductCard
                 key={product.id}
                 id={product.id}

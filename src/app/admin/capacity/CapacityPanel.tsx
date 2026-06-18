@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { formatDate } from "@/lib/utils";
 import { OrderStatusBadge } from "@/components/OrderStatusBadge";
 
@@ -37,7 +37,11 @@ type CapacityRow = {
   orders: PlanningOrder[];
 };
 
-export function CapacityPanel({ initialData }: { initialData: CapacityRow[] }) {
+export function CapacityPanel({
+  initialData,
+}: {
+  initialData: CapacityRow[];
+}) {
   const [rows, setRows] = useState<CapacityRow[]>(initialData);
   const [expandedDate, setExpandedDate] = useState<string | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -45,8 +49,6 @@ export function CapacityPanel({ initialData }: { initialData: CapacityRow[] }) {
   const [progressOverrides, setProgressOverrides] = useState<
     Record<string, number>
   >({});
-  const capacityRefs = useRef<Record<string, HTMLInputElement | null>>({});
-  const progressRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   function addDays(dateStr: string, days: number): string {
     const d = new Date(dateStr);
@@ -57,7 +59,7 @@ export function CapacityPanel({ initialData }: { initialData: CapacityRow[] }) {
   const maxDate = useMemo(() => {
     return rows.reduce(
       (max, row) => (new Date(row.date) > new Date(max) ? row.date : max),
-      rows[0]?.date ?? "",
+      rows[0]?.date ?? ""
     );
   }, [rows]);
 
@@ -68,21 +70,11 @@ export function CapacityPanel({ initialData }: { initialData: CapacityRow[] }) {
   });
 
   async function load() {
-    try {
-      const res = await fetch("/api/admin/capacity");
-
-      if (!res.ok) {
-        throw new Error("Failed to load capacity");
-      }
-
-      const data = await res.json();
-
-      setRows(data.capacities ?? []);
-      setProgressOverrides({});
-    } catch (error) {
-      console.error(error);
-      alert("Failed to refresh capacity data");
-    }
+    const res = await fetch("/api/admin/capacity");
+    const data = await res.json();
+    const fetchedRows: CapacityRow[] = data.capacities ?? [];
+    setRows(fetchedRows);
+    setProgressOverrides({});
   }
 
   return (
@@ -120,35 +112,28 @@ export function CapacityPanel({ initialData }: { initialData: CapacityRow[] }) {
                           step="0.01"
                           defaultValue={row.dailyCapacity}
                           className="w-24 rounded border px-2 py-1 text-sm"
-                          ref={(el) => {
-                            capacityRefs.current[row.date] = el;
-                          }}
+                          id={`capacity-input-${row.date}`}
                           disabled={isUpdating}
                         />
                         <button
                           className="rounded bg-indigo-600 px-2 py-1 text-xs text-white hover:bg-indigo-700 disabled:bg-indigo-400"
                           disabled={isUpdating}
                           onClick={async () => {
-                            const input = capacityRefs.current[row.date];
-                            if (!input) return;
-
+                            const input = document.getElementById(
+                              `capacity-input-${row.date}`
+                            ) as HTMLInputElement;
                             const newCap = parseFloat(input.value);
                             if (isNaN(newCap) || newCap < 0) return;
                             setIsUpdating(true);
                             try {
-                              const res = await fetch(
-                                "/api/admin/capacity/override",
-                                {
-                                  method: "POST",
-                                  headers: {
-                                    "Content-Type": "application/json",
-                                  },
-                                  body: JSON.stringify({
-                                    date: row.date,
-                                    maximumCapacity: newCap,
-                                  }),
-                                },
-                              );
+                              const res = await fetch("/api/admin/capacity/override", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                  date: row.date,
+                                  maximumCapacity: newCap,
+                                }),
+                              });
                               if (!res.ok) {
                                 const err = await res.text();
                                 console.error(err);
@@ -166,11 +151,7 @@ export function CapacityPanel({ initialData }: { initialData: CapacityRow[] }) {
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <span
-                      className={
-                        row.remaining <= 0 ? "text-red-600" : "text-emerald-600"
-                      }
-                    >
+                    <span className={row.remaining <= 0 ? "text-red-600" : "text-emerald-600"}>
                       {Number(row.remaining.toFixed(2))}
                     </span>
                   </td>
@@ -188,9 +169,7 @@ export function CapacityPanel({ initialData }: { initialData: CapacityRow[] }) {
                   <td className="px-4 py-3">
                     <button
                       onClick={() =>
-                        setExpandedDate(
-                          expandedDate === row.date ? null : row.date,
-                        )
+                        setExpandedDate(expandedDate === row.date ? null : row.date)
                       }
                       className="rounded border border-stone-200 px-3 py-1 text-xs font-medium text-stone-700 hover:bg-stone-50"
                       disabled={isUpdating}
@@ -270,7 +249,7 @@ export function CapacityPanel({ initialData }: { initialData: CapacityRow[] }) {
                       progressOverrides[overrideKey] ?? order.completedEffort;
                     const displayRemaining = Math.max(
                       0,
-                      order.totalRequiredEffort - displayCompleted,
+                      order.totalRequiredEffort - displayCompleted
                     );
 
                     return (
@@ -284,8 +263,7 @@ export function CapacityPanel({ initialData }: { initialData: CapacityRow[] }) {
                         <td className="py-3 pr-4 text-xs text-stone-500">
                           {order.items.map((item, i) => (
                             <div key={i}>
-                              {item.productName} ×{item.quantity} (
-                              {item.productionDays}d)
+                              {item.productName} ×{item.quantity} ({item.productionDays}d)
                             </div>
                           ))}
                         </td>
@@ -328,22 +306,16 @@ export function CapacityPanel({ initialData }: { initialData: CapacityRow[] }) {
                               step="0.01"
                               placeholder={`max ${Number(order.allocatedToday.toFixed(2))}`}
                               className="w-24 rounded border px-2 py-1 text-sm"
-                              ref={(el) => {
-                                progressRefs.current[
-                                  `${order.id}-${row.date}`
-                                ] = el;
-                              }}
+                              id={`progress-input-${order.id}-${row.date}`}
                               disabled={isUpdating}
                             />
                             <button
                               className="rounded bg-emerald-600 px-2 py-1 text-xs text-white hover:bg-emerald-700 disabled:bg-emerald-400"
                               disabled={isUpdating}
                               onClick={async () => {
-                                const inputEl =
-                                  progressRefs.current[
-                                    `${order.id}-${row.date}`
-                                  ];
-                                if (!inputEl) return;
+                                const inputEl = document.getElementById(
+                                  `progress-input-${order.id}-${row.date}`
+                                ) as HTMLInputElement;
                                 const completed = parseFloat(inputEl.value);
                                 if (isNaN(completed) || completed <= 0) return;
 
@@ -353,23 +325,17 @@ export function CapacityPanel({ initialData }: { initialData: CapacityRow[] }) {
                                     "/api/admin/capacity/progress",
                                     {
                                       method: "POST",
-                                      headers: {
-                                        "Content-Type": "application/json",
-                                      },
+                                      headers: { "Content-Type": "application/json" },
                                       body: JSON.stringify({
                                         orderId: order.id,
                                         date: row.date,
                                         completedUnits: completed,
                                       }),
-                                    },
+                                    }
                                   );
                                   if (!res.ok) {
-                                    const err = await res
-                                      .json()
-                                      .catch(() => ({}));
-                                    alert(
-                                      err.error ?? "Failed to update progress",
-                                    );
+                                    const err = await res.json().catch(() => ({}));
+                                    alert(err.error ?? "Failed to update progress");
                                     return;
                                   }
                                   const result = await res.json();

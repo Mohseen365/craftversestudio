@@ -107,7 +107,25 @@ export async function PATCH(
         status: body.status,
         trackingNumber: body.trackingNumber,
       },
+      select: {
+        id: true,
+        status: true,
+        trackingNumber: true,
+        occasionDate: true,
+        deliveryDate: true,
+        productionDeadline: true,
+        shippingDate: true,
+      },
     });
+
+    // Serialize for response
+    const serializedUpdated = {
+      ...updated,
+      occasionDate: updated.occasionDate?.toISOString() ?? null,
+      deliveryDate: updated.deliveryDate?.toISOString() ?? null,
+      productionDeadline: updated.productionDeadline?.toISOString() ?? null,
+      shippingDate: updated.shippingDate?.toISOString() ?? null,
+    };
 
     // Only rebuild when the status change moves the order into or out of the
     // schedulable set (e.g. SHIPPED, DELIVERED, CANCELLED, REFUNDED).
@@ -117,7 +135,7 @@ export async function PATCH(
       await rebuildSchedule();
     }
 
-    return NextResponse.json({ order: updated });
+    return NextResponse.json({ order: serializedUpdated });
   } catch (err) {
     if (err instanceof z.ZodError) {
       return NextResponse.json({ error: "Invalid data" }, { status: 400 });

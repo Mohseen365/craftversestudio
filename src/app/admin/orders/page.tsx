@@ -27,7 +27,6 @@ export default async function AdminOrdersPage() {
         select: {
           name: true,
           mobileNo: true,
-          email: true,
           addresses: {
             select: {
               address: true,
@@ -59,7 +58,6 @@ export default async function AdminOrdersPage() {
     occasionDate: o.occasionDate?.toISOString() ?? null,
     productionDeadline: o.productionDeadline?.toISOString() ?? null,
     shippingDate: o.shippingDate?.toISOString() ?? null,
-    deliveryDate: o.deliveryDate?.toISOString() ?? null,
     items: o.items.map((i) => ({
       ...i,
       product: {
@@ -68,12 +66,12 @@ export default async function AdminOrdersPage() {
       },
     })),
   }));
-  // const test: Order[] = serializedOrders;
+
   return (
     <div>
       <h1 className="text-2xl font-semibold text-stone-900">Orders</h1>
       <div className="mt-8">
-        <OrdersPanel initialOrders={serializedOrders} initialTab={defaultTab} />
+        <OrdersPanel initialOrders={serializedOrders as any} initialTab={defaultTab} />
       </div>
     </div>
   );

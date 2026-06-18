@@ -36,6 +36,10 @@ export default async function OrderPage({
 
   if (!product) notFound();
 
+  const serializedProduct = {
+    ...product,
+  };
+
   trackEvent({
     userId: user?.id,
     eventType: "ORDER_PAGE_VIEWED",
@@ -59,10 +63,10 @@ export default async function OrderPage({
         <div className="mt-8">
           <OrderForm
             product={{
-              id: product.id,
-              name: product.name,
-              slug: product.slug,
-              price: product.price,
+              id: serializedProduct.id,
+              name: serializedProduct.name,
+              slug: serializedProduct.slug,
+              price: serializedProduct.price,
             }}
             userId={user?.id ?? ""}
           />

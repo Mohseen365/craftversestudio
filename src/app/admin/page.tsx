@@ -70,11 +70,11 @@ export default async function AdminDashboardPage() {
   const stats = [
     {
       label: "Revenue today",
-      value: formatPrice(revenueToday._sum.total ?? 0),
+      value: formatPrice(Number(revenueToday._sum.total ?? 0)),
     },
     {
       label: "Revenue this month",
-      value: formatPrice(revenueMonth._sum.total ?? 0),
+      value: formatPrice(Number(revenueMonth._sum.total ?? 0)),
     },
     { label: "Orders this month", value: String(ordersMonth) },
     { label: "Top selling bouquet", value: topProduct?.name ?? "—" },

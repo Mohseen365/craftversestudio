@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth";
-import { Decimal } from "@prisma/client/runtime/library";
+import { Decimal } from "@/generated/prisma/runtime/library";
 
 const updateSchema = z.object({
   name: z.string().min(2).optional(),
@@ -21,7 +21,7 @@ const updateSchema = z.object({
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
   if (!(await requireAdmin())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -33,7 +33,17 @@ export async function PATCH(
 
     const product = await prisma.product.update({
       where: { id },
-      select: { id: true },
+      select: {
+        id: true,
+        name: true,
+        category: true,
+        description: true,
+        price: true,
+        productionDays: true,
+        active: true,
+        imageUrl: true,
+        instagramUrl: true,
+      },
       data: {
         name: body.name,
         category: body.category,
@@ -46,14 +56,13 @@ export async function PATCH(
       },
     });
 
-    // if (body.imageUrl) {
-    //   await prisma.productImage.deleteMany({ where: { productId: id } });
-    //   await prisma.productImage.create({
-    //     data: { productId: id, imageUrl: body.imageUrl, sortOrder: 0 },
-    //   });
-    // }
+    // Serialize Decimal for response
+    const serialized = {
+      ...product,
+      productionDays: product.productionDays.toNumber(),
+    };
 
-    return NextResponse.json({ product });
+    return NextResponse.json({ product: serialized });
   } catch (err) {
     if (err instanceof z.ZodError) {
       return NextResponse.json({ error: "Invalid data" }, { status: 400 });
@@ -64,7 +73,7 @@ export async function PATCH(
 
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
   if (!(await requireAdmin())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

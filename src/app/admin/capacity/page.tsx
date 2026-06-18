@@ -22,11 +22,11 @@ export default async function AdminCapacityPage() {
         const totalRequiredEffort = order.items.reduce(
           (sum, item) =>
             sum + item.quantity * item.product.productionDays.toNumber(),
-          0,
+          0
         );
         const completedEffort = order.capacityReservations.reduce(
           (sum, r) => sum + Number(r.completedQuantity),
-          0,
+          0
         );
         return {
           id: order.id,

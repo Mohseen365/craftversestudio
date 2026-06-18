@@ -1,4 +1,4 @@
-// import { redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 import { isAdminAuthenticated } from "@/lib/auth";
 import { AdminNav } from "@/components/AdminNav";
 
@@ -18,9 +18,7 @@ export default async function AdminLayout({
       {authed && (
         <div className="border-b border-stone-200 bg-white">
           <div className="mx-auto max-w-6xl px-4 py-4">
-            <p className="text-sm font-semibold text-stone-900">
-              Admin Dashboard
-            </p>
+            <p className="text-sm font-semibold text-stone-900">Admin Dashboard</p>
             <AdminNav />
           </div>
         </div>

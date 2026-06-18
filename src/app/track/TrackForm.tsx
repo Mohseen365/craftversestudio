@@ -4,7 +4,6 @@ import { useState, useTransition } from "react";
 import { OrderStatusBadge } from "@/components/OrderStatusBadge";
 import { formatDate } from "@/lib/utils";
 import Link from "next/link";
-import { PaymentStatus } from "@prisma/client";
 
 type OrderResult = {
   id: string;
@@ -12,19 +11,15 @@ type OrderResult = {
   status: string;
   paymentStatus: string;
   createdAt: string;
-  // productionDeadline: string | null;
+  productionDeadline: string | null;
   shippingDate: string | null;
   deliveryDate: string | null;
   occasionDate: string | null;
   trackingNumber: string | null;
   total: number;
-  items: Array<{
-    product: { name: string; productionDays: number };
-    quantity: number;
-  }>;
-  payments: Array<{ status: PaymentStatus; screenshotUrl: string | null }>;
+  items: Array<{ product: { name: string }; quantity: number }>;
   user: {
-    mobileNo: string | null;
+    mobileNo: string;
     id: string;
   };
 };
@@ -40,9 +35,7 @@ type TrackFormProps = {
 export function TrackForm({ contact, initialResult }: TrackFormProps) {
   const [orderNumber, setOrderNumber] = useState(contact.orderNumber ?? "");
   const [mobileNo, setMobileNo] = useState(contact.mobileNo ?? "");
-  const [result, setResult] = useState<OrderResult | null>(
-    initialResult ?? null,
-  );
+  const [result, setResult] = useState<OrderResult | null>(initialResult ?? null);
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
 
@@ -120,8 +113,7 @@ export function TrackForm({ contact, initialResult }: TrackFormProps) {
             <OrderStatusBadge status={result.status} />
           </div>
 
-          {(result.status === "ACCEPTED" ||
-            result.status === "PAYMENT_PENDING") && (
+          {(result.status === "ACCEPTED" || result.status === "PAYMENT_PENDING") && (
             <Link
               href={`/order/${result.id}/payment?orderId=${
                 result.id
@@ -135,24 +127,17 @@ export function TrackForm({ contact, initialResult }: TrackFormProps) {
           )}
           {result.status === "REJECTED" && (
             <p className="mt-4 text-sm text-red-600">
-              Sorry, we cannot accept your order for that date. We are at full
-              capacity.
+              Sorry, we cannot accept your order for that date. We are at full capacity.
             </p>
           )}
           {result.status === "PAYMENT_SUBMITTED" && (
-            <p className="mt-4 text-sm text-blue-600">
-              We will verify your payment shortly.
-            </p>
+            <p className="mt-4 text-sm text-blue-600">We will verify your payment shortly.</p>
           )}
           {result.status === "PAYMENT_VERIFICATION" && (
-            <p className="mt-4 text-sm text-amber-600">
-              Payment is under verification.
-            </p>
+            <p className="mt-4 text-sm text-amber-600">Payment is under verification.</p>
           )}
           {result.status === "PAYMENT_REJECTED" && (
-            <p className="mt-4 text-sm text-red-600">
-              Payment rejected. We will contact you.
-            </p>
+            <p className="mt-4 text-sm text-red-600">Payment rejected. We will contact you.</p>
           )}
 
           <dl className="mt-6 grid gap-3 text-sm sm:grid-cols-2">
