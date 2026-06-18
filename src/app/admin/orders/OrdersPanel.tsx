@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { OrderStatusBadge } from "@/components/OrderStatusBadge";
 import { addDays, formatDate, formatPrice } from "@/lib/utils";
 
@@ -8,7 +8,7 @@ type Order = {
   id: string;
   orderNumber: string;
   status: string;
-  occasionDate: Date | null;
+  occasionDate: string | null;
   deliveryDate: string | null;
   productionDeadline: string | null;
   shippingDate: string | null;
@@ -17,8 +17,8 @@ type Order = {
   trackingNumber: string | null;
   quantity: number;
   user: {
-    name: string;
-    mobileNo: string;
+    name: string | null;
+    mobileNo: string | null;
     email: string | null;
     addresses: Array<{
       address: string;
@@ -27,7 +27,10 @@ type Order = {
       pincode: string;
     }>;
   };
-  items: Array<{ product: { name: string }; quantity: number }>;
+  items: Array<{
+    product: { name: string; productionDays: number };
+    quantity: number;
+  }>;
   payments: Array<{ screenshotUrl: string | null; status: string }>;
 };
 
@@ -76,18 +79,30 @@ export function OrdersPanel({
   const [loading, setLoading] = useState(false);
 
   async function loadOrders(status: string) {
-    setLoading(true);
-    const res = await fetch(`/api/admin/orders?status=${status}`);
-    const data = await res.json();
-    setOrders(data.orders ?? []);
-    setLoading(false);
+    try {
+      setLoading(true);
+
+      const res = await fetch(`/api/admin/orders?status=${status}`);
+
+      if (!res.ok) {
+        throw new Error("Failed to load orders");
+      }
+
+      const data = await res.json();
+
+      setOrders(data.orders ?? []);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
   }
 
-  useEffect(() => {
-    if (tab !== initialTab || orders !== initialOrders) {
-      loadOrders(tab);
-    }
-  }, [tab]);
+  // useEffect(() => {
+  //   if (tab !== initialTab || orders !== initialOrders) {
+  //     loadOrders(tab);
+  //   }
+  // }, [tab]);
 
   const onOrderUpdate = (id: string, removed = false) => {
     if (removed) {
@@ -103,7 +118,12 @@ export function OrdersPanel({
         {TABS.map((t) => (
           <button
             key={t.key}
-            onClick={() => setTab(t.key)}
+            onClick={async () => {
+              if (t.key === tab) return;
+
+              setTab(t.key);
+              await loadOrders(t.key);
+            }}
             className={`rounded-lg px-4 py-2 text-sm font-medium ${
               tab === t.key
                 ? "bg-stone-900 text-white"
@@ -145,16 +165,19 @@ function OrderCard({
   onUpdate: (id: string, removed?: boolean) => void;
 }) {
   const [shippingDuration, setShippingDuration] = useState<number | "">("");
-  const [capacityPreview, setCapacityPreview] = useState<CapacityPreview | null>(
-    null
-  );
+  const [capacityPreview, setCapacityPreview] =
+    useState<CapacityPreview | null>(null);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const planningDates = useMemo(() => {
-    if (!order.occasionDate || typeof shippingDuration !== "number") {
+    const occasionDate = order.occasionDate
+      ? new Date(order.occasionDate)
+      : null;
+    if (!occasionDate || typeof shippingDuration !== "number") {
       return { shippingDate: null, productionDeadline: null };
     }
-    const shippingDate = addDays(order.occasionDate, -shippingDuration);
+
+    const shippingDate = addDays(occasionDate, -shippingDuration);
     return {
       shippingDate,
       productionDeadline: addDays(shippingDate, -1),
@@ -162,9 +185,11 @@ function OrderCard({
   }, [order.occasionDate, shippingDuration]);
 
   async function loadCapacityPreview(duration: number) {
-    if (!order.occasionDate) return;
-
-    const shippingDate = addDays(order.occasionDate, -duration);
+    const occasionDate = order.occasionDate
+      ? new Date(order.occasionDate)
+      : null;
+    if (!occasionDate) return;
+    const shippingDate = addDays(occasionDate, -duration);
     const productionDeadline = addDays(shippingDate, -1);
     const params = new URLSearchParams({
       productionDeadline: productionDeadline.toISOString(),
@@ -267,10 +292,14 @@ function OrderCard({
                   : "Not set"}
               </td>
               <td className="py-3 pr-4">
-                {order.shippingDate ? formatDate(order.shippingDate) : "Not set"}
+                {order.shippingDate
+                  ? formatDate(order.shippingDate)
+                  : "Not set"}
               </td>
               <td className="py-3 pr-4">
-                {order.occasionDate ? formatDate(order.occasionDate) : "Not set"}
+                {order.occasionDate
+                  ? formatDate(order.occasionDate)
+                  : "Not set"}
               </td>
             </tr>
           </tbody>
@@ -320,7 +349,7 @@ function OrderCard({
               <span className="mt-2 block text-stone-600">
                 {order.occasionDate
                   ? planningDates.shippingDate
-                    ? formatDate(planningDates.shippingDate)
+                    ? formatDate(planningDates.shippingDate).toString()
                     : "Enter duration"
                   : "No occasion date"}
               </span>
@@ -332,7 +361,7 @@ function OrderCard({
               <span className="mt-2 block text-stone-600">
                 {order.occasionDate
                   ? planningDates.productionDeadline
-                    ? formatDate(planningDates.productionDeadline)
+                    ? formatDate(planningDates.productionDeadline).toString()
                     : "Enter duration"
                   : "No occasion date"}
               </span>
@@ -370,8 +399,8 @@ function OrderCard({
                   <ul className="list-disc list-inside mt-1 text-xs">
                     {capacityPreview.suggestedDates.map((d, i) => (
                       <li key={i}>
-                        {formatDate(d.date)}: {Number(d.quantity.toFixed(2))}{" "}
-                        day(s)
+                        {d.date ? formatDate(d.date) : "Not set"}:{" "}
+                        {Number(d.quantity.toFixed(2))} day(s)
                       </li>
                     ))}
                   </ul>

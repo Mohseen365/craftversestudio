@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { formatPrice } from "@/lib/utils";
 // import { Decimal } from "@prisma/client/runtime/library";
 
@@ -11,9 +11,9 @@ type Product = {
   category: string;
   price: number;
   active: boolean;
-  imageUrl: string | null;
+  imageUrl: string;
   instagramUrl: string | null;
-  productionDays: string;
+  productionDays: number;
   description: string;
 };
 
@@ -28,23 +28,29 @@ export function ProductsPanel({
   const [loading, setLoading] = useState(false);
 
   async function load() {
-    setLoading(true);
-    const res = await fetch("/api/admin/products");
-    const data = await res.json();
-    if (!res.ok) {
-      console.log(data);
-      alert(JSON.stringify(data, null, 2));
-      return;
+    try {
+      setLoading(true);
+
+      const res = await fetch("/api/admin/products");
+      const data = await res.json();
+
+      if (!res.ok) {
+        console.log(data);
+        alert(JSON.stringify(data, null, 2));
+        return;
+      }
+
+      setProducts(data.products ?? []);
+    } finally {
+      setLoading(false);
     }
-    setProducts(data.products ?? []);
-    setLoading(false);
   }
 
-  useEffect(() => {
-    if (products !== initialProducts) {
-      load();
-    }
-  }, []);
+  // useEffect(() => {
+  //   if (products !== initialProducts) {
+  //     load();
+  //   }
+  // }, []);
 
   const onUpdate = () => {
     load();
@@ -59,41 +65,43 @@ export function ProductsPanel({
       name: fd.get("name"),
       category: fd.get("category"),
       description: fd.get("description"),
-      price: Number(fd.get("price")),
+      price: fd.get("price"),
+      // price: Number(fd.get("price")),
       active: true,
-      productionDays: fd.get("productionDays")?.toString() ?? "1",
-      imageUrl: fd.get("imageUrl") || undefined,
+      productionDays: fd.get("productionDays"),
+      // productionDays: fd.get("productionDays")?.toString() ?? "1",
+      imageUrl: fd.get("imageUrl"),
       instagramUrl: fd.get("instagramUrl") || undefined,
     };
 
     if (editingProduct) {
-      const res =await fetch(`/api/admin/products/${editingProduct.id}`, {
+      const res = await fetch(`/api/admin/products/${editingProduct.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
-const data = await res.json();
+      const data = await res.json();
 
-if (!res.ok) {
-  console.log(data);
-  alert(JSON.stringify(data, null, 2));
-  return;
-}
+      if (!res.ok) {
+        console.log(data);
+        alert(JSON.stringify(data, null, 2));
+        return;
+      }
     } else {
-      const res =await fetch("/api/admin/products", {
+      const res = await fetch("/api/admin/products", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
-const data = await res.json();
+      const data = await res.json();
 
-if (!res.ok) {
-  console.log(data);
-  alert(JSON.stringify(data, null, 2));
-  return;
-}
+      if (!res.ok) {
+        console.log(data);
+        alert(JSON.stringify(data, null, 2));
+        return;
+      }
     }
 
     setEditingProduct(null);
@@ -145,11 +153,12 @@ if (!res.ok) {
               // value={1}
               step="0.01" // allows decimals like 1.0, 10.25
               className="rounded-lg border px-3 py-2 text-sm"
-              defaultValue={editingProduct?.productionDays?.toString() ?? "1"}
+              defaultValue={editingProduct?.productionDays}
+              // defaultValue={editingProduct?.productionDays?.toString() ?? "1"}
             />
             <input
               name="imageUrl"
-              placeholder="Image URL (optional)"
+              placeholder="Image URL"
               className="rounded-lg border px-3 py-2 text-sm sm:col-span-2"
               defaultValue={editingProduct?.imageUrl ?? ""}
             />

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth";
 import { formatDateKey, parseDateKey } from "@/lib/scheduler";
+import { Decimal } from "@prisma/client/runtime/library";
 
 /**
  * POST /api/admin/capacity/progress
@@ -19,10 +20,15 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const { orderId, date, completedUnits } = body;
 
-  if (!orderId || !date || typeof completedUnits !== "number" || completedUnits <= 0) {
+  if (
+    !orderId ||
+    !date ||
+    typeof completedUnits !== "number" ||
+    completedUnits <= 0
+  ) {
     return NextResponse.json(
       { error: "Missing or invalid fields" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -41,7 +47,7 @@ export async function POST(req: NextRequest) {
   if (!reservation) {
     return NextResponse.json(
       { error: "No reservation found for this order on the given date" },
-      { status: 404 }
+      { status: 404 },
     );
   }
 
@@ -51,7 +57,7 @@ export async function POST(req: NextRequest) {
   // The request "edit to 0.5" suggests direct setting is useful.
   // We'll interpret 'completedUnits' as the new total for that day,
   // but cap it at planned quantity to ensure consistency.
-  const newCompleted = Math.min(completedUnits, planned);
+  const newCompleted = new Decimal(Math.min(completedUnits, planned));
 
   const updatedReservation = await prisma.capacityReservation.update({
     where: { id: reservation.id },
