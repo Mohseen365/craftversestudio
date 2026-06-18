@@ -90,8 +90,8 @@ Solve the "Capacity Constraint" problem: Can we finish a new bouquet order befor
 - Calculates `remainingEffort` (Required - Locked).
 - Identifies viable date window (Today -> Deadline).
 - Calculates `slack` (Window Capacity - Remaining Need).
-- **Sorting:** Most constrained orders first (Fewest dates -> Lowest slack -> Earliest deadline).
-- **Allocation:** Greedy forward-filling of daily capacity.
+- **Sorting:** Most constrained orders first (Fewest dates -> Lowest slack -> Earliest deadline -> Unique ID tie-breaker).
+- **Allocation:** Deterministic greedy forward-filling of daily capacity.
 
 ### [Step 3] Persistence (`persistAllocations`)
 - Deletes old `isManual: false` reservations.
