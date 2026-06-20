@@ -1,3 +1,13 @@
+[build]
+  command = "prisma generate && next build"
+  publish = ".next"
+
+[build.environment]
+  NEXT_TELEMETRY_DISABLED = "1"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
 [[plugins]]
   package = "@netlify/plugin-cache"
   [plugins.inputs]
@@ -6,4 +16,3 @@
       ".next/cache",
       "node_modules/.prisma"
     ]
-
