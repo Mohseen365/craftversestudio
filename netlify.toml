@@ -1,18 +1,9 @@
-[build]
-  command = "prisma generate && next build"
-  publish = ".next"
-
-[build.environment]
-  NEXT_TELEMETRY_DISABLED = "1"
-
 [[plugins]]
   package = "@netlify/plugin-cache"
   [plugins.inputs]
-    # Cache node_modules to avoid reinstalling dependencies
-    paths = ["node_modules"]
+    paths = [
+      "node_modules",
+      ".next/cache",
+      "node_modules/.prisma"
+    ]
 
-    # Cache Next.js build artifacts
-    paths = [".next/cache"]
-
-    # Cache Prisma client output
-    paths = ["node_modules/.prisma"]
