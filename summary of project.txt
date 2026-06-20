@@ -1,6 +1,3 @@
-Ah, I see the confusion! Let me clarify exactly how the two documents combine. The `... [The rest of the original merged document goes here ...]` was a placeholder — I should have been explicit about what gets inserted there.
-
-Here is the **complete unified document** with every section properly placed. I've structured it so the Mindmap/Flow Map serves as the "quick navigational overview" at the top, and then the deep technical reference follows. This way, an AI agent or human can get the big picture first, then drill into specifics.
 
 ---
 

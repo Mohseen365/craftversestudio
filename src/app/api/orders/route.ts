@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { generateOrderNumber } from "@/lib/utils";
-import { createCustomerSession, getCurrentUserId } from "@/lib/auth";
+import { getOrCreateCustomerId } from "@/lib/auth";
 
 const orderSchema = z.object({
   productId: z.string(),
@@ -29,23 +29,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 });
     }
 
-    let customerId = await getCurrentUserId();
-    if (customerId) {
-      const customerExists = await prisma.user.findUnique({
-        where: { id: customerId },
-        select: { id: true },
-      });
-      if (!customerExists) customerId = null;
-    }
-
-    if (!customerId) {
-      const guest = await prisma.user.create({
-        data: { isGuest: true },
-        select: { id: true },
-      });
-      customerId = guest.id;
-      await createCustomerSession(customerId);
-    }
+    const customerId = await getOrCreateCustomerId();
 
     const subtotal = product.price * data.quantity;
     const orderNumber = generateOrderNumber();
@@ -69,6 +53,7 @@ export async function POST(req: NextRequest) {
           occasionType: data.occasionType,
           // occasionDate: data.occasionDate ? new Date(data.occasionDate) : null,
           occasionDate: data.occasionDate,
+          shippingDate: data.occasionDate,
           quantity: data.quantity,
           subtotal,
           total: subtotal,

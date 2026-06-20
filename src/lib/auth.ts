@@ -5,10 +5,10 @@ import crypto from "crypto";
 
 const CUSTOMER_SECRET = process.env.CUSTOMER_SESSION_SECRET!;
 const ADMIN_SECRET = process.env.ADMIN_SESSION_SECRET!;
-const CUSTOMER_COOKIE = "bouquet_customer";
+const CUSTOMER_COOKIE = process.env.CUSTOMER_COOKIE!;
 
-const COOKIE_NAME = "bouquet_admin_session";
-const SESSION_VALUE = "authenticated";
+const COOKIE_NAME = process.env.COOKIE_NAME!;
+const SESSION_VALUE = process.env.SESSION_VALUE!;
 
 export async function verifyAdminPassword(password: string): Promise<boolean> {
   const adminPassword = process.env.ADMIN_PASSWORD;
@@ -133,6 +133,26 @@ export async function getOrCreateCustomerId() {
     },
     select: {
       id: true,
+    },
+  });
+
+  await createCustomerSession(guestUser.id);
+
+  return guestUser.id;
+}
+export async function getOrCreateCustomer() {
+  const existingUser = await getCurrentUser();
+
+  if (existingUser) {
+    return existingUser;
+  }
+
+  const guestUser = await prisma.user.create({
+    data: {
+      isGuest: true,
+    },
+    select: {
+      id: true,
       isGuest: true,
       name: true,
       mobileNo: true,
@@ -143,9 +163,8 @@ export async function getOrCreateCustomerId() {
 
   await createCustomerSession(guestUser.id);
 
-  return guestUser.id;
+  return guestUser;
 }
-
 export async function destroyCustomerSession() {
   const cookieStore = await cookies();
 
