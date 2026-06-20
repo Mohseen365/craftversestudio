@@ -11,6 +11,7 @@ export default async function LoginPage({
   const params = await searchParams;
   const orderId = params.orderId ?? "";
   const orderNumber = params.orderNumber ?? "";
+  console.log("in login page");
 
   // void trackEvent({
   //   userId: userId,

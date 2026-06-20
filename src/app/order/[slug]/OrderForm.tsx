@@ -34,12 +34,14 @@ export function OrderForm({ product }: OrderFormProps) {
     () => product.price * quantity,
     [product.price, quantity],
   );
+  console.log("in OrderForm");
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError("");
 
     const formData = new FormData(e.currentTarget);
+    console.log("in handleSubmit");
 
     startTransition(async () => {
       try {
@@ -54,6 +56,8 @@ export function OrderForm({ product }: OrderFormProps) {
         //   }
         //   customerId = guestData.userId;
         // }
+        console.log("in startTransition");
+        console.log("calling api/orders");
 
         const res = await fetch("/api/orders", {
           method: "POST",
@@ -72,14 +76,21 @@ export function OrderForm({ product }: OrderFormProps) {
         });
 
         const data = await res.json();
+        console.log("get res from api/orders");
+
         if (!res.ok) {
+          console.log("res is not ok from api/orders");
           throw new Error(data.error ?? "Failed to create order");
         }
+        console.log("res is ok from api/orders");
+        console.log("go to login");
 
         router.push(
           `/login?orderId=${data.orderId}&orderNumber=${data.orderNumber}`,
         );
       } catch (err) {
+        console.log("catch block of startTransition");
+
         setError(err instanceof Error ? err.message : "Something went wrong");
       }
     });
