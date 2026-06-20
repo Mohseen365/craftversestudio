@@ -7,6 +7,7 @@ type LoginFormProps = {
   order: {
     id: string;
     number: string;
+    slug: string;
   };
 };
 
@@ -25,10 +26,6 @@ export function LoginForm({ order }: LoginFormProps) {
 
     startTransition(async () => {
       try {
-        console.log(
-          "in handleLogin startTransition and calling /api/customer/login",
-        );
-
         const res = await fetch("/api/customer/login", {
           method: "POST",
           headers: {
@@ -42,16 +39,20 @@ export function LoginForm({ order }: LoginFormProps) {
           }),
         });
 
-        const data = await res.json();
-        console.log("get res from /api/customer/login");
+        const data = await res.json(); //data has only id of user
+
         if (!res.ok || !data.success) {
-          console.log("res is not ok from /api/customer/login");
           throw new Error(data.error ?? "Could not save contact details");
         }
-        console.log("res is ok from /api/customer/login");
-        console.log("going to /track");
+        if (order.slug) {
+          router.push(`/order/slug=${order.slug}`);
+        } else if (order.number) {
+          console.log("going to /track");
 
-        router.push(`/track?orderNumber=${order.number}&mobileNo=${mobileNo}`);
+          router.push(
+            `/track?orderNumber=${order.number}&mobileNo=${mobileNo}`,
+          );
+        }
       } catch (err) {
         console.log("catch block of startTransition");
 

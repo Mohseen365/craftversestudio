@@ -5,6 +5,7 @@ import { Footer } from "@/components/Footer";
 import { TrackForm } from "./TrackForm";
 import { getCurrentUserId } from "@/lib/auth";
 import { getTrackableOrder } from "@/server/data/orders";
+import { redirect } from "next/navigation";
 // import { PaymentStatus } from "@prisma/client";
 // type OrderResult = {
 //   id: string;
@@ -31,14 +32,16 @@ import { getTrackableOrder } from "@/server/data/orders";
 export default async function TrackPage({
   searchParams,
 }: {
-  searchParams: Promise<{ orderNumber?: string; mobileNo?: string }>;
+  searchParams?: { orderNumber?: string; mobileNo?: string };
 }) {
-  const params = await searchParams;
-  const orderNumber = params.orderNumber ?? "";
-  const mobileNo = params.mobileNo ?? "";
+  const orderNumber = searchParams?.orderNumber ?? "";
+  const mobileNo = searchParams?.mobileNo ?? "";
 
   // let initialResult: OrderResult | null = null;
   const userId = await getCurrentUserId();
+  if (!userId) {
+    redirect(`/login?orderNumber=${orderNumber}&mobileNo={mobileNo}`);
+  }
   const initialResult = orderNumber
     ? await getTrackableOrder({ orderNumber, mobileNo, userId })
     : null;
@@ -56,6 +59,7 @@ export default async function TrackPage({
             contact={{
               mobileNo: mobileNo,
               orderNumber: orderNumber,
+              userId: userId,
             }}
             initialResult={initialResult}
           />

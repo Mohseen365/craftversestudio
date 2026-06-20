@@ -1,9 +1,9 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { getProductBySlug } from "@/server/data/products";
 import { OrderForm } from "./OrderForm";
-import { getOrCreateCustomerId } from "@/lib/auth";
+import { getCurrentUserId } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -15,12 +15,16 @@ export async function generateStaticParams() {
 export default async function OrderPage({
   params,
 }: {
-  params: Promise<{ slug: string }>;
+  params?: { slug: string };
 }) {
-  const { slug } = await params;
+  const userId = await getCurrentUserId();
+  const slug = params?.slug ?? "";
+  if (!userId) {
+    redirect(`/login?slug=${slug}`);
+  }
 
   const product = await getProductBySlug(slug);
-  getOrCreateCustomerId().catch();
+
   if (!product) notFound();
 
   return (
@@ -41,6 +45,7 @@ export default async function OrderPage({
               slug: product.slug,
               price: product.price,
             }}
+            userId={userId}
           />
         </div>
       </main>

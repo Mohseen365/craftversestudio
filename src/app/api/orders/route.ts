@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { generateOrderNumber } from "@/lib/utils";
-import { getOrCreateCustomerId } from "@/lib/auth";
 
 const orderSchema = z.object({
+  userId: z.string(),
   productId: z.string(),
   address: z.string().min(5),
   city: z.string().min(2),
@@ -13,37 +13,30 @@ const orderSchema = z.object({
   occasionType: z.string().optional(),
   occasionDate: z.coerce.date(),
   quantity: z.number().int().min(1).max(10),
+  productPrice: z.number(),
   notes: z.string().optional(),
 });
 
 export async function POST(req: NextRequest) {
   try {
-    console.log("in orders/route");
-
     const data = orderSchema.parse(await req.json());
-    console.log("in orders/route parsed request and going to find product");
-    // Price and active status are authoritative at mutation time, not from cached page data.
-    const product = await prisma.product.findUnique({
-      where: { id: data.productId, active: true },
-      select: { id: true, name: true, price: true },
-    });
-    if (!product) {
-      console.log("in orders/route product not found");
-      return NextResponse.json({ error: "Product not found" }, { status: 404 });
-    }
-    console.log(
-      "in orders/route product found and goint to getOrCreateCustomerId",
-    );
-    const customerId = await getOrCreateCustomerId();
-    console.log("out of getOrCreateCustomerId");
 
-    const subtotal = product.price * data.quantity;
+    // Price and active status are authoritative at mutation time, not from cached page data.
+    // const product = await prisma.product.findUnique({
+    //   where: { id: data.productId, active: true },
+    //   select: { id: true, name: true, price: true },
+    // });
+    // if (!product) {
+    //   return NextResponse.json({ error: "Product not found" }, { status: 404 });
+    // }
+
+    const customerId = data.userId;
+
+    const subtotal = data.productPrice * data.quantity;
     const orderNumber = generateOrderNumber();
 
     const order = await prisma.$transaction(async (tx) => {
-      console.log("creating address");
-
-      await tx.address.create({
+      tx.address.create({
         data: {
           userId: customerId,
           address: data.address,
@@ -52,7 +45,6 @@ export async function POST(req: NextRequest) {
           state: data.state,
         },
       });
-      console.log("creating order");
 
       const newOrder = await tx.order.create({
         data: {
@@ -69,19 +61,16 @@ export async function POST(req: NextRequest) {
           notes: data.notes,
           items: {
             create: {
-              productId: product.id,
+              productId: data.productId,
               quantity: data.quantity,
-              price: product.price,
+              price: data.productPrice,
             },
           },
         },
       });
-      console.log(newOrder.id);
 
-      console.log("updating product");
-
-      await tx.product.update({
-        where: { id: product.id },
+      tx.product.update({
+        where: { id: data.productId },
         data: { orderCount: { increment: 1 } },
       });
 
@@ -93,8 +82,6 @@ export async function POST(req: NextRequest) {
       orderNumber: order.orderNumber,
     });
   } catch (err) {
-    console.log("in catch block of order api");
-
     if (err instanceof z.ZodError) {
       return NextResponse.json(
         { error: "Invalid order data" },

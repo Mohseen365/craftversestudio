@@ -15,9 +15,9 @@ export async function generateStaticParams() {
 export default async function ProductPage({
   params,
 }: {
-  params: Promise<{ slug: string }>;
+  params?: { slug: string };
 }) {
-  const { slug } = await params;
+  const slug = params?.slug ?? "";
 
   const product = await getProductBySlug(slug);
   if (!product) notFound();

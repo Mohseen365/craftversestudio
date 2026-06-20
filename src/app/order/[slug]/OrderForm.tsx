@@ -12,6 +12,7 @@ type OrderFormProps = {
     slug: string;
     price: number;
   };
+  userId: string;
 };
 
 const OCCASIONS = [
@@ -24,7 +25,7 @@ const OCCASIONS = [
   "Other",
 ];
 
-export function OrderForm({ product }: OrderFormProps) {
+export function OrderForm({ product, userId }: OrderFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState("");
@@ -55,15 +56,14 @@ export function OrderForm({ product }: OrderFormProps) {
         //     throw new Error(guestData.error ?? "Could not start guest order");
         //   }
         //   customerId = guestData.userId;
-        // }
-        console.log("in startTransition");
-        console.log("calling api/orders");
 
         const res = await fetch("/api/orders", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            userId: userId,
             productId: product.id,
+            productPrice: product.price,
             address: formData.get("address"),
             city: formData.get("city"),
             pincode: formData.get("pincode"),
@@ -76,21 +76,15 @@ export function OrderForm({ product }: OrderFormProps) {
         });
 
         const data = await res.json();
-        console.log("get res from api/orders");
 
         if (!res.ok) {
-          console.log("res is not ok from api/orders");
           throw new Error(data.error ?? "Failed to create order");
         }
-        console.log("res is ok from api/orders");
-        console.log("go to login");
 
         router.push(
-          `/login?orderId=${data.orderId}&orderNumber=${data.orderNumber}`,
+          `/track?orderId=${data.orderId}&orderNumber=${data.orderNumber}`,
         );
       } catch (err) {
-        console.log("catch block of startTransition");
-
         setError(err instanceof Error ? err.message : "Something went wrong");
       }
     });

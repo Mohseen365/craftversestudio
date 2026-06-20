@@ -3,14 +3,15 @@ import { LoginForm } from "./LoginForm";
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{
+  searchParams?: {
     orderId?: string;
     orderNumber?: string;
-  }>;
+    slug: string;
+  };
 }) {
-  const params = await searchParams;
-  const orderId = params.orderId ?? "";
-  const orderNumber = params.orderNumber ?? "";
+  const orderId = searchParams?.orderId ?? "";
+  const orderNumber = searchParams?.orderNumber ?? "";
+  const slug = searchParams?.slug ?? "";
   console.log("in login page");
 
   // void trackEvent({
@@ -40,6 +41,7 @@ export default async function LoginPage({
         order={{
           id: orderId,
           number: orderNumber,
+          slug: slug,
         }}
       />
     </main>
