@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserId } from "@/lib/auth";
-import { notifyAdminPaymentPending } from "@/lib/email";
+// import { notifyAdminPaymentPending } from "@/lib/email";
 
 const schema = z.object({
   screenshotUrl: z
@@ -13,13 +13,13 @@ const schema = z.object({
         value.startsWith("/uploads/") || z.url().safeParse(value).success,
       {
         message: "Invalid screenshot URL",
-      }
+      },
     ),
 });
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id } = await params;
@@ -45,14 +45,14 @@ export async function POST(
     if (order.status === "REJECTED") {
       return NextResponse.json(
         { error: "Rejected orders cannot submit payment" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     if (order.status !== "ACCEPTED" && order.status !== "PAYMENT_PENDING") {
       return NextResponse.json(
         { error: "Payment is only available after admin accepts the order" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -71,7 +71,7 @@ export async function POST(
       }),
     ]);
 
-    await notifyAdminPaymentPending(order.orderNumber);
+    // await notifyAdminPaymentPending(order.orderNumber);
 
     return NextResponse.json({ success: true });
   } catch (err) {
@@ -80,7 +80,7 @@ export async function POST(
     }
     return NextResponse.json(
       { error: "Failed to upload payment" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

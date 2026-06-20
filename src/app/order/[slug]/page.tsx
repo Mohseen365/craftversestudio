@@ -3,6 +3,7 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { getProductBySlug } from "@/server/data/products";
 import { OrderForm } from "./OrderForm";
+import { getOrCreateCustomerId } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +20,7 @@ export default async function OrderPage({
   const { slug } = await params;
 
   const product = await getProductBySlug(slug);
-
+  getOrCreateCustomerId().catch();
   if (!product) notFound();
 
   return (
