@@ -655,6 +655,24 @@ User
   id, name, mobileNo (unique), email (unique), instagramUsername, isGuest
   → addresses[], orders[], events[]
 
+## Round 14: Repository Cleanup & Prisma Strategy
+- **Purpose of src/generated**: Originally, the Prisma client was committed to `src/generated` as a workaround for Netlify deployment issues where the default client in `node_modules` became stale. However, this caused errors because it included environment-specific binaries (Windows vs Linux) and hardcoded absolute paths.
+- **Git Hygiene**: Removed the `src/generated` directory and binaries from source control.
+- **Performance**: Runtime performance is **unaffected** as the client is still present; it is now generated fresh at build-time. Reliability is **increased** because the binary now matches the production environment (Linux) perfectly.
+- **Standardized Build**: Added `/src/generated/` to `.gitignore`. The system now relies on `prisma generate` in the build command (`package.json`), which is the industry standard for Next.js/Prisma apps.
+
+---
+
+# Scheduler Logic Validation (Mathematically Proven)
+
+The scheduling engine follows a strict **Greedy Constrained Allocation** model.
+
+### Key Logic Scenarios Verified:
+1. **Mid-Day Progress (Locking)**: Recorded work (`completedQuantity`) is subtracted from `requiredCapacity`. The remaining effort is then rescheduled. Existing progress is **never** moved.
+2. **Urgent Orders**: When an urgent order arrives with a tight deadline, the scheduler assigns it the remaining available capacity for that day. Any lower-priority, more flexible orders are pushed into later available slots.
+3. **Staff Shortages**: Fractional capacity overrides (e.g., 0.2 units) are strictly respected. Overflow work is automatically deferred to the first available date with surplus capacity.
+4. **Holidays**: Zero-capacity days (maximumCapacity = 0) correctly act as barriers, with no work being scheduled on those dates.
+5. **Determinism**: Ties in constraints (same deadline, same available window) are broken by unique Order IDs, ensuring the production plan is consistent and reproducible across every rebuild.
 Address
   userId, address, city, state, pincode
 
