@@ -99,16 +99,16 @@ Solve the "Capacity Constraint" problem: Can we finish a new bouquet order befor
 
 ---
 
-## 6. Detected Inconsistencies & Improvement Suggestions
+## 6. Historical Inconsistencies & Improvement Suggestions
 
-### [!] Inconsistency: User Identity Security
-- **Current:** `bouquet_customer` cookie stores raw, unsigned User ID.
-- **Risk:** Any user can change their cookie value to any other ID and "steal" orders.
-- **Suggestion:** Use signed cookies or a proper JWT-based session in `lib/auth.ts`.
+The identity and payment items below are retained for history and were resolved by the revised flow in section 8.
 
-### [!] Inconsistency: Payment Submission Ownership
-- **Current:** `POST /api/orders/[id]/payment` doesn't check if the current user owns the order.
-- **Suggestion:** Cross-reference `order.userId` with `sessionUser.id` before allowing a screenshot upload.
+### [Resolved] User Identity Security
+- **Previous:** Customer identity could be supplied through request/URL data.
+- **Current:** `bouquet_customer` is HMAC-signed and server mutations derive identity from the verified cookie.
+
+### [Resolved] Payment Submission Ownership
+- **Current:** The payment page and `POST /api/orders/[id]/payment` verify signed-session ownership and eligible order status.
 
 ### [!] Inconsistency: `ProductionProgress` Model
 - **Current:** Exists in schema but never read or written to.
@@ -146,3 +146,119 @@ Solve the "Capacity Constraint" problem: Can we finish a new bouquet order befor
 - **State:** Order A has 0.5 locked today. Remaining today = 0.5.
 - **Action:** Urgent Order C arrives (needs 0.8, deadline TODAY).
 - **Result:** Scheduler rejects Order C with "Missing 0.30 units" reason. System integrity is maintained; Order A is not jeopardized.
+
+---
+
+## 8. Revised Customer Data Flow (June 20, 2026)
+
+This section supersedes the older customer flow and resolved-inconsistency notes above.
+
+### [A] Discovery and Shared Product Data
+
+```text
+Home (/)
+  -> getFeaturedProducts()
+  -> unstable_cache: 15 minutes, tag: products
+
+Catalog (/catalog)
+  -> default filters: getDefaultCatalogProducts()
+     -> unstable_cache: 15 minutes, tag: products
+  -> custom search/filter/sort: direct optimized Prisma query
+
+Product (/products/[slug])
+  -> getProductBySlug(slug)
+  -> unstable_cache: 1 hour, tag: products
+
+Order page (/order/[slug]) [force-dynamic]
+  -> getProductBySlug(slug)
+  -> reuses the same persistent cached product entry
+```
+
+Home and product pages no longer use `force-dynamic`. A dynamic order page can still consume explicitly cached product data. Direct page entry and client-side navigation use the same server data functions; client navigation is not treated as an authorization or data source.
+
+Public page rendering has no database writes. Guest users and analytics events are no longer created by home, catalog, product, or order page rendering/prefetching.
+
+### [B] Order and Identity Flow
+
+```text
+OrderForm
+  -> POST /api/orders
+     -> validate body (no client userId)
+     -> fresh active-product and price query
+     -> read signed customer cookie
+     -> create guest only if no valid customer exists
+     -> set signed customer session
+     -> transaction: Address + Order + OrderItem + product orderCount
+  -> /login?orderId=...&orderNumber=...
+
+LoginForm
+  -> POST /api/customer/login
+     -> derive guest ID from signed session, never request body
+     -> update guest profile OR merge into matching existing customer
+     -> move guest orders/addresses during merge
+     -> replace cookie with signed final customer ID
+```
+
+### [C] Tracking Flow
+
+```text
+Direct /track
+  -> render empty TrackForm without an order query
+
+/track?orderNumber=...&mobileNo=...
+  -> getTrackableOrder({ orderNumber, mobileNo, sessionUserId })
+  -> session ownership OR matching order-number/mobile-number pair
+  -> fresh uncached order status
+
+TrackForm submit
+  -> GET /api/orders/track
+  -> same getTrackableOrder() function
+  -> fresh uncached order status
+```
+
+Order tracking is intentionally not persistently cached. The page and API no longer duplicate the Prisma `select` or date/Decimal serialization logic. An order number alone is insufficient.
+
+### [D] Payment Flow
+
+```text
+TrackForm payment link
+  -> /order/[orderId]/payment?orderId=...
+
+Payment page [force-dynamic]
+  -> read signed customer cookie
+  -> getOrderForPayment(orderId, sessionUserId)
+  -> verify owner and eligible order status
+  -> render PaymentUpload with authoritative server data
+
+PaymentUpload
+  -> POST /api/upload
+  -> POST /api/orders/[id]/payment
+     -> repeat signed-session ownership check
+     -> repeat eligible-status check
+     -> create payment and update order status
+  -> return to tracking
+```
+
+URL-provided `userId`, mobile number, and order number are no longer trusted for payment authorization. The earlier payment-ownership issue is resolved.
+
+### [E] Product Cache Invalidation
+
+```text
+Admin product create/update/deactivate
+  -> successful Prisma mutation
+  -> revalidateTag("products", "max")
+  -> cached home/catalog/product data becomes stale
+  -> next visit refreshes it using stale-while-revalidate behavior
+```
+
+### [F] Current Rendering and Cache Classification
+
+| Route | Current strategy |
+| --- | --- |
+| `/` | Cached/ISR-style public product data |
+| `/catalog` | Dynamic route; cached default listing, uncached custom queries |
+| `/products/[slug]` | Cached product data |
+| `/order/[slug]` | `force-dynamic` page with cached product data |
+| `/login` | Dynamic through signed cookie access |
+| `/track` | `force-dynamic`, uncached order data |
+| `/order/[slug]/payment` | `force-dynamic`, uncached ownership/status verification |

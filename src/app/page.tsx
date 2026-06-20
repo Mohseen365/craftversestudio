@@ -1,28 +1,13 @@
-export const dynamic = "force-dynamic";
-
 import Link from "next/link";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
-import { prisma } from "@/lib/prisma";
+import { getFeaturedProducts } from "@/server/data/products";
 import { ProductCard } from "@/components/ProductCard";
 // import { getOrCreateCustomer } from "@/lib/auth";
 // import { trackEvent } from "@/lib/eventLogger";
 
 export default async function HomePage() {
-  // Await only the featured products
-  const featured = await prisma.product.findMany({
-    where: { active: true },
-    orderBy: { orderCount: "desc" },
-    take: 4,
-    select: {
-      id: true,
-      name: true,
-      slug: true,
-      price: true,
-      category: true,
-      imageUrl: true,
-    },
-  });
+  const featured = await getFeaturedProducts();
 
   // // Kick off user fetch, but don't await it
   // const userPromise = getOrCreateCustomer()

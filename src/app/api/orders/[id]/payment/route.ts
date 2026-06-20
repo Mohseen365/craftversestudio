@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUserId } from "@/lib/auth";
 import { notifyAdminPaymentPending } from "@/lib/email";
 
 const schema = z.object({
@@ -24,8 +25,17 @@ export async function POST(
     const { id } = await params;
     const body = schema.parse(await req.json());
 
-    const order = await prisma.order.findUnique({
-      where: { id },
+    const userId = await getCurrentUserId();
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const order = await prisma.order.findFirst({
+      where: {
+        id,
+        userId,
+        status: { in: ["ACCEPTED", "PAYMENT_PENDING", "PAYMENT_REJECTED"] },
+      },
       select: { id: true, status: true, total: true, orderNumber: true },
     });
     if (!order) {

@@ -3,6 +3,8 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth";
 import { Decimal } from "@prisma/client/runtime/library";
+import { revalidateTag } from "next/cache";
+import { PRODUCTS_CACHE_TAG } from "@/server/data/products";
 
 const updateSchema = z.object({
   name: z.string().min(2).optional(),
@@ -46,6 +48,8 @@ export async function PATCH(
       },
     });
 
+    revalidateTag(PRODUCTS_CACHE_TAG, "max");
+
     // if (body.imageUrl) {
     //   await prisma.productImage.deleteMany({ where: { productId: id } });
     //   await prisma.productImage.create({
@@ -72,5 +76,6 @@ export async function DELETE(
 
   const { id } = await params;
   await prisma.product.update({ where: { id }, data: { active: false } });
+  revalidateTag(PRODUCTS_CACHE_TAG, "max");
   return NextResponse.json({ success: true });
 }

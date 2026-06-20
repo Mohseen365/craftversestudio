@@ -769,7 +769,7 @@ ProductionProgress
 
 # Remaining Known Issues & Improvement Suggestions
 
-2. **Payment Submission Ownership**: `POST /api/orders/[id]/payment` lacks user ownership verification. Suggestion: Cross-reference `order.userId` with `sessionUser.id` before allowing screenshot upload.
+2. **Payment Submission Ownership (Resolved June 20, 2026)**: The payment page and submission API now verify signed-session ownership and eligible order status.
 3. **Unused Model**: `ProductionProgress` model exists in the schema but is unused. Suggestion: if there is a way to remodel the system that will increase the performance by using it then find a way and implement it or if it does not improve anything remove it.
 4. **Legacy Capacity Fallback**: The scheduler uses a hardcoded constant, not the `Setting` table value, unless a `Capacity` row exists for that date.
 5. **Waitlist Automation (Suggestion)**: Currently manual. If `checkAcceptability` fails, an automated "Waitlist Me" option for customers could be implemented.
@@ -781,3 +781,77 @@ replace getCurrentUser with getCurrentUserId in auth.ts because it is lightweigh
 ----------
 ## One-Line Project Description
 **Bouquet is a capacity-aware production planning platform that calculates effort from product specifications, validates capacity via a greedy constrained scheduling algorithm, and dynamically reallocates future fractional effort while locking recorded production progress.**
+
+---
+
+# Customer Shared Data and Caching Changes (June 20, 2026)
+
+This section is the authoritative description of the current customer data flow. It supersedes older notes that say every customer page queries Prisma directly, public page renders create guest users, or payment submission lacks ownership verification.
+
+## Shared Server Data Layer
+
+Two server-only data modules now centralize customer-facing reads:
+
+* `src/server/data/products.ts`
+  * `getFeaturedProducts()` - cached home-page products, revalidated every 15 minutes.
+  * `getDefaultCatalogProducts()` - cached default catalog, revalidated every 15 minutes.
+  * `getProductBySlug(slug)` - shared cached product detail, revalidated every hour.
+  * All product caches use the `products` cache tag.
+* `src/server/data/orders.ts`
+  * `getTrackableOrder()` - shared, uncached tracking lookup and Prisma-to-client serialization.
+  * `getOrderForPayment()` - uncached order ownership and payment-eligibility lookup.
+
+The project is on Next.js 16.2.9 without Cache Components enabled, so the product data layer uses `unstable_cache`. Server Components and Route Handlers import shared server functions directly; they do not call internal API routes merely to read server data.
+
+## Product Caching and Invalidation
+
+* `/` uses `getFeaturedProducts()` and no longer declares `force-dynamic`.
+* `/catalog` remains dynamic because filters come from search parameters. Its default, unfiltered/newest result uses `getDefaultCatalogProducts()`; arbitrary searches, price filters, and sort combinations query Prisma directly to avoid an unbounded cache-key space.
+* `/products/[slug]` uses `getProductBySlug()` and no longer declares `force-dynamic`.
+* `/order/[slug]` remains `force-dynamic`, but it consumes the same cached `getProductBySlug()` data as the product page.
+* Admin product create, update, and deactivate routes call `revalidateTag("products", "max")` after successful mutation.
+* `POST /api/orders` deliberately performs a fresh product lookup. Active status and price must be authoritative when money and order records are written, regardless of cached display data.
+
+## Guest Identity and Order Creation
+
+Public discovery pages no longer call `getOrCreateCustomerId()` and no longer write analytics events during Server Component rendering or route prefetching. Browsing home, catalog, product, or order pages therefore does not create a `User` row.
+
+Current order creation flow:
+
+1. `OrderForm` sends product and order input only; it does not send or trust a client-provided `userId`.
+2. `POST /api/orders` validates the request and performs a fresh active-product/price lookup.
+3. The route reads the signed `bouquet_customer` cookie using `getCurrentUserId()`.
+4. If the cookie has no valid database user, the route creates a guest user and sets the signed customer session.
+5. The route creates the address, order, order item, and product order-count update.
+6. The browser continues to `/login` with only the order ID and order number.
+
+`POST /api/customer/login` no longer accepts a guest user ID from the request body. It derives the guest identity from the signed session, then updates that user or safely merges its orders/addresses into an existing matching customer.
+
+## Tracking
+
+The tracking page and `GET /api/orders/track` now share `getTrackableOrder()` instead of maintaining duplicate Prisma queries and duplicate serialization logic.
+
+Tracking remains dynamic and uncached because order/payment status changes frequently. Access requires:
+
+* an order number plus ownership through the signed customer session, or
+* an order number plus the matching mobile number for direct-entry tracking.
+
+An order number alone is no longer sufficient. The UI copy, submit-button validation, page lookup, and API lookup all follow this rule.
+
+## Payment Authorization
+
+The payment page explicitly remains `force-dynamic`. It now accepts only `orderId` as continuation input and derives customer identity from the signed cookie. URL-supplied `userId`, mobile number, and order number are no longer authorization inputs.
+
+Both the payment page and `POST /api/orders/[id]/payment` verify:
+
+* the signed-session user owns the order; and
+* the order is in `ACCEPTED`, `PAYMENT_PENDING`, or `PAYMENT_REJECTED` status.
+
+Tracking links to payment now contain only the order ID. The server supplies the authoritative order number and customer mobile number after ownership validation.
+
+## Verification
+
+* `npx tsc --noEmit` passes.
+* ESLint passes for `src/app` and `src/server`.
+* `git diff --check` passes.
+* Production compilation was attempted. It stopped only because the restricted environment could not download Geist and Geist Mono from Google Fonts; no TypeScript or application-code build error was reported before that external fetch failure.

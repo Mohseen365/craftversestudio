@@ -2,10 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { generateOrderNumber } from "@/lib/utils";
-import { getCurrentUserId } from "@/lib/auth";
+import { createCustomerSession, getCurrentUserId } from "@/lib/auth";
 
 const orderSchema = z.object({
-  userId: z.string(),
   productId: z.string(),
   address: z.string().min(5),
   city: z.string().min(2),
@@ -21,13 +20,7 @@ export async function POST(req: NextRequest) {
   try {
     const data = orderSchema.parse(await req.json());
 
-    // Verify the userId in the request matches the authenticated session.
-    // This prevents one customer from attaching orders to another account.
-    const sessionUserId = await getCurrentUserId();
-    if (sessionUserId !== data.userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
+    // Price and active status are authoritative at mutation time, not from cached page data.
     const product = await prisma.product.findUnique({
       where: { id: data.productId, active: true },
       select: { id: true, name: true, price: true },
@@ -36,13 +29,31 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 });
     }
 
+    let customerId = await getCurrentUserId();
+    if (customerId) {
+      const customerExists = await prisma.user.findUnique({
+        where: { id: customerId },
+        select: { id: true },
+      });
+      if (!customerExists) customerId = null;
+    }
+
+    if (!customerId) {
+      const guest = await prisma.user.create({
+        data: { isGuest: true },
+        select: { id: true },
+      });
+      customerId = guest.id;
+      await createCustomerSession(customerId);
+    }
+
     const subtotal = product.price * data.quantity;
     const orderNumber = generateOrderNumber();
 
     const order = await prisma.$transaction(async (tx) => {
       await tx.address.create({
         data: {
-          userId: data.userId,
+          userId: customerId,
           address: data.address,
           city: data.city,
           pincode: data.pincode,
@@ -53,7 +64,7 @@ export async function POST(req: NextRequest) {
       const newOrder = await tx.order.create({
         data: {
           orderNumber,
-          userId: data.userId,
+          userId: customerId,
           status: "PENDING_REVIEW",
           occasionType: data.occasionType,
           // occasionDate: data.occasionDate ? new Date(data.occasionDate) : null,

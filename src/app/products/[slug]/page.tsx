@@ -1,13 +1,9 @@
-export const dynamic = "force-dynamic";
-
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
-import { prisma } from "@/lib/prisma";
+import { getProductBySlug } from "@/server/data/products";
 import { formatPrice } from "@/lib/utils";
-import { trackEvent } from "@/lib/eventLogger";
-import { getOrCreateCustomerId } from "@/lib/auth";
 import Image from "next/image";
 
 // Return no static params — pages are generated on first request and cached.
@@ -23,35 +19,8 @@ export default async function ProductPage({
 }) {
   const { slug } = await params;
 
-  const product = await prisma.product.findUnique({
-    where: { slug, active: true },
-    select: {
-      id: true,
-      name: true,
-      slug: true,
-      price: true,
-      category: true,
-      imageUrl: true,
-      description: true,
-      instagramUrl: true,
-    },
-  });
+  const product = await getProductBySlug(slug);
   if (!product) notFound();
-  getOrCreateCustomerId()
-    .then((userId) => {
-      if (userId) {
-        trackEvent({
-          userId: userId,
-          eventType: "ORDER_PAGE_VIEWED",
-          metadata: {
-            productName: product.name,
-            category: product.category,
-            price: product.price,
-          },
-        });
-      }
-    })
-    .catch(() => {});
 
   return (
     <>

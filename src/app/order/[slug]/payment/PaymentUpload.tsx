@@ -7,11 +7,9 @@ export function PaymentUpload({
   orderId,
   orderNumber,
   mobileNo,
-  userId,
 }: {
   orderId: string;
   orderNumber: string;
-  userId: string;
   mobileNo: string;
 }) {
   const router = useRouter();

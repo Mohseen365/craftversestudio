@@ -7,8 +7,6 @@ type LoginFormProps = {
   order: {
     id: string;
     number: string;
-    productId: string;
-    userId: string | null;
   };
 };
 
@@ -36,7 +34,6 @@ export function LoginForm({ order }: LoginFormProps) {
             mobileNo,
             email,
             instagramUsername,
-            userId: order.userId,
             name,
           }),
         });

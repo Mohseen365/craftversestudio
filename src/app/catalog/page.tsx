@@ -6,8 +6,7 @@ import { ProductCard } from "@/components/ProductCard";
 import { prisma } from "@/lib/prisma";
 import { PRICE_FILTERS } from "@/lib/utils";
 import Link from "next/link";
-import { trackEvent } from "@/lib/eventLogger";
-import { getOrCreateCustomerId } from "@/lib/auth";
+import { getDefaultCatalogProducts } from "@/server/data/products";
 
 type SearchParams = {
   q?: string;
@@ -32,7 +31,8 @@ export default async function CatalogPage({
       : (PRICE_FILTERS.find((p) => p.label === priceFilter) ??
         PRICE_FILTERS[0]);
 
-  const products = await prisma.product.findMany({
+  const isDefaultCatalog = !q && priceFilter === "all" && sort === "newest";
+  const products = isDefaultCatalog ? await getDefaultCatalogProducts() : await prisma.product.findMany({
     where: {
       active: true,
       price: {
@@ -66,20 +66,6 @@ export default async function CatalogPage({
             ? { orderCount: "desc" }
             : { createdAt: "desc" },
   });
-
-  // Fire-and-forget user tracking
-
-  getOrCreateCustomerId()
-    .then((userId) => {
-      if (userId) {
-        void trackEvent({
-          userId: userId,
-          eventType: "WEBSITE_OPENED",
-          metadata: { source: "catalog page" },
-        });
-      }
-    })
-    .catch(() => null);
 
   return (
     <>

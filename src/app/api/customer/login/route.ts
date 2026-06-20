@@ -5,8 +5,6 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 const loginSchema = z.object({
-  // userId: the guest user ID created before login, used to migrate guest orders
-  userId: z.string().optional(),
   name: z.string().min(2),
   instagramUsername: z.string().optional(),
   mobileNo: z.string().regex(/^\d{10,15}$/, "Enter a valid mobile number"),
@@ -18,15 +16,10 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const data = loginSchema.parse(body);
 
-    const { mobileNo, email, instagramUsername, name, userId } = data;
+    const { mobileNo, email, instagramUsername, name } = data;
 
-    // Validate that the guest userId in the body belongs to the current session.
-    // This prevents an attacker from supplying someone else's userId to steal their orders.
-    // const sessionUser = await getCurrentUser();
-    // const guestUserId =
-    //   sessionUser?.id === userId ? userId : (sessionUser?.id ?? userId);
     const sessionUser = await getCurrentUser();
-    const guestUserId = userId;
+    const guestUserId = sessionUser?.id;
     const conditions: Prisma.UserWhereInput[] = [];
     if (mobileNo) conditions.push({ mobileNo });
     if (email) conditions.push({ email });

@@ -95,7 +95,7 @@ export function TrackForm({ contact, initialResult }: TrackFormProps) {
         {error && <p className="text-sm text-red-600">{error}</p>}
         <button
           type="submit"
-          disabled={isPending || (!orderNumber.trim() && !mobileNo.trim())}
+          disabled={isPending || !orderNumber.trim() || !mobileNo.trim()}
           className="rounded-full bg-rose-700 px-6 py-2 text-sm font-medium text-white hover:bg-rose-800 disabled:opacity-50 transition"
         >
           {isPending ? "Searching..." : "Track order"}
@@ -123,11 +123,7 @@ export function TrackForm({ contact, initialResult }: TrackFormProps) {
           {(result.status === "ACCEPTED" ||
             result.status === "PAYMENT_PENDING") && (
             <Link
-              href={`/order/${result.id}/payment?orderId=${
-                result.id
-              }&orderNumber=${result.orderNumber}&mobileNo=${
-                result.user.mobileNo ?? mobileNo
-              }&userId=${result.user.id}`}
+              href={`/order/${result.id}/payment?orderId=${result.id}`}
               className="mt-4 inline-block rounded-full bg-rose-700 px-4 py-2 text-sm font-medium text-white hover:bg-rose-800 transition"
             >
               Proceed to Payment

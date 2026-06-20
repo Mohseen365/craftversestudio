@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth";
 import { slugify } from "@/lib/utils";
 import { Decimal } from "@prisma/client/runtime/library";
+import { revalidateTag } from "next/cache";
+import { PRODUCTS_CACHE_TAG } from "@/server/data/products";
 
 const productSchema = z.object({
   name: z.string().min(2),
@@ -67,6 +69,8 @@ export async function POST(req: NextRequest) {
         instagramUrl: body.instagramUrl,
       },
     });
+
+    revalidateTag(PRODUCTS_CACHE_TAG, "max");
 
     return NextResponse.json({ product });
   } catch (err) {

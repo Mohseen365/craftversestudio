@@ -12,7 +12,6 @@ type OrderFormProps = {
     slug: string;
     price: number;
   };
-  userId: string;
 };
 
 const OCCASIONS = [
@@ -25,7 +24,7 @@ const OCCASIONS = [
   "Other",
 ];
 
-export function OrderForm({ product, userId }: OrderFormProps) {
+export function OrderForm({ product }: OrderFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState("");
@@ -60,7 +59,6 @@ export function OrderForm({ product, userId }: OrderFormProps) {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            userId: userId,
             productId: product.id,
             address: formData.get("address"),
             city: formData.get("city"),
@@ -77,7 +75,7 @@ export function OrderForm({ product, userId }: OrderFormProps) {
         if (!res.ok) throw new Error(data.error ?? "Failed to create order");
 
         router.push(
-          `/login?orderId=${data.orderId}&productId=${product.id}&orderNumber=${data.orderNumber}`,
+          `/login?orderId=${data.orderId}&orderNumber=${data.orderNumber}`,
         );
       } catch (err) {
         setError(err instanceof Error ? err.message : "Something went wrong");

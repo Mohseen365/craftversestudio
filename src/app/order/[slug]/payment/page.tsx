@@ -2,67 +2,32 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { PaymentUpload } from "./PaymentUpload";
 import { notFound, redirect } from "next/navigation";
-import { trackEvent } from "@/lib/eventLogger";
-import { prisma } from "@/lib/prisma";
+import { getCurrentUserId } from "@/lib/auth";
+import { getOrderForPayment } from "@/server/data/orders";
+
+export const dynamic = "force-dynamic";
 
 export default async function PaymentPage({
   searchParams,
 }: {
   searchParams: Promise<{
     orderId?: string;
-    orderNumber?: string;
-    mobileNo?: string;
-    userId?: string;
   }>;
 }) {
   const params = await searchParams;
   const orderId = params.orderId ?? "";
-  const orderNumber = params.orderNumber ?? "";
-  const mobileNo = params.mobileNo ?? "";
-  const userId = params.userId ?? "";
 
   if (!orderId) {
     redirect("/catalog");
   }
 
-  // Verify order on server
-  const order = await prisma.order.findFirst({
-    where: {
-      AND: [
-        { id: orderId },
-        { orderNumber: orderNumber },
-        {
-          user: {
-            OR: [{ mobileNo: mobileNo }, { id: userId }],
-          },
-        },
-      ],
-    },
-    select: {
-      id: true,
-      orderNumber: true,
-      user: {
-        select: { mobileNo: true },
-      },
-    },
-  });
+  const userId = await getCurrentUserId();
+  if (!userId) redirect(`/login?orderId=${orderId}`);
+  const order = await getOrderForPayment(orderId, userId);
 
   if (!order) {
     notFound();
   }
-
-  if (!mobileNo) {
-    redirect("/login");
-  }
-  void trackEvent({
-    userId: userId,
-    eventType: "PAYMENT_Page",
-    metadata: {
-      orderId: orderId,
-      totalAmount: orderNumber,
-      mobileNo: mobileNo,
-    },
-  });
 
   return (
     <>
@@ -75,18 +40,11 @@ export default async function PaymentPage({
           We&apos;ll verify and confirm your order shortly
         </p>
         <div className="mt-8">
-          {orderId && orderNumber ? (
-            <PaymentUpload
-              orderId={orderId}
-              orderNumber={orderNumber}
-              userId={userId}
-              mobileNo={mobileNo}
-            />
-          ) : (
-            <p className="text-stone-500">
-              Invalid order. Please start again from the catalog.
-            </p>
-          )}
+          <PaymentUpload
+            orderId={orderId}
+            orderNumber={order.orderNumber}
+            mobileNo={order.user.mobileNo ?? ""}
+          />
         </div>
       </main>
       <Footer />
