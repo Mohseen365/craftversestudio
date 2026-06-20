@@ -7,7 +7,7 @@ import { Footer } from "@/components/Footer";
 import { prisma } from "@/lib/prisma";
 import { formatPrice } from "@/lib/utils";
 import { trackEvent } from "@/lib/eventLogger";
-import { getCurrentUser } from "@/lib/auth";
+import { getOrCreateCustomerId } from "@/lib/auth";
 import Image from "next/image";
 
 // Return no static params — pages are generated on first request and cached.
@@ -23,35 +23,35 @@ export default async function ProductPage({
 }) {
   const { slug } = await params;
 
-  const [product, user] = await Promise.all([
-    prisma.product.findUnique({
-      where: { slug, active: true },
-      select: {
-        id: true,
-        name: true,
-        slug: true,
-        price: true,
-        category: true,
-        imageUrl: true,
-        description: true,
-        instagramUrl: true,
-      },
-    }),
-    getCurrentUser().catch(() => null),
-  ]);
-
-  if (!product) notFound();
-
-  trackEvent({
-    userId: user?.id,
-    productId: product.id,
-    eventType: "PRODUCT_VIEW",
-    metadata: {
-      productName: product.name,
-      category: product.category,
-      price: product.price,
+  const product = await prisma.product.findUnique({
+    where: { slug, active: true },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      price: true,
+      category: true,
+      imageUrl: true,
+      description: true,
+      instagramUrl: true,
     },
-  }).catch(() => {});
+  });
+  if (!product) notFound();
+  getOrCreateCustomerId()
+    .then((userId) => {
+      if (userId) {
+        trackEvent({
+          userId: userId,
+          eventType: "ORDER_PAGE_VIEWED",
+          metadata: {
+            productName: product.name,
+            category: product.category,
+            price: product.price,
+          },
+        });
+      }
+    })
+    .catch(() => {});
 
   return (
     <>

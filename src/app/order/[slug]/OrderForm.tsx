@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { formatPrice } from "@/lib/utils";
+// import { getCurrentUserId } from "@/lib/auth";
 
 type OrderFormProps = {
   product: {
@@ -30,7 +31,10 @@ export function OrderForm({ product, userId }: OrderFormProps) {
   const [error, setError] = useState("");
   const [quantity, setQuantity] = useState(1);
 
-  const subtotal = useMemo(() => product.price * quantity, [product.price, quantity]);
+  const subtotal = useMemo(
+    () => product.price * quantity,
+    [product.price, quantity],
+  );
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -40,23 +44,23 @@ export function OrderForm({ product, userId }: OrderFormProps) {
 
     startTransition(async () => {
       try {
-        let customerId = userId;
-        if (!customerId) {
-          const guestRes = await fetch("/api/customer/guest", {
-            method: "POST",
-          });
-          const guestData = await guestRes.json();
-          if (!guestRes.ok || !guestData.userId) {
-            throw new Error(guestData.error ?? "Could not start guest order");
-          }
-          customerId = guestData.userId;
-        }
+        // let customerId = await getCurrentUserId();
+        // if (!customerId) {
+        //   const guestRes = await fetch("/api/customer/guest", {
+        //     method: "POST",
+        //   });
+        //   const guestData = await guestRes.json();
+        //   if (!guestRes.ok || !guestData.userId) {
+        //     throw new Error(guestData.error ?? "Could not start guest order");
+        //   }
+        //   customerId = guestData.userId;
+        // }
 
         const res = await fetch("/api/orders", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            userId: customerId,
+            userId: userId,
             productId: product.id,
             address: formData.get("address"),
             city: formData.get("city"),
@@ -73,7 +77,7 @@ export function OrderForm({ product, userId }: OrderFormProps) {
         if (!res.ok) throw new Error(data.error ?? "Failed to create order");
 
         router.push(
-          `/login?orderId=${data.orderId}&productId=${product.id}&orderNumber=${data.orderNumber}&userId=${data.userId}`
+          `/login?orderId=${data.orderId}&productId=${product.id}&orderNumber=${data.orderNumber}`,
         );
       } catch (err) {
         setError(err instanceof Error ? err.message : "Something went wrong");

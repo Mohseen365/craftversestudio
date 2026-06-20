@@ -7,77 +7,79 @@ import { prisma } from "@/lib/prisma";
 import { PRICE_FILTERS } from "@/lib/utils";
 import Link from "next/link";
 import { trackEvent } from "@/lib/eventLogger";
-import { getCurrentUser } from "@/lib/auth";
+import { getOrCreateCustomerId } from "@/lib/auth";
 
-type SearchParams = Promise<{
+type SearchParams = {
   q?: string;
   price?: string;
   sort?: string;
-}>;
+  // userId?: string; // add this for your user param
+};
 
 export default async function CatalogPage({
   searchParams,
 }: {
   searchParams: SearchParams;
 }) {
-  const params = await searchParams;
-  const q = params.q?.trim() ?? "";
-  const priceFilter = params.price ?? "all";
-  const sort = params.sort ?? "newest";
+  const q = searchParams.q?.trim() ?? "";
+  const priceFilter = searchParams.price ?? "all";
+  const sort = searchParams.sort ?? "newest";
+  // const userId = searchParams.userId ?? "";
 
   const priceRange =
     priceFilter === "all"
       ? PRICE_FILTERS[0]
-      : PRICE_FILTERS.find((p) => p.label === priceFilter) ?? PRICE_FILTERS[0];
+      : (PRICE_FILTERS.find((p) => p.label === priceFilter) ??
+        PRICE_FILTERS[0]);
 
-  const [user, products] = await Promise.all([
-    getCurrentUser().catch(() => null),
-    prisma.product.findMany({
-      where: {
-        active: true,
-        price: {
-          gte: priceRange.min,
-          ...(priceRange.max !== Infinity ? { lte: priceRange.max } : {}),
-        },
-        ...(q
-          ? {
-              OR: [
-                { name: { contains: q, mode: "insensitive" } },
-                { category: { contains: q, mode: "insensitive" } },
-                { description: { contains: q, mode: "insensitive" } },
-              ],
-            }
-          : {}),
+  const products = await prisma.product.findMany({
+    where: {
+      active: true,
+      price: {
+        gte: priceRange.min,
+        ...(priceRange.max !== Infinity ? { lte: priceRange.max } : {}),
       },
-      select: {
-        id: true,
-        name: true,
-        slug: true,
-        price: true,
-        category: true,
-        imageUrl: true,
-      },
-      orderBy:
-        sort === "price-low"
-          ? { price: "asc" }
-          : sort === "price-high"
-            ? { price: "desc" }
-            : sort === "best"
-              ? { orderCount: "desc" }
-              : { createdAt: "desc" },
-    }),
-  ]);
-
-  trackEvent({
-    userId: user?.id,
-    eventType: "CATALOG_VIEWED",
-    metadata: {
-      source: "catalog",
-      query: q,
-      filter: priceFilter,
-      sort,
+      ...(q
+        ? {
+            OR: [
+              { name: { contains: q, mode: "insensitive" } },
+              { category: { contains: q, mode: "insensitive" } },
+              { description: { contains: q, mode: "insensitive" } },
+            ],
+          }
+        : {}),
     },
-  }).catch(() => {});
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      price: true,
+      category: true,
+      imageUrl: true,
+    },
+    orderBy:
+      sort === "price-low"
+        ? { price: "asc" }
+        : sort === "price-high"
+          ? { price: "desc" }
+          : sort === "best"
+            ? { orderCount: "desc" }
+            : { createdAt: "desc" },
+  });
+
+  // Fire-and-forget user tracking
+
+  getOrCreateCustomerId()
+    .then((userId) => {
+      if (userId) {
+        void trackEvent({
+          userId: userId,
+          eventType: "WEBSITE_OPENED",
+          metadata: { source: "catalog page" },
+        });
+      }
+    })
+    .catch(() => null);
 
   return (
     <>

@@ -4,7 +4,7 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { TrackForm } from "./TrackForm";
 import { trackEvent } from "@/lib/eventLogger";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUserId } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 // import { PaymentStatus } from "@prisma/client";
 // type OrderResult = {
@@ -93,10 +93,13 @@ export default async function TrackPage({
     // const test: OrderResult | null = initialResult;
   }
 
-  getCurrentUser()
-    .then((user) => trackEvent({ userId: user?.id, eventType: "TRACK_ORDER" }))
-    .catch((err) => console.error("Tracking event failed:", err));
-
+  getCurrentUserId()
+    .then((userId) => {
+      if (userId) {
+        trackEvent({ userId: userId, eventType: "TRACK_ORDER" });
+      }
+    })
+    .catch((err) => console.error("Tracking event failed at track page", err));
   return (
     <>
       <Header />

@@ -758,6 +758,8 @@ ProductionProgress
 6. **DB Connection Pooling (Suggestion)**: If scaling, use Supabase transaction pooler (port 6543) to handle more concurrent light queries beyond the 1 direct connection limit.
 
 ---
-
+# Latest change
+replace getCurrentUser with getCurrentUserId in auth.ts because it is lightweight and changed getOrCreateCustomer to getOrCreateCustomerId now it will return the id
+----------
 ## One-Line Project Description
 **Bouquet is a capacity-aware production planning platform that calculates effort from product specifications, validates capacity via a greedy constrained scheduling algorithm, and dynamically reallocates future fractional effort while locking recorded production progress.**

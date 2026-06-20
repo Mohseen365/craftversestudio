@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth";
 import { checkAcceptability, getSchedulerPlanningRows } from "@/lib/scheduler";
+
 import { prisma } from "@/lib/prisma";
 
 export async function GET(req: NextRequest) {
@@ -27,8 +28,9 @@ export async function GET(req: NextRequest) {
 
     if (order) {
       const requiredCapacity = order.items.reduce(
-        (sum, item) => sum + item.quantity * item.product.productionDays.toNumber(),
-        0
+        (sum, item) =>
+          sum + item.quantity * item.product.productionDays.toNumber(),
+        0,
       );
 
       const check = await checkAcceptability({
@@ -67,12 +69,12 @@ export async function GET(req: NextRequest) {
           const totalRequiredEffort = order.items.reduce(
             (sum, item) =>
               sum + item.quantity * item.product.productionDays.toNumber(),
-            0
+            0,
           );
           // Completed effort = sum of completedQuantity across ALL reservations for this order
           const completedEffort = order.capacityReservations.reduce(
             (sum, r) => sum + Number(r.completedQuantity),
-            0
+            0,
           );
           return {
             id: order.id,

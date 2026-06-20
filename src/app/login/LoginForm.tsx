@@ -8,7 +8,7 @@ type LoginFormProps = {
     id: string;
     number: string;
     productId: string;
-    userId: string;
+    userId: string | null;
   };
 };
 

@@ -52,7 +52,17 @@ export async function GET(req: NextRequest) {
     order: {
       ...order,
       paymentStatus,
-      deliveryDate: order.deliveryDate ?? order.occasionDate,
+      createdAt: order.createdAt.toISOString(),
+      shippingDate: order.shippingDate?.toISOString(),
+      occasionDate: order.occasionDate?.toISOString(),
+      deliveryDate: order.deliveryDate?.toISOString(),
+      items: order.items.map((item) => ({
+        ...item,
+        product: {
+          ...item.product,
+          productionDays: item.product.productionDays.toNumber(),
+        },
+      })), //array
     },
   });
 }

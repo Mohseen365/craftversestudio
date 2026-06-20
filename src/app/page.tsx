@@ -5,33 +5,43 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { prisma } from "@/lib/prisma";
 import { ProductCard } from "@/components/ProductCard";
-import { getCurrentUser } from "@/lib/auth";
-import { trackEvent } from "@/lib/eventLogger";
+// import { getOrCreateCustomer } from "@/lib/auth";
+// import { trackEvent } from "@/lib/eventLogger";
 
 export default async function HomePage() {
-  const [user, featured] = await Promise.all([
-    getCurrentUser().catch(() => null),
-    prisma.product.findMany({
-      where: { active: true },
-      orderBy: { orderCount: "desc" },
-      take: 4,
-      select: {
-        id: true,
-        name: true,
-        slug: true,
-        price: true,
-        category: true,
-        imageUrl: true,
-      },
-    }),
-  ]);
+  // Await only the featured products
+  const featured = await prisma.product.findMany({
+    where: { active: true },
+    orderBy: { orderCount: "desc" },
+    take: 4,
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      price: true,
+      category: true,
+      imageUrl: true,
+    },
+  });
 
-  trackEvent({
-    userId: user?.id,
-    eventType: "WEBSITE_OPENED",
-    metadata: { source: "homepage" },
-  }).catch(() => {});
-
+  // // Kick off user fetch, but don't await it
+  // const userPromise = getOrCreateCustomer()
+  //   .then((user) => {
+  //     // TypeScript knows `user` type if getOrCreateCustomer() is typed
+  //     void trackEvent({
+  //       userId: user?.id,
+  //       eventType: "WEBSITE_OPENED",
+  //       metadata: { source: "homepage" },
+  //     });
+  //     return user;
+  //   })
+  //   .catch(() => null);
+  // const user = await userPromise;
+  // void trackEvent({
+  //       userId: user?.id,
+  //       eventType: "WEBSITE_OPENED",
+  //       metadata: { source: "homepage" },
+  //     });
   return (
     <>
       <Header />
@@ -72,8 +82,13 @@ export default async function HomePage() {
         {featured.length > 0 && (
           <section className="mx-auto max-w-6xl px-4 py-16">
             <div className="flex items-end justify-between">
-              <h2 className="font-serif text-2xl text-stone-900">Popular bouquets</h2>
-              <Link href="/catalog" className="text-sm text-rose-700 hover:underline">
+              <h2 className="font-serif text-2xl text-stone-900">
+                Popular bouquets
+              </h2>
+              <Link
+                href="/catalog"
+                className="text-sm text-rose-700 hover:underline"
+              >
                 View all
               </Link>
             </div>

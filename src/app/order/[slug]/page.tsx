@@ -3,7 +3,7 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { prisma } from "@/lib/prisma";
 import { OrderForm } from "./OrderForm";
-import { getCurrentUser } from "@/lib/auth";
+import { getOrCreateCustomerId } from "@/lib/auth";
 import { trackEvent } from "@/lib/eventLogger";
 
 export const dynamic = "force-dynamic";
@@ -20,24 +20,22 @@ export default async function OrderPage({
 }) {
   const { slug } = await params;
 
-  const [product, user] = await Promise.all([
-    prisma.product.findUnique({
-      where: { slug, active: true },
-      select: {
-        id: true,
-        name: true,
-        slug: true,
-        price: true,
-        category: true,
-      },
-    }),
-    getCurrentUser().catch(() => null),
-  ]);
+  const product = await prisma.product.findUnique({
+    where: { slug, active: true },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      price: true,
+      category: true,
+    },
+  });
 
   if (!product) notFound();
+  const userId = await getOrCreateCustomerId();
 
   trackEvent({
-    userId: user?.id,
+    userId: userId,
     eventType: "ORDER_PAGE_VIEWED",
     metadata: {
       productName: product.name,
@@ -64,7 +62,7 @@ export default async function OrderPage({
               slug: product.slug,
               price: product.price,
             }}
-            userId={user?.id ?? ""}
+            userId={userId ?? ""}
           />
         </div>
       </main>

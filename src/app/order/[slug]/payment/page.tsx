@@ -17,23 +17,32 @@ export default async function PaymentPage({
 }) {
   const params = await searchParams;
   const orderId = params.orderId ?? "";
+  const orderNumber = params.orderNumber ?? "";
+  const mobileNo = params.mobileNo ?? "";
+  const userId = params.userId ?? "";
 
   if (!orderId) {
     redirect("/catalog");
   }
 
   // Verify order on server
-  const order = await prisma.order.findUnique({
-    where: { id: orderId },
+  const order = await prisma.order.findFirst({
+    where: {
+      AND: [
+        { id: orderId },
+        { orderNumber: orderNumber },
+        {
+          user: {
+            OR: [{ mobileNo: mobileNo }, { id: userId }],
+          },
+        },
+      ],
+    },
     select: {
       id: true,
       orderNumber: true,
-      userId: true,
-      status: true,
       user: {
-        select: {
-          mobileNo: true,
-        },
+        select: { mobileNo: true },
       },
     },
   });
@@ -41,10 +50,6 @@ export default async function PaymentPage({
   if (!order) {
     notFound();
   }
-
-  const orderNumber = order.orderNumber;
-  const userId = order.userId;
-  const mobileNo = order.user.mobileNo ?? "";
 
   if (!mobileNo) {
     redirect("/login");

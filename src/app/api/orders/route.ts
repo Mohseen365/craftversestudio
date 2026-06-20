@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { generateOrderNumber } from "@/lib/utils";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUserId } from "@/lib/auth";
 
 const orderSchema = z.object({
   userId: z.string(),
@@ -12,23 +12,19 @@ const orderSchema = z.object({
   pincode: z.string().regex(/^\d{6}$/, "Pincode must be 6 digits"),
   state: z.string().min(2),
   occasionType: z.string().optional(),
-  occasionDate: z.string().nullable().optional(),
+  occasionDate: z.coerce.date(),
   quantity: z.number().int().min(1).max(10),
   notes: z.string().optional(),
 });
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const data = orderSchema.parse({
-      ...body,
-      quantity: Number(body.quantity),
-    });
+    const data = orderSchema.parse(await req.json());
 
     // Verify the userId in the request matches the authenticated session.
     // This prevents one customer from attaching orders to another account.
-    const sessionUser = await getCurrentUser();
-    if (!sessionUser || sessionUser.id !== data.userId) {
+    const sessionUserId = await getCurrentUserId();
+    if (sessionUserId !== data.userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -60,7 +56,8 @@ export async function POST(req: NextRequest) {
           userId: data.userId,
           status: "PENDING_REVIEW",
           occasionType: data.occasionType,
-          occasionDate: data.occasionDate ? new Date(data.occasionDate) : null,
+          // occasionDate: data.occasionDate ? new Date(data.occasionDate) : null,
+          occasionDate: data.occasionDate,
           quantity: data.quantity,
           subtotal,
           total: subtotal,
@@ -86,13 +83,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       orderId: order.id,
       orderNumber: order.orderNumber,
-      userId: data.userId,
     });
   } catch (err) {
     if (err instanceof z.ZodError) {
       return NextResponse.json(
         { error: "Invalid order data" },
-        { status: 400 }
+        { status: 400 },
       );
     }
     console.error(err);

@@ -54,25 +54,6 @@ export async function requireAdmin(): Promise<boolean> {
   return isAdminAuthenticated();
 }
 
-export async function getOrCreateCustomer() {
-  const existingUser = await getCurrentUser();
-
-  if (existingUser) {
-    return existingUser;
-  }
-
-  const guestUser = await prisma.user.create({
-    data: {
-      isGuest: true,
-    },
-    select: { id: true },
-  });
-
-  await createCustomerSession(guestUser.id);
-
-  return guestUser;
-}
-
 function sign(value: string, secret: string) {
   return crypto.createHmac("sha256", secret).update(value).digest("hex");
 }
@@ -107,19 +88,14 @@ export async function createCustomerSession(userId: string) {
 
 export async function getCurrentUser() {
   const cookieStore = await cookies();
-
   const cookieValue = cookieStore.get(CUSTOMER_COOKIE)?.value;
-
   if (!cookieValue) {
     return null;
   }
-
   const userId = verifySignedValue(cookieValue, CUSTOMER_SECRET);
-
   if (!userId) {
     return null;
   }
-
   return prisma.user.findUnique({
     where: { id: userId },
     select: {
@@ -130,6 +106,44 @@ export async function getCurrentUser() {
       instagramUsername: true,
     },
   });
+}
+
+export async function getCurrentUserId() {
+  const cookieStore = await cookies();
+
+  const cookieValue = cookieStore.get(CUSTOMER_COOKIE)?.value;
+
+  if (!cookieValue) {
+    return null;
+  }
+
+  return verifySignedValue(cookieValue, CUSTOMER_SECRET);
+}
+
+export async function getOrCreateCustomerId() {
+  const existingUserId = await getCurrentUserId();
+
+  if (existingUserId) {
+    return existingUserId;
+  }
+
+  const guestUser = await prisma.user.create({
+    data: {
+      isGuest: true,
+    },
+    select: {
+      id: true,
+      isGuest: true,
+      name: true,
+      mobileNo: true,
+      email: true,
+      instagramUsername: true,
+    },
+  });
+
+  await createCustomerSession(guestUser.id);
+
+  return guestUser.id;
 }
 
 export async function destroyCustomerSession() {

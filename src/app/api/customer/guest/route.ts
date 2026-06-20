@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { createCustomerSession, getCurrentUser } from "@/lib/auth";
+import { createCustomerSession, getCurrentUserId } from "@/lib/auth";
 
 export async function POST() {
-  const existing = await getCurrentUser();
+  const existingUserId = await getCurrentUserId();
 
-  if (existing) {
-    return NextResponse.json({ success: true, userId: existing.id });
+  if (existingUserId) {
+    return NextResponse.json({ success: true, userId: existingUserId });
   }
 
   const user = await prisma.user.create({

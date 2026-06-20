@@ -1,6 +1,7 @@
 import { LoginForm } from "./LoginForm";
 import { trackEvent } from "@/lib/eventLogger";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUserId } from "@/lib/auth";
 
 export default async function LoginPage({
   searchParams,
@@ -9,15 +10,15 @@ export default async function LoginPage({
     orderId?: string;
     orderNumber?: string;
     productId?: string;
-    userId?: string;
+    // userId?: string;
   }>;
 }) {
   const params = await searchParams;
   const orderId = params.orderId ?? "";
   const orderNumber = params.orderNumber ?? "";
   const productId = params.productId ?? "";
-  const userId = params.userId ?? "";
-
+  // const userId = params.userId ?? "";
+  const userId = await getCurrentUserId();
   let productName = "";
   if (productId) {
     const product = await prisma.product.findUnique({
@@ -27,14 +28,14 @@ export default async function LoginPage({
     productName = product?.name ?? "";
   }
 
-  void trackEvent({
-    userId: userId,
-    eventType: "LOGIN",
-    metadata: {
-      orderId: orderId,
-      totalAmount: orderNumber,
-    },
-  });
+  // void trackEvent({
+  //   userId: userId,
+  //   eventType: "LOGIN",
+  //   metadata: {
+  //     orderId: orderId,
+  //     totalAmount: orderNumber,
+  //   },
+  // });
 
   return (
     <main className="mx-auto max-w-md px-4 py-20">

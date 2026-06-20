@@ -77,7 +77,8 @@ export function CapacityPanel({ initialData }: { initialData: CapacityRow[] }) {
 
       const data = await res.json();
 
-      setRows(data.capacities ?? []);
+      const fetchedRows: CapacityRow[] = data.capacities ?? [];
+      setRows(fetchedRows);
       setProgressOverrides({});
     } catch (error) {
       console.error(error);

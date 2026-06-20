@@ -163,8 +163,8 @@ export function TrackForm({ contact, initialResult }: TrackFormProps) {
             <div>
               <dt className="text-stone-500">Delivery date</dt>
               <dd className="font-medium">
-                {result.deliveryDate
-                  ? formatDate(result.deliveryDate)
+                {result.occasionDate
+                  ? formatDate(result.occasionDate)
                   : "Not set"}
               </dd>
             </div>
