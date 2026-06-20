@@ -16,15 +16,22 @@ export async function getTrackableOrder({
   const order = await prisma.order.findFirst({
     where: {
       orderNumber: orderNumber.toUpperCase(),
-      ...(userId ? { userId } : { user: { mobileNo } }),
+      ...(userId ? { userId } : { user: { is: { mobileNo } } }),
     },
     select: {
-      id: true, orderNumber: true, status: true, createdAt: true,
-      shippingDate: true, occasionDate: true, deliveryDate: true,
-      total: true, trackingNumber: true,
+      id: true,
+      orderNumber: true,
+      status: true,
+      createdAt: true,
+      shippingDate: true,
+      occasionDate: true,
+      deliveryDate: true,
+      total: true,
+      trackingNumber: true,
       payments: {
         select: { status: true, screenshotUrl: true },
-        orderBy: { createdAt: "desc" }, take: 1,
+        orderBy: { createdAt: "desc" },
+        take: 1,
       },
       items: {
         select: {
@@ -43,10 +50,14 @@ export async function getTrackableOrder({
     createdAt: order.createdAt.toISOString(),
     shippingDate: order.shippingDate?.toISOString() ?? null,
     occasionDate: order.occasionDate?.toISOString() ?? null,
-    deliveryDate: (order.deliveryDate ?? order.occasionDate)?.toISOString() ?? null,
+    deliveryDate:
+      (order.deliveryDate ?? order.occasionDate)?.toISOString() ?? null,
     items: order.items.map((item) => ({
       ...item,
-      product: { ...item.product, productionDays: item.product.productionDays.toNumber() },
+      product: {
+        ...item.product,
+        productionDays: item.product.productionDays.toNumber(),
+      },
     })),
   };
 }

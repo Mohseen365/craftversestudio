@@ -6,4 +6,13 @@
   NEXT_TELEMETRY_DISABLED = "1"
 
 [[plugins]]
-  package = "@netlify/plugin-nextjs"
+  package = "@netlify/plugin-cache"
+  [plugins.inputs]
+    # Cache node_modules to avoid reinstalling dependencies
+    paths = ["node_modules"]
+
+    # Cache Next.js build artifacts
+    paths = [".next/cache"]
+
+    # Cache Prisma client output
+    paths = ["node_modules/.prisma"]
