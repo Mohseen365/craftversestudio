@@ -59,7 +59,6 @@ export default async function TrackPage({
             contact={{
               mobileNo: mobileNo,
               orderNumber: orderNumber,
-              userId: userId,
             }}
             initialResult={initialResult}
           />

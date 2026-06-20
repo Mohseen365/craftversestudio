@@ -5,7 +5,6 @@ import { OrderStatusBadge } from "@/components/OrderStatusBadge";
 import { formatDate } from "@/lib/utils";
 import Link from "next/link";
 import { PaymentStatus } from "@prisma/client";
-import { getTrackableOrder } from "@/server/data/orders";
 
 type OrderResult = {
   id: string;
@@ -34,7 +33,6 @@ type TrackFormProps = {
   contact: {
     mobileNo: string;
     orderNumber: string;
-    userId: string;
   };
   initialResult?: OrderResult | null;
 };
@@ -47,7 +45,7 @@ export function TrackForm({ contact, initialResult }: TrackFormProps) {
   );
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
-  const userId = contact.userId;
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
@@ -59,17 +57,10 @@ export function TrackForm({ contact, initialResult }: TrackFormProps) {
 
     startTransition(async () => {
       try {
-        const order = await getTrackableOrder({
-          orderNumber,
-          mobileNo: mobileNo ?? undefined,
-          userId,
-        });
-
-        if (!order) {
-          throw new Error("Order not found");
-        }
-
-        setResult(order);
+        const res = await fetch(`/api/orders/track?${params}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? "Order not found");
+        setResult(data.order);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Order not found");
       }
