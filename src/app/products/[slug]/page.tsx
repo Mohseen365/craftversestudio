@@ -20,7 +20,7 @@ export default async function ProductPage({
   const slug = params?.slug ?? "";
 
   const product = await getProductBySlug(slug);
-  if (!product) notFound();
+  if (!product || !product.active) notFound();
 
   return (
     <>

@@ -45,7 +45,7 @@ export const getDefaultCatalogProducts = unstable_cache(
 export const getProductBySlug = unstable_cache(
   async (slug: string) =>
     prisma.product.findUnique({
-      where: { slug, active: true },
+      where: { slug: slug },
       select: {
         id: true,
         name: true,
@@ -55,6 +55,7 @@ export const getProductBySlug = unstable_cache(
         imageUrl: true,
         description: true,
         instagramUrl: true,
+        active: true,
       },
     }),
   ["product-by-slug"],

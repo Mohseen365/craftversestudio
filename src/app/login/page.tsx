@@ -7,11 +7,13 @@ export default async function LoginPage({
     orderId?: string;
     orderNumber?: string;
     slug: string;
+    mobileNo: string;
   };
 }) {
   const orderId = searchParams?.orderId ?? "";
   const orderNumber = searchParams?.orderNumber ?? "";
   const slug = searchParams?.slug ?? "";
+  const mobileNo = searchParams?.mobileNo ?? "";
   console.log("in login page");
 
   // void trackEvent({
@@ -25,16 +27,18 @@ export default async function LoginPage({
 
   return (
     <main className="mx-auto max-w-md px-4 py-20">
-      <h1 className="text-3xl font-semibold">
-        We need your contact details to proceed with your order
-      </h1>
-      <p className="mt-2 text-stone-600">
+      {orderNumber && mobileNo && (
+        <h1 className="text-3xl font-semibold">
+          We need your contact details to proceed with your order
+        </h1>
+      )}
+      {/* <p className="mt-2 text-stone-600">
         First we will check that we can provide you bouquet on required date
         then we will confirm your order and send you payment information
-      </p>
+      </p> */}
       <p className="mt-2 text-stone-600">
-        Entering Full Name and Mobile Number is must Entering Email, Instagram
-        Username is optional
+        Entering Mobile Number is must Entering Email, Instagram Username and
+        Name is optional
       </p>
 
       <LoginForm
@@ -42,6 +46,7 @@ export default async function LoginPage({
           id: orderId,
           number: orderNumber,
           slug: slug,
+          mobileNo: mobileNo,
         }}
       />
     </main>

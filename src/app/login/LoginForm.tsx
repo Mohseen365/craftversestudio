@@ -8,6 +8,7 @@ type LoginFormProps = {
     id: string;
     number: string;
     slug: string;
+    mobileNo: string;
   };
 };
 
@@ -46,12 +47,16 @@ export function LoginForm({ order }: LoginFormProps) {
         }
         if (order.slug) {
           router.push(`/order/slug=${order.slug}`);
-        } else if (order.number) {
+        } else if (order.number && order.mobileNo) {
           console.log("going to /track");
 
           router.push(
-            `/track?orderNumber=${order.number}&mobileNo=${mobileNo}`,
+            `/track?orderNumber=${order.number}&mobileNo=${order.mobileNo}`,
           );
+        } else if (order.id) {
+          router.push(`/order/${order.id}/payment?orderId=${order.id}`);
+        } else {
+          router.push(`/catalog`);
         }
       } catch (err) {
         console.log("catch block of startTransition");
