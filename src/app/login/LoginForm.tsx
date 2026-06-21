@@ -42,11 +42,11 @@ export function LoginForm({ order }: LoginFormProps) {
 
         const data = await res.json(); //data has only id of user
 
-        if (!res.ok || !data.success) {
+        if (!res.ok) {
           throw new Error(data.error ?? "Could not save contact details");
         }
         if (order.slug) {
-          router.push(`/order/slug=${order.slug}`);
+          router.push(`/order/${order.slug}`);
         } else if (order.number && order.mobileNo) {
           console.log("going to /track");
 
@@ -60,6 +60,7 @@ export function LoginForm({ order }: LoginFormProps) {
         }
       } catch (err) {
         console.log("catch block of startTransition");
+        console.error("Login failed:", err);
 
         setError(err instanceof Error ? err.message : "Something went wrong");
       }

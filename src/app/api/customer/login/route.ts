@@ -113,6 +113,6 @@ export async function POST(req: NextRequest) {
       );
     }
     console.error("customer/login failed:", err);
-    return NextResponse.json({ error: "Login failed" }, { status: 500 });
+    return NextResponse.json({ error: String(err) }, { status: 500 });
   }
 }
