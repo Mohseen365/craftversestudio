@@ -105,7 +105,7 @@ The identity and payment items below are retained for history and were resolved 
 
 ### [Resolved] User Identity Security
 - **Previous:** Customer identity could be supplied through request/URL data.
-- **Current:** `bouquet_customer` is HMAC-signed and server mutations derive identity from the verified cookie.
+- **Current:** `bou***` is HMAC-signed and server mutations derive identity from the verified cookie.
 
 ### [Resolved] Payment Submission Ownership
 - **Current:** The payment page and `POST /api/orders/[id]/payment` verify signed-session ownership and eligible order status.

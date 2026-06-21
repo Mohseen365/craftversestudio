@@ -817,7 +817,7 @@ Current order creation flow:
 
 1. `OrderForm` sends product and order input only; it does not send or trust a client-provided `userId`.
 2. `POST /api/orders` validates the request and performs a fresh active-product/price lookup.
-3. The route reads the signed `bouquet_customer` cookie using `getCurrentUserId()`.
+3. The route reads the signed `bouq***` cookie using `getCurrentUserId()`.
 4. If the cookie has no valid database user, the route creates a guest user and sets the signed customer session.
 5. The route creates the address, order, order item, and product order-count update.
 6. The browser continues to `/login` with only the order ID and order number.
