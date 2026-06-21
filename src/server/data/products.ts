@@ -42,22 +42,23 @@ export const getDefaultCatalogProducts = unstable_cache(
   { revalidate: 900, tags: [PRODUCTS_CACHE_TAG] },
 );
 
-export const getProductBySlug = unstable_cache(
-  async (slug: string) =>
-    prisma.product.findUnique({
-      where: { slug: slug },
-      select: {
-        id: true,
-        name: true,
-        slug: true,
-        price: true,
-        category: true,
-        imageUrl: true,
-        description: true,
-        instagramUrl: true,
-        active: true,
-      },
-    }),
-  ["product-by-slug"],
-  { revalidate: 3600, tags: [PRODUCTS_CACHE_TAG] },
-);
+export const getProductBySlug = (slug: string) =>
+  unstable_cache(
+    async () =>
+      prisma.product.findUnique({
+        where: { slug },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          price: true,
+          category: true,
+          imageUrl: true,
+          description: true,
+          instagramUrl: true,
+          active: true,
+        },
+      }),
+    [`product-by-slug-${slug}`], // unique key per slug
+    { revalidate: 3600, tags: [PRODUCTS_CACHE_TAG] },
+  )();
