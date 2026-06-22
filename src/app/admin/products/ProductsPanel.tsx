@@ -27,24 +27,24 @@ export function ProductsPanel({
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(false);
 
-  async function load() {
-    try {
-      setLoading(true);
+  // async function load() {
+  //   try {
+  //     setLoading(true);
 
-      const res = await fetch("/api/admin/products");
-      const data = await res.json();
+  //     const res = await fetch("/api/admin/products");
+  //     const data = await res.json();
 
-      if (!res.ok) {
-        console.log(data);
-        alert(JSON.stringify(data, null, 2));
-        return;
-      }
+  //     if (!res.ok) {
+  //       console.log(data);
+  //       alert(JSON.stringify(data, null, 2));
+  //       return;
+  //     }
 
-      setProducts(data.products ?? []);
-    } finally {
-      setLoading(false);
-    }
-  }
+  //     setProducts(data.products ?? []);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // }
 
   // useEffect(() => {
   //   if (products !== initialProducts) {
@@ -52,9 +52,9 @@ export function ProductsPanel({
   //   }
   // }, []);
 
-  const onUpdate = () => {
-    load();
-  };
+  // const onUpdate = () => {
+  //   load();
+  // };
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -84,9 +84,9 @@ export function ProductsPanel({
       const data = await res.json();
 
       if (!res.ok) {
-        console.log(data);
-        alert(JSON.stringify(data, null, 2));
-        return;
+        setProducts((prev) =>
+          prev.map((p) => (p.id === data.product.id ? data.product : p)),
+        );
       }
     } else {
       const res = await fetch("/api/admin/products", {
@@ -98,7 +98,7 @@ export function ProductsPanel({
       const data = await res.json();
 
       if (!res.ok) {
-        console.log(data);
+        setProducts((prev) => [data.product, ...prev]);
         alert(JSON.stringify(data, null, 2));
         return;
       }
@@ -106,7 +106,7 @@ export function ProductsPanel({
 
     setEditingProduct(null);
     setShowForm(false);
-    load();
+    // load();
   }
 
   return (
@@ -198,7 +198,16 @@ export function ProductsPanel({
                 setEditingProduct(p);
                 setShowForm(true);
               }}
-              onUpdate={onUpdate}
+              onDelete={(id) =>
+                setProducts((prev) =>
+                  prev.map((deleteProduct) =>
+                    deleteProduct.id === id
+                      ? { ...deleteProduct, active: false }
+                      : deleteProduct,
+                  ),
+                )
+              }
+              // onUpdate={onUpdate}
             />
           ))}
         </ul>
@@ -210,17 +219,22 @@ export function ProductsPanel({
 function ProductItem({
   product,
   onEdit,
-  onUpdate,
+  onDelete,
+  // onUpdate,
 }: {
   product: Product;
   onEdit: () => void;
-  onUpdate: () => void;
+  onDelete: (id: string) => void;
+  // onUpdate: () => void;
 }) {
   async function archive() {
     const res = await fetch(`/api/admin/products/${product.id}`, {
       method: "DELETE",
     });
-    if (res.ok) onUpdate();
+    if (res.ok) {
+      onDelete(product.id);
+      // onUpdate();
+    }
   }
 
   return (
