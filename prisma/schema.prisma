@@ -7,9 +7,7 @@ datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
-  // Supabase free tier allows only 1 direct connection.
-  // The connection pool limit is enforced via the connection string
-  // (add ?pgbouncer=true&connection_limit=1 to DATABASE_URL for Supabase pooler).
+  // Supabase free tier allows only 1 direct connection but for DATABASE_URL it is may be 60
 }
 
 enum OrderStatus {
