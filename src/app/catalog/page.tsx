@@ -32,40 +32,42 @@ export default async function CatalogPage({
         PRICE_FILTERS[0]);
 
   const isDefaultCatalog = !q && priceFilter === "all" && sort === "newest";
-  const products = isDefaultCatalog ? await getDefaultCatalogProducts() : await prisma.product.findMany({
-    where: {
-      active: true,
-      price: {
-        gte: priceRange.min,
-        ...(priceRange.max !== Infinity ? { lte: priceRange.max } : {}),
-      },
-      ...(q
-        ? {
-            OR: [
-              { name: { contains: q, mode: "insensitive" } },
-              { category: { contains: q, mode: "insensitive" } },
-              { description: { contains: q, mode: "insensitive" } },
-            ],
-          }
-        : {}),
-    },
-    select: {
-      id: true,
-      name: true,
-      slug: true,
-      price: true,
-      category: true,
-      imageUrl: true,
-    },
-    orderBy:
-      sort === "price-low"
-        ? { price: "asc" }
-        : sort === "price-high"
-          ? { price: "desc" }
-          : sort === "best"
-            ? { orderCount: "desc" }
-            : { createdAt: "desc" },
-  });
+  const products = isDefaultCatalog
+    ? await getDefaultCatalogProducts()
+    : await prisma.product.findMany({
+        where: {
+          active: true,
+          price: {
+            gte: priceRange.min,
+            ...(priceRange.max !== Infinity ? { lte: priceRange.max } : {}),
+          },
+          ...(q
+            ? {
+                OR: [
+                  { name: { contains: q, mode: "insensitive" } },
+                  { category: { contains: q, mode: "insensitive" } },
+                  { description: { contains: q, mode: "insensitive" } },
+                ],
+              }
+            : {}),
+        },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          price: true,
+          category: true,
+          imageUrl: true,
+        },
+        orderBy:
+          sort === "price-low"
+            ? { price: "asc" }
+            : sort === "price-high"
+              ? { price: "desc" }
+              : sort === "best"
+                ? { orderCount: "desc" }
+                : { createdAt: "desc" },
+      });
 
   return (
     <>
@@ -79,7 +81,7 @@ export default async function CatalogPage({
         <form className="mt-8 flex flex-wrap gap-4" method="GET">
           <input
             name="q"
-            value={q}
+            defaultValue={q}
             placeholder="Search Rose, Tulip, Mini..."
             className="rounded-xl border border-stone-200 px-4 py-2 text-sm min-w-[200px] focus:border-rose-300 focus:outline-none focus:ring-2 focus:ring-rose-100"
           />

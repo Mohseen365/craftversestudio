@@ -36,17 +36,25 @@ const updateSchema = z.object({
  * INACTIVE status sets.  Only these transitions require a rebuildSchedule().
  */
 function schedulingAffected(fromStatus: string, toStatus: string): boolean {
-  const wasSchedulable = (SCHEDULABLE_STATUSES as readonly string[]).includes(fromStatus);
-  const isSchedulable  = (SCHEDULABLE_STATUSES as readonly string[]).includes(toStatus);
-  const wasInactive    = (INACTIVE_STATUSES as readonly string[]).includes(fromStatus);
-  const isInactive     = (INACTIVE_STATUSES as readonly string[]).includes(toStatus);
+  const wasSchedulable = (SCHEDULABLE_STATUSES as readonly string[]).includes(
+    fromStatus,
+  );
+  const isSchedulable = (SCHEDULABLE_STATUSES as readonly string[]).includes(
+    toStatus,
+  );
+  const wasInactive = (INACTIVE_STATUSES as readonly string[]).includes(
+    fromStatus,
+  );
+  const isInactive = (INACTIVE_STATUSES as readonly string[]).includes(
+    toStatus,
+  );
   // Rebuild when order enters or leaves the schedulable set
   return wasSchedulable !== isSchedulable || wasInactive !== isInactive;
 }
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   if (!(await requireAdmin())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

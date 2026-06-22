@@ -8,13 +8,13 @@ import { getOrderForPayment } from "@/server/data/orders";
 export const dynamic = "force-dynamic";
 
 export default async function PaymentPage({
-  Params,
+  params,
 }: {
-  Params: Promise<{
+  params: Promise<{
     orderId?: string;
   }>;
 }) {
-  const { orderId } = await Params;
+  const { orderId } = await params;
 
   if (!orderId) {
     redirect("/catalog");
@@ -40,7 +40,7 @@ export default async function PaymentPage({
         </p>
         <div className="mt-8">
           <PaymentUpload
-            orderId={orderId}
+            orderId={order.id}
             orderNumber={order.orderNumber}
             total={order.total}
             // mobileNo={order.user.mobileNo ?? ""}

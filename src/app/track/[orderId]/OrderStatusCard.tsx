@@ -38,6 +38,7 @@ export function OrderStatusCard({ order }: { order: OrderResult }) {
       <p className="mt-2 text-sm text-stone-600">{status.description}</p>
 
       {(order.status === "PAYMENT_PENDING" ||
+        order.status === "ACCEPTED" ||
         order.status === "PAYMENT_REJECTED") && (
         <Link
           href={`/track/${order.id}/payment`}
