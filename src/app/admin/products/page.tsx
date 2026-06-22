@@ -14,7 +14,7 @@ export default async function AdminProductsPage() {
       name: true,
       category: true,
       price: true,
-      productionDays: true,
+      productionHours: true,
       active: true,
       imageUrl: true,
       instagramUrl: true,
@@ -27,7 +27,7 @@ export default async function AdminProductsPage() {
 
   const serializedProducts = products.map((p) => ({
     ...p,
-    productionDays: p.productionDays.toNumber(),
+    productionHours: p.productionHours.toNumber(),
   }));
 
   return (

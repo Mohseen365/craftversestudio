@@ -12,7 +12,7 @@ const productSchema = z.object({
   category: z.string().min(2),
   description: z.string().min(10),
   price: z.number().int().positive(),
-  productionDays: z.coerce
+  productionHours: z.coerce
     .number()
     .finite()
     .transform((val) => new Decimal(val)),
@@ -32,7 +32,7 @@ export async function GET() {
       name: true,
       category: true,
       price: true,
-      productionDays: true,
+      productionHours: true,
       active: true,
       imageUrl: true,
       instagramUrl: true,
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
         category: body.category,
         description: body.description,
         price: body.price,
-        productionDays: body.productionDays,
+        productionHours: body.productionHours,
         active: body.active,
         imageUrl: body.imageUrl,
         instagramUrl: body.instagramUrl,

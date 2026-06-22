@@ -11,7 +11,7 @@ const updateSchema = z.object({
   category: z.string().min(2).optional(),
   description: z.string().min(10).optional(),
   price: z.number().int().positive().optional(),
-  productionDays: z
+  productionHours: z
     .string()
     .transform((val) => new Decimal(val))
     .optional(),
@@ -41,7 +41,7 @@ export async function PATCH(
         category: body.category,
         description: body.description,
         price: body.price,
-        productionDays: body.productionDays,
+        productionHours: body.productionHours,
         active: body.active,
         imageUrl: body.imageUrl,
         instagramUrl: body.instagramUrl,

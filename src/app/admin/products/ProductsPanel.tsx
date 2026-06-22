@@ -13,7 +13,7 @@ type Product = {
   active: boolean;
   imageUrl: string;
   instagramUrl: string | null;
-  productionDays: number;
+  productionHours: number;
   description: string;
 };
 
@@ -68,8 +68,8 @@ export function ProductsPanel({
       price: fd.get("price"),
       // price: Number(fd.get("price")),
       active: true,
-      productionDays: fd.get("productionDays"),
-      // productionDays: fd.get("productionDays")?.toString() ?? "1",
+      productionHours: fd.get("productionHours"),
+      // productionHours: fd.get("productionHours")?.toString() ?? "1",
       imageUrl: fd.get("imageUrl"),
       instagramUrl: fd.get("instagramUrl") || undefined,
     };
@@ -147,14 +147,14 @@ export function ProductsPanel({
               defaultValue={editingProduct?.price}
             />
             <input
-              name="productionDays"
+              name="productionHours"
               type="number"
-              placeholder="Production days"
+              placeholder="Production Hours"
               // value={1}
               step="0.01" // allows decimals like 1.0, 10.25
               className="rounded-lg border px-3 py-2 text-sm"
-              defaultValue={editingProduct?.productionDays}
-              // defaultValue={editingProduct?.productionDays?.toString() ?? "1"}
+              defaultValue={editingProduct?.productionHours}
+              // defaultValue={editingProduct?.productionHours?.toString() ?? "1"}
             />
             <input
               name="imageUrl"

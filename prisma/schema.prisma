@@ -107,7 +107,7 @@ model Product {
   category       String
   description    String
   price          Int
-  productionDays Decimal      @default(1) @map("production_days") @db.Decimal(10, 2)
+  productionHours Decimal   @db.Decimal(6,2) // Changed from productionDays
   active         Boolean  @default(true)
   orderCount     Int      @default(0) @map("order_count")
   createdAt      DateTime @default(now()) @map("created_at")
@@ -145,6 +145,12 @@ model Order {
   giftMessage     String?     @map("gift_message")
   trackingNumber  String?     @map("tracking_number")
   createdAt       DateTime    @default(now()) @map("created_at")
+    
+  requiredHours      Decimal?  @db.Decimal(6,2) // Denormalized total hours needed
+  completedHours     Decimal?  @db.Decimal(6,2) @default(0) // Denormalized completed hours
+  remainingHours     Decimal?  @db.Decimal(6,2) // Denormalized remaining hours
+  
+
 
   user                 User                  @relation(fields: [userId], references: [id])
   items                OrderItem[]
@@ -152,10 +158,13 @@ model Order {
   capacityReservations CapacityReservation[]
   events Event[]
 
-  @@index([status])
-  @@index([occasionDate])
+  
+
   @@index([createdAt])
   @@map("orders")
+    @@index([status, productionDeadline])  // For scheduling queries
+  @@index([status, occasionDate])        // For planning UI queries
+  @@index([productionDeadline])          // For date range scans
 }
 
 model OrderItem {
@@ -164,7 +173,7 @@ model OrderItem {
   productId String @map("product_id")
   quantity  Int
   price     Int
-
+hoursRequired      Decimal   @db.Decimal(6,2) // Denormalized: quantity × product.productionHours
   order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [id])
 
@@ -187,32 +196,70 @@ model Payment {
   @@map("payments")
 }
 
+
 model Capacity {
-  id              String   @id @default(cuid())
-  date            DateTime @unique @db.Date
-  maximumCapacity Decimal  @map("maximum_capacity") @db.Decimal(10, 2)
-
-  reservations CapacityReservation[]
-
-  @@map("capacity")
+  id               String                @id @default(cuid())
+  date             DateTime              @unique @db.Date
+  maximumHours     Decimal               @default(8.0) @db.Decimal(5,2) // Changed from maximumCapacity
+  availableHours   Decimal               @default(8.0) @db.Decimal(5,2) // Pre-calculated available hours
+  isOverridden     Boolean               @default(false)
+  version          Int                   @default(1)
+  reservations     CapacityReservation[]
+  
+  @@index([date, availableHours])
 }
 
 model CapacityReservation {
-  id                String  @id @default(cuid())
-  capacityId        String  @map("capacity_id")
-  orderId           String  @map("order_id")
-  plannedQuantity   Decimal @map("planned_quantity") @db.Decimal(10, 2)
-  completedQuantity Decimal @default(0) @map("completed_quantity") @db.Decimal(10, 2)
+  id                String    @id @default(cuid())
+  capacityId        String
+  orderId           String
+  plannedHours      Decimal   @default(0) @db.Decimal(6,2) // Changed from plannedQuantity
+  completedHours    Decimal   @default(0) @db.Decimal(6,2) // Changed from completedQuantity
   isManual          Boolean   @default(false)
-  manualQuantity    Decimal   @default(0) @db.Decimal(10, 2)
-
-  capacity Capacity @relation(fields: [capacityId], references: [id], onDelete: Cascade)
-  order    Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-
+  version           Int       @default(1)
+  lastModifiedAt    DateTime  @updatedAt
+  
+  capacity Capacity @relation(fields: [capacityId], references: [id])
+  order    Order    @relation(fields: [orderId], references: [id])
+  
   @@unique([capacityId, orderId])
-  @@map("capacity_reservations")
+  @@index([orderId, capacityId])
 }
 
+model SchedulingJob {
+  id          String    @id @default(cuid())
+  eventType   String    // Type of event that triggered this job
+  payload     Json      // Serialized event data
+  priority    Int       @default(2) // 1=HIGH, 2=MEDIUM, 3=LOW
+  status      String    @default("PENDING")
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(3)
+  error       String?
+  createdAt   DateTime  @default(now())
+  startedAt   DateTime?
+  completedAt DateTime?
+  lockedBy    String?   // Worker ID for distributed processing
+  
+  @@index([status, priority, createdAt])
+  @@index([lockedBy, status])
+}
+
+model SchedulingSnapshot {
+  id          String    @id @default(cuid())
+  date        DateTime  @db.Date
+  snapshot    Json      // Complete state for that date
+  version     Int
+  createdAt   DateTime  @default(now())
+  
+  @@index([date, version])
+}
+// Configuration for hours per day
+model ProductionConfig {
+  id                    String   @id @default("default")
+  hoursPerDay           Decimal  @default(8.0) @db.Decimal(5,2) // Default 8-hour workday
+  maxDaysPerOrder       Int      @default(30)  // Maximum days an order can span
+  updatedAt             DateTime @updatedAt
+}
 model AuditLog {
   id          String   @id @default(cuid())
   action      String

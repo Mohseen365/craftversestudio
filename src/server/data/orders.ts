@@ -36,7 +36,7 @@ export async function getTrackableOrder({
       items: {
         select: {
           quantity: true,
-          product: { select: { name: true, productionDays: true } },
+          product: { select: { name: true, productionHours: true } },
         },
       },
       user: { select: { mobileNo: true, id: true } },
@@ -56,7 +56,7 @@ export async function getTrackableOrder({
       ...item,
       product: {
         ...item.product,
-        productionDays: item.product.productionDays.toNumber(),
+        productionHours: item.product.productionHours.toNumber(),
       },
     })),
   };
@@ -154,7 +154,7 @@ export async function getOrderDetails(orderId: string, userId: string) {
           product: {
             select: {
               name: true,
-              productionDays: true,
+              productionHours: true,
             },
           },
         },
@@ -184,7 +184,7 @@ export async function getOrderDetails(orderId: string, userId: string) {
       ...item,
       product: {
         ...item.product,
-        productionDays: item.product.productionDays.toNumber(),
+        productionHours: item.product.productionHours.toNumber(),
       },
     })),
   };
