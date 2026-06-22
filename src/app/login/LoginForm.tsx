@@ -8,7 +8,7 @@ type LoginFormProps = {
     id: string;
     number: string;
     slug: string;
-    mobileNo: string;
+    // mobileNo: string;
   };
 };
 
@@ -40,21 +40,19 @@ export function LoginForm({ order }: LoginFormProps) {
           }),
         });
 
-        const data = await res.json(); //data has only id of user
+        const data = await res.json();
 
         if (!res.ok) {
           throw new Error(data.error ?? "Could not save contact details");
         }
         if (order.slug) {
           router.push(`/order/${order.slug}`);
-        } else if (order.number && order.mobileNo) {
-          console.log("going to /track");
+        } else if (order.number) {
+          console.log("going to /track/details");
 
-          router.push(
-            `/track?orderNumber=${order.number}&mobileNo=${order.mobileNo}`,
-          );
-        } else if (order.id) {
-          router.push(`/order/${order.id}/payment?orderId=${order.id}`);
+          router.push(`/track/${order.id}`);
+          // } else if (order.id) {
+          //   router.push(`/order/${order.id}/payment?orderId=${order.id}`);
         } else {
           router.push(`/catalog`);
         }

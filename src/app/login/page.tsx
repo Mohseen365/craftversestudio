@@ -7,13 +7,13 @@ export default async function LoginPage({
     orderId?: string;
     orderNumber?: string;
     slug: string;
-    mobileNo: string;
+    // mobileNo: string;
   };
 }) {
   const orderId = searchParams?.orderId ?? "";
   const orderNumber = searchParams?.orderNumber ?? "";
   const slug = searchParams?.slug ?? "";
-  const mobileNo = searchParams?.mobileNo ?? "";
+  // const mobileNo = searchParams?.mobileNo ?? "";
   console.log("in login page");
 
   // void trackEvent({
@@ -27,7 +27,7 @@ export default async function LoginPage({
 
   return (
     <main className="mx-auto max-w-md px-4 py-20">
-      {orderNumber && mobileNo && (
+      {orderNumber && (
         <h1 className="text-3xl font-semibold">
           We need your contact details to proceed with your order
         </h1>
@@ -46,7 +46,7 @@ export default async function LoginPage({
           id: orderId,
           number: orderNumber,
           slug: slug,
-          mobileNo: mobileNo,
+          // mobileNo: mobileNo,
         }}
       />
     </main>

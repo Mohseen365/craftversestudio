@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUserId } from "@/lib/auth";
+// import { getCurrentUserId } from "@/lib/auth";
 // import { notifyAdminPaymentPending } from "@/lib/email";
 
 const schema = z.object({
@@ -22,10 +22,13 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { id } = await params;
+    const { id } = await params; // from /api/orders/[id]/payment
+    const userId = req.nextUrl.searchParams.get("userId"); // from ?userId=...
+
+    // now you have both
     const body = schema.parse(await req.json());
 
-    const userId = await getCurrentUserId();
+    // const userId = await getCurrentUserId();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

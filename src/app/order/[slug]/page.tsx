@@ -15,17 +15,22 @@ export async function generateStaticParams() {
 export default async function OrderPage({
   params,
 }: {
-  params?: { slug: string };
+  params: Promise<{ slug: string }>;
 }) {
+  const { slug } = await params;
+  if (!slug) {
+    console.log("no slug found");
+  }
   const userId = await getCurrentUserId();
-  const slug = params?.slug ?? "";
   if (!userId) {
     redirect(`/login?slug=${slug}`);
   }
 
   const product = await getProductBySlug(slug);
-
-  if (!product) notFound();
+  if (!product || !product.active) {
+    console.log("no active product found with slug");
+    notFound();
+  }
 
   return (
     <>

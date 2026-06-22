@@ -8,13 +8,13 @@ import { getOrderForPayment } from "@/server/data/orders";
 export const dynamic = "force-dynamic";
 
 export default async function PaymentPage({
-  searchParams,
+  Params,
 }: {
-  searchParams?: {
+  Params: Promise<{
     orderId?: string;
-  };
+  }>;
 }) {
-  const orderId = searchParams?.orderId ?? "";
+  const { orderId } = await Params;
 
   if (!orderId) {
     redirect("/catalog");
@@ -41,8 +41,9 @@ export default async function PaymentPage({
         <div className="mt-8">
           <PaymentUpload
             orderId={orderId}
-            orderNumber={order.orderNumber}
-            mobileNo={order.user.mobileNo ?? ""}
+            // orderNumber={order.orderNumber}
+            // mobileNo={order.user.mobileNo ?? ""}
+            userId={userId}
           />
         </div>
       </main>

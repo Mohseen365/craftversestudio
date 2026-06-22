@@ -15,12 +15,17 @@ export async function generateStaticParams() {
 export default async function ProductPage({
   params,
 }: {
-  params?: { slug: string };
+  params: Promise<{ slug: string }>;
 }) {
-  const slug = params?.slug ?? "";
-
+  const { slug } = await params;
+  if (slug) {
+    console.log("no slug found");
+  }
   const product = await getProductBySlug(slug);
-  if (!product || !product.active) notFound();
+  if (!product || !product.active) {
+    console.log("no active product found with slug");
+    notFound();
+  }
 
   return (
     <>

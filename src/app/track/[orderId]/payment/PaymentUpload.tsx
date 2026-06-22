@@ -5,12 +5,14 @@ import { useRouter } from "next/navigation";
 
 export function PaymentUpload({
   orderId,
-  orderNumber,
-  mobileNo,
+  // orderNumber,
+  // mobileNo,
+  userId,
 }: {
   orderId: string;
-  orderNumber: string;
-  mobileNo: string;
+  // orderNumber: string;
+  // mobileNo: string;
+  userId: string;
 }) {
   const router = useRouter();
   const [error, setError] = useState("");
@@ -40,16 +42,19 @@ export function PaymentUpload({
 
         if (!uploadRes.ok) throw new Error(uploadJson.error ?? "Upload failed");
 
-        const paymentRes = await fetch(`/api/orders/${orderId}/payment`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ screenshotUrl: uploadJson.url }),
-        });
+        const paymentRes = await fetch(
+          `/api/orders/${orderId}/payment?userId=${userId}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ screenshotUrl: uploadJson.url }),
+          },
+        );
         const paymentJson = await paymentRes.json();
         if (!paymentRes.ok)
           throw new Error(paymentJson.error ?? "Payment upload failed");
 
-        router.push(`/track?orderNumber=${orderNumber}&mobileNo=${mobileNo}`);
+        router.push(`/track/${orderId}`);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Something went wrong");
       }
@@ -65,10 +70,10 @@ export function PaymentUpload({
       )}
 
       <div className="rounded-2xl border border-rose-100 bg-rose-50/50 p-6">
-        <p className="text-sm text-stone-600">Order number</p>
-        <p className="mt-1 font-mono text-lg font-medium">{orderNumber}</p>
-        <p className="text-sm text-stone-600">Mobile number</p>
-        <p className="mt-1 font-mono text-lg font-medium">{mobileNo}</p>
+        {/* <p className="text-sm text-stone-600">Order number</p>
+        <p className="mt-1 font-mono text-lg font-medium">{orderNumber}</p> */}
+        {/* <p className="text-sm text-stone-600">Mobile number</p>
+        <p className="mt-1 font-mono text-lg font-medium">{mobileNo}</p> */}
         <p className="mt-4 text-sm text-stone-500">
           Pay via UPI/bank transfer, then upload your payment screenshot below.
         </p>

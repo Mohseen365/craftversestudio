@@ -7,7 +7,7 @@ export function Header() {
         <Link href="/" className="flex items-center gap-2">
           <span className="text-2xl">🌸</span>
           <span className="font-serif text-xl font-semibold text-rose-900">
-            Bouquet Studio
+            Craft Verse Studio
           </span>
         </Link>
         <nav className="flex items-center gap-6 text-sm font-medium text-stone-600">

@@ -81,9 +81,7 @@ export function OrderForm({ product, userId }: OrderFormProps) {
           throw new Error(data.error ?? "Failed to create order");
         }
 
-        router.push(
-          `/track?orderId=${data.orderId}&orderNumber=${data.orderNumber}`,
-        );
+        router.push(`/track/${data.orderId}`);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Something went wrong");
       }
@@ -142,7 +140,7 @@ export function OrderForm({ product, userId }: OrderFormProps) {
         </div>
       </div>
 
-      <Field label="Configuration (Optional)" name="Configuration" />
+      <Field label="Customisation (Optional)" name="Configuration" />
 
       <div className="rounded-2xl border border-rose-100 bg-rose-50/50 p-6">
         <p className="text-sm text-stone-600">
