@@ -18,12 +18,13 @@ type SearchParams = {
 export default async function CatalogPage({
   searchParams,
 }: {
-  searchParams: SearchParams;
+  searchParams: Promise<SearchParams>;
 }) {
-  const q = searchParams.q?.trim() ?? "";
-  const priceFilter = searchParams.price ?? "all";
-  const sort = searchParams.sort ?? "newest";
-  // const userId = searchParams.userId ?? "";
+  const catalogParams = await searchParams;
+  const q = catalogParams.q?.trim() ?? "";
+  const priceFilter = catalogParams.price ?? "all";
+  const sort = catalogParams.sort ?? "newest";
+  // const userId = catalogParams.userId ?? "";
 
   const priceRange =
     priceFilter === "all"
@@ -87,7 +88,7 @@ export default async function CatalogPage({
           />
           <select
             name="price"
-            value={priceFilter}
+            defaultValue={priceFilter}
             className="rounded-xl border border-stone-200 px-4 py-2 text-sm focus:border-rose-300 focus:outline-none"
           >
             {PRICE_FILTERS.map((p) => (
@@ -101,7 +102,7 @@ export default async function CatalogPage({
           </select>
           <select
             name="sort"
-            value={sort}
+            defaultValue={sort}
             className="rounded-xl border border-stone-200 px-4 py-2 text-sm focus:border-rose-300 focus:outline-none"
           >
             <option value="newest">Newest</option>

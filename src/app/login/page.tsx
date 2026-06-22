@@ -3,17 +3,18 @@ import { LoginForm } from "./LoginForm";
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams?: {
+  searchParams?: Promise<{
     orderId?: string;
     orderNumber?: string;
     slug: string;
     // mobileNo: string;
-  };
+  }>;
 }) {
-  const orderId = searchParams?.orderId ?? "";
-  const orderNumber = searchParams?.orderNumber ?? "";
-  const slug = searchParams?.slug ?? "";
-  // const mobileNo = searchParams?.mobileNo ?? "";
+  const pageParams = await searchParams;
+  const orderId = pageParams?.orderId ?? "";
+  const orderNumber = pageParams?.orderNumber ?? "";
+  const slug = pageParams?.slug ?? "";
+  // const mobileNo = pageParams?.mobileNo ?? "";
   console.log("in login page");
 
   // void trackEvent({

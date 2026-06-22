@@ -55,7 +55,7 @@ export default async function AdminOrdersPage() {
       },
     },
     orderBy: { createdAt: "desc" },
-    take: 100,
+    // take: 100,
   });
 
   const serializedOrders = orders.map((o) => ({
