@@ -13,7 +13,11 @@ type Order = {
   productionDeadline: string | null;
   shippingDate: string | null;
   shippingDurationDays: number | null;
-  total: number;
+  customizationCharge: number | null;
+  deliveryCharge: number | null;
+  urgentOrderCharge: number | null;
+  subtotal: number | null;
+  total: number | null;
   trackingNumber: string | null;
   quantity: number;
   user: {
@@ -165,6 +169,12 @@ function OrderCard({
   onUpdate: (id: string, removed?: boolean) => void;
 }) {
   const [shippingDuration, setShippingDuration] = useState<number | "">("");
+
+  const [customizationCharge, setCustomizationCharge] = useState<number | "">(
+    0,
+  );
+  const [deliveryCharge, setDeliveryCharge] = useState<number | "">(0);
+  const [urgentOrderCharge, setUrgentOrderCharge] = useState<number | "">(0);
   const [capacityPreview, setCapacityPreview] =
     useState<CapacityPreview | null>(null);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -232,7 +242,14 @@ function OrderCard({
     const res = await fetch(`/api/orders/${order.id}/accept`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ shippingDurationDays: shippingDuration }),
+      body: JSON.stringify({
+        shippingDurationDays: shippingDuration,
+        customizationCharge:
+          typeof customizationCharge === "number" ? customizationCharge : 0,
+        deliveryCharge: typeof deliveryCharge === "number" ? deliveryCharge : 0,
+        urgentOrderCharge:
+          typeof urgentOrderCharge === "number" ? urgentOrderCharge : 0,
+      }),
     });
 
     if (res.ok) {
@@ -260,7 +277,7 @@ function OrderCard({
           <p className="text-sm text-stone-500">
             Delivery:{" "}
             {order.occasionDate ? formatDate(order.occasionDate) : "Not set"} ·{" "}
-            {formatPrice(order.total)}
+            {order.subtotal ? formatPrice(order.subtotal) : 0}
           </p>
           <ul className="mt-2 text-sm text-stone-600">
             {order.items.map((item, i) => (
@@ -339,6 +356,56 @@ function OrderCard({
                 min={0}
                 value={shippingDuration}
                 onChange={handleDurationChange}
+                className="mt-1 w-full rounded-lg border border-stone-200 px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="text-sm">
+              <span className="block font-medium text-stone-700">
+                Customization Charge
+              </span>
+              <input
+                type="number"
+                min={0}
+                value={customizationCharge}
+                onChange={(e) =>
+                  setCustomizationCharge(
+                    e.target.value === "" ? "" : Number(e.target.value),
+                  )
+                }
+                className="mt-1 w-full rounded-lg border border-stone-200 px-3 py-2 text-sm"
+              />
+            </label>
+
+            <label className="text-sm">
+              <span className="block font-medium text-stone-700">
+                Delivery Charge
+              </span>
+              <input
+                type="number"
+                min={0}
+                value={deliveryCharge}
+                onChange={(e) =>
+                  setDeliveryCharge(
+                    e.target.value === "" ? "" : Number(e.target.value),
+                  )
+                }
+                className="mt-1 w-full rounded-lg border border-stone-200 px-3 py-2 text-sm"
+              />
+            </label>
+
+            <label className="text-sm">
+              <span className="block font-medium text-stone-700">
+                Urgent Order Charge
+              </span>
+              <input
+                type="number"
+                min={0}
+                value={urgentOrderCharge}
+                onChange={(e) =>
+                  setUrgentOrderCharge(
+                    e.target.value === "" ? "" : Number(e.target.value),
+                  )
+                }
                 className="mt-1 w-full rounded-lg border border-stone-200 px-3 py-2 text-sm"
               />
             </label>

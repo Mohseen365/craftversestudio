@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
           occasionType: data.occasionType,
           // occasionDate: data.occasionDate ? new Date(data.occasionDate) : null,
           occasionDate: data.occasionDate,
-          shippingDate: data.occasionDate,
+          // shippingDate: data.occasionDate,
           quantity: data.quantity,
           subtotal,
           total: subtotal,

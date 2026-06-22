@@ -72,6 +72,7 @@ export function getOrderForPayment(orderId: string, userId: string) {
     select: {
       id: true,
       orderNumber: true,
+      total: true,
       // user: { select: { mobileNo: true } },
     },
   });
@@ -130,6 +131,10 @@ export async function getOrderDetails(orderId: string, userId: string) {
       shippingDate: true,
       occasionDate: true,
       deliveryDate: true,
+      customizationCharge: true,
+      deliveryCharge: true,
+      urgentOrderCharge: true,
+      subtotal: true,
       total: true,
       trackingNumber: true,
 

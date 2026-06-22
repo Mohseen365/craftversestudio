@@ -15,7 +15,11 @@ type OrderDetailsResult = {
   occasionDate: string | null;
   trackingNumber: string | null;
   productionDeadline: string | null;
-  total: number;
+  customizationCharge: number | null;
+  deliveryCharge: number | null;
+  urgentOrderCharge: number | null;
+  subtotal: number;
+  total: number | null;
 
   user: {
     mobileNo: string | null;
@@ -112,7 +116,42 @@ export function OrderDetails({ order }: Props) {
           ))}
         </div>
       </div>
+      {/* Price Information */}
+      <div className="rounded-2xl border border-stone-200 bg-white p-6">
+        <h2 className="font-semibold">Price Information</h2>
 
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <InfoItem
+            label="Bouquet Collection Price"
+            value={formatPrice(order.subtotal)}
+          />
+
+          {order.customizationCharge !== null && (
+            <InfoItem
+              label="Customization Charge"
+              value={formatPrice(order.customizationCharge)}
+            />
+          )}
+
+          {order.deliveryCharge !== null && (
+            <InfoItem
+              label="Delivery Charge"
+              value={formatPrice(order.deliveryCharge)}
+            />
+          )}
+
+          {order.urgentOrderCharge !== null && (
+            <InfoItem
+              label="Urgent Order Charge"
+              value={formatPrice(order.urgentOrderCharge)}
+            />
+          )}
+
+          {order.total !== null && (
+            <InfoItem label="Total Price" value={formatPrice(order.total)} />
+          )}
+        </div>
+      </div>
       {/* Payment */}
       <div className="rounded-2xl border border-stone-200 bg-white p-6">
         <h2 className="font-semibold">Payment Status</h2>
@@ -132,3 +171,9 @@ function InfoItem({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
+const formatPrice = (amount: number) =>
+  new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  }).format(amount);

@@ -139,6 +139,9 @@ model Order {
   productionDeadline DateTime? @map("production_deadline")
   quantity        Int         @default(1)
   subtotal        Int
+    customizationCharge Int @default(0)
+  deliveryCharge     Int @default(0)
+  urgentOrderCharge  Int @default(0)
   total           Int
   notes           String?
   giftMessage     String?     @map("gift_message")

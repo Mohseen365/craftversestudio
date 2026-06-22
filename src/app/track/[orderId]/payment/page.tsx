@@ -41,7 +41,8 @@ export default async function PaymentPage({
         <div className="mt-8">
           <PaymentUpload
             orderId={orderId}
-            // orderNumber={order.orderNumber}
+            orderNumber={order.orderNumber}
+            total={order.total}
             // mobileNo={order.user.mobileNo ?? ""}
             userId={userId}
           />

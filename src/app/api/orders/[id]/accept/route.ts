@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { calculateProductionDeadline, calculateShippingDate } from "@/lib/capacity";
+import {
+  calculateProductionDeadline,
+  calculateShippingDate,
+} from "@/lib/capacity";
 import {
   checkAcceptability,
   persistAllocations,
@@ -11,12 +14,15 @@ import {
 import { requireAdmin } from "@/lib/auth";
 
 const acceptSchema = z.object({
-  shippingDurationDays: z.number().min(0).max(365),
+  shippingDurationDays: z.number(),
+  customizationCharge: z.number().default(0),
+  deliveryCharge: z.number().default(0),
+  urgentOrderCharge: z.number().default(0),
 });
 
 export async function POST(
   req: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   if (!(await requireAdmin())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -29,7 +35,7 @@ export async function POST(
     if (!body.success) {
       return NextResponse.json(
         { error: "Shipping duration is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -40,6 +46,7 @@ export async function POST(
         orderNumber: true,
         status: true,
         occasionDate: true,
+        subtotal: true,
         items: {
           select: {
             quantity: true,
@@ -56,39 +63,51 @@ export async function POST(
     if (!order.occasionDate) {
       return NextResponse.json(
         { error: "Order needs an occasion date before acceptance" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     if (order.status !== "PENDING_REVIEW") {
       return NextResponse.json(
         { error: "Only orders in PENDING_REVIEW can be accepted" },
-        { status: 409 }
+        { status: 409 },
       );
     }
 
     const shippingDate = calculateShippingDate(
       order.occasionDate,
-      body.data.shippingDurationDays
+      body.data.shippingDurationDays,
     );
     const productionDeadline = calculateProductionDeadline(shippingDate);
     const requiredCapacity = order.items.reduce(
-      (sum, item) => sum + item.quantity * item.product.productionDays.toNumber(),
-      0
+      (sum, item) =>
+        sum + item.quantity * item.product.productionDays.toNumber(),
+      0,
     );
 
     // Load scheduler data once — shared by checkAcceptability and persistAllocations
-    const schedulerData = await getSchedulerData(formatDateKey(new Date(), false));
+    const schedulerData = await getSchedulerData(
+      formatDateKey(new Date(), false),
+    );
 
     const check = await checkAcceptability(
-      { id: order.id, orderNumber: order.orderNumber, productionDeadline, requiredCapacity },
-      schedulerData
+      {
+        id: order.id,
+        orderNumber: order.orderNumber,
+        productionDeadline,
+        requiredCapacity,
+      },
+      schedulerData,
     );
 
     if (!check.canAccept) {
       return NextResponse.json(
-        { error: check.reason ?? "Accepting this order exceeds available production capacity" },
-        { status: 409 }
+        {
+          error:
+            check.reason ??
+            "Accepting this order exceeds available production capacity",
+        },
+        { status: 409 },
       );
     }
 
@@ -98,6 +117,14 @@ export async function POST(
       data: {
         status: "ACCEPTED",
         shippingDurationDays: body.data.shippingDurationDays,
+        customizationCharge: body.data.customizationCharge,
+        deliveryCharge: body.data.deliveryCharge,
+        urgentOrderCharge: body.data.urgentOrderCharge,
+        total:
+          order.subtotal +
+          body.data.customizationCharge +
+          body.data.deliveryCharge +
+          body.data.urgentOrderCharge,
         shippingDate,
         productionDeadline,
         occasionDate: order.occasionDate,
@@ -111,10 +138,14 @@ export async function POST(
     // check.allocations and check.schedulerData are always present when canAccept is true.
     await persistAllocations(check.allocations!, check.schedulerData!.todayKey);
 
-    return NextResponse.json({ success: true, suggestedDates: check.suggestedDates });
+    return NextResponse.json({
+      success: true,
+      suggestedDates: check.suggestedDates,
+    });
   } catch (err) {
     console.error("[accept order] error:", err);
-    const message = err instanceof Error ? err.message : "Failed to accept order";
+    const message =
+      err instanceof Error ? err.message : "Failed to accept order";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

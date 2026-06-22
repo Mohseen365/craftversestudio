@@ -65,7 +65,7 @@ export function OrdersList({ orders }: Props) {
                     <p className="text-sm text-stone-500">
                       #{order.orderNumber}
                     </p>
-                    <p className="text-sm text-stone-500">#{order.total}</p>
+                    {/* <p className="text-sm text-stone-500">#{order.total}</p> */}
 
                     {order.occasionDate && (
                       <p className="mt-2 text-sm text-stone-500">

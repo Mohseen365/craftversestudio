@@ -5,12 +5,14 @@ import { useRouter } from "next/navigation";
 
 export function PaymentUpload({
   orderId,
-  // orderNumber,
+  orderNumber,
+  total,
   // mobileNo,
   userId,
 }: {
   orderId: string;
-  // orderNumber: string;
+  orderNumber: string;
+  total: number;
   // mobileNo: string;
   userId: string;
 }) {
@@ -70,8 +72,10 @@ export function PaymentUpload({
       )}
 
       <div className="rounded-2xl border border-rose-100 bg-rose-50/50 p-6">
-        {/* <p className="text-sm text-stone-600">Order number</p>
-        <p className="mt-1 font-mono text-lg font-medium">{orderNumber}</p> */}
+        <p className="text-sm text-stone-600">Order number</p>
+        <p className="mt-1 font-mono text-lg font-medium">{orderNumber}</p>
+        <p className="text-sm text-stone-600">Total Price</p>
+        <p className="mt-1 font-mono text-lg font-medium">{total}</p>
         {/* <p className="text-sm text-stone-600">Mobile number</p>
         <p className="mt-1 font-mono text-lg font-medium">{mobileNo}</p> */}
         <p className="mt-4 text-sm text-stone-500">
