@@ -3,81 +3,19 @@ export const dynamic = "force-dynamic";
 import { redirect } from "next/navigation";
 import { isAdminAuthenticated } from "@/lib/auth";
 import { OrdersPanel } from "./OrdersPanel";
-import { prisma } from "@/lib/prisma";
+import { loadOrdersAction } from "./actions";
 
 export default async function AdminOrdersPage() {
   if (!(await isAdminAuthenticated())) redirect("/admin/login");
 
   const defaultTab = "PAYMENT_VERIFICATION";
-  const orders = await prisma.order.findMany({
-    where: { status: defaultTab as never },
-    select: {
-      id: true,
-      orderNumber: true,
-      status: true,
-      occasionDate: true,
-      deliveryDate: true,
-      productionDeadline: true,
-      shippingDate: true,
-      shippingDurationDays: true,
-      customizationCharge: true,
-      deliveryCharge: true,
-      urgentOrderCharge: true,
-      subtotal: true,
-      total: true,
-      trackingNumber: true,
-      quantity: true,
-      user: {
-        select: {
-          name: true,
-          mobileNo: true,
-          email: true,
-          addresses: {
-            select: {
-              address: true,
-              city: true,
-              state: true,
-              pincode: true,
-            },
-          },
-        },
-      },
-      items: {
-        select: {
-          quantity: true,
-          product: { select: { name: true, productionDays: true } },
-        },
-      },
-      payments: {
-        select: { screenshotUrl: true, status: true },
-        orderBy: { createdAt: "desc" },
-        take: 1,
-      },
-    },
-    orderBy: { createdAt: "desc" },
-    // take: 100,
-  });
+  const orders = await loadOrdersAction(defaultTab);
 
-  const serializedOrders = orders.map((o) => ({
-    ...o,
-    occasionDate: o.occasionDate?.toISOString() ?? null,
-    productionDeadline: o.productionDeadline?.toISOString() ?? null,
-    shippingDate: o.shippingDate?.toISOString() ?? null,
-    deliveryDate: o.deliveryDate?.toISOString() ?? null,
-    items: o.items.map((i) => ({
-      ...i,
-      product: {
-        ...i.product,
-        productionDays: i.product.productionDays.toNumber(),
-      },
-    })),
-  }));
-  // const test: Order[] = serializedOrders;
   return (
     <div>
       <h1 className="text-2xl font-semibold text-stone-900">Orders</h1>
       <div className="mt-8">
-        <OrdersPanel initialOrders={serializedOrders} initialTab={defaultTab} />
+        <OrdersPanel initialOrders={orders} initialTab={defaultTab} />
       </div>
     </div>
   );

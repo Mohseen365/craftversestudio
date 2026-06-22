@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth";
+import { OrderStatus } from "@prisma/client";
 
 export async function GET(req: NextRequest) {
   if (!(await requireAdmin())) {
@@ -10,7 +11,7 @@ export async function GET(req: NextRequest) {
   const status = req.nextUrl.searchParams.get("status");
 
   const orders = await prisma.order.findMany({
-    where: status ? { status: status as never } : undefined,
+    where: status ? { status: status as OrderStatus } : undefined,
     select: {
       id: true,
       orderNumber: true,
@@ -56,7 +57,7 @@ export async function GET(req: NextRequest) {
   const ordersWithDeadlines = orders.map((order) => {
     const maxProductionDays = Math.max(
       1,
-      ...order.items.map((item) => item.product.productionDays.toNumber())
+      ...order.items.map((item) => item.product.productionDays.toNumber()),
     );
 
     return {
