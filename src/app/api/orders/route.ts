@@ -12,9 +12,9 @@ const orderSchema = z.object({
   state: z.string().min(2),
   occasionType: z.string().optional(),
   occasionDate: z.coerce.date(),
-  quantity: z.number().int().min(1).max(10),
-  productPrice: z.number(),
-  productionHours: z.number(),
+  quantity: z.coerce.number().int().positive().min(1).max(10),
+  productPrice: z.coerce.number().int().positive(),
+  productionHours: z.coerce.number().int().positive(),
   notes: z.string().optional(),
 });
 

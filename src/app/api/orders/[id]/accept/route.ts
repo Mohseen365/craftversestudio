@@ -14,10 +14,10 @@ import {
 import { requireAdmin } from "@/adminAuth";
 
 const acceptSchema = z.object({
-  shippingDurationDays: z.number(),
-  customizationCharge: z.number().default(0),
-  deliveryCharge: z.number().default(0),
-  urgentOrderCharge: z.number().default(0),
+  shippingDurationDays: z.coerce.number().int().positive(),
+  customizationCharge: z.coerce.number().int().positive().default(0),
+  deliveryCharge: z.coerce.number().int().positive().default(0),
+  urgentOrderCharge: z.coerce.number().int().positive().default(0),
 });
 
 export async function POST(

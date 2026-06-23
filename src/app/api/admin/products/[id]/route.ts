@@ -10,7 +10,7 @@ const updateSchema = z.object({
   name: z.string().min(2).optional(),
   category: z.string().min(2).optional(),
   description: z.string().min(10).optional(),
-  price: z.number().int().positive().optional(),
+  price: z.coerce.number().int().positive(),
   productionHours: z
     .string()
     .transform((val) => new Decimal(val))
