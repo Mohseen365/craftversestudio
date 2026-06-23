@@ -11,7 +11,7 @@ import {
   getSchedulerData,
   formatDateKey,
 } from "@/lib/scheduler";
-import { requireAdmin } from "@/lib/auth";
+import { requireAdmin } from "@/adminAuth";
 
 const acceptSchema = z.object({
   shippingDurationDays: z.number(),
@@ -50,7 +50,7 @@ export async function POST(
         items: {
           select: {
             quantity: true,
-            product: { select: { productionDays: true } },
+            product: { select: { productionHours: true } },
           },
         },
       },
@@ -81,21 +81,19 @@ export async function POST(
     const productionDeadline = calculateProductionDeadline(shippingDate);
     const requiredCapacity = order.items.reduce(
       (sum, item) =>
-        sum + item.quantity * item.product.productionDays.toNumber(),
+        sum + item.quantity * item.product.productionHours.toNumber(),
       0,
     );
 
     // Load scheduler data once — shared by checkAcceptability and persistAllocations
-    const schedulerData = await getSchedulerData(
-      formatDateKey(new Date(), false),
-    );
+    const schedulerData = await getSchedulerData(formatDateKey(new Date()));
 
     const check = await checkAcceptability(
       {
         id: order.id,
         orderNumber: order.orderNumber,
         productionDeadline,
-        requiredCapacity,
+        requiredHours: requiredCapacity,
       },
       schedulerData,
     );

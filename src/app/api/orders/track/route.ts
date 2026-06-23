@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUserId } from "@/lib/auth";
+import { auth } from "@/auth";
 import { getTrackableOrder } from "@/server/data/orders";
 
 export async function GET(req: NextRequest) {
@@ -13,7 +13,9 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const userId = await getCurrentUserId();
+  const session = await auth();
+
+  const userId = session?.user?.id;
   const order = await getTrackableOrder({
     orderNumber,
     mobileNo: mobileNo ?? undefined,

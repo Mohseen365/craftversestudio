@@ -11,6 +11,7 @@ type OrderFormProps = {
     name: string;
     slug: string;
     price: number;
+    productionHours: number;
   };
   userId: string;
 };
@@ -62,6 +63,7 @@ export function OrderForm({ product, userId }: OrderFormProps) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             userId: userId,
+            productionHours: product.productionHours,
             productId: product.id,
             productPrice: product.price,
             address: formData.get("address"),

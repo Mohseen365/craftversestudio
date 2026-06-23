@@ -1,12 +1,14 @@
 export const dynamic = "force-dynamic";
 
 import { redirect } from "next/navigation";
-import { isAdminAuthenticated } from "@/lib/auth";
+import { isAdminAuthenticated } from "@/adminAuth";
 import { CapacityPanel } from "./CapacityPanel";
 import { getSchedulerPlanningRows } from "@/lib/scheduler";
 
 export default async function AdminCapacityPage() {
-  if (!(await isAdminAuthenticated())) redirect("/admin/login");
+  if (!(await isAdminAuthenticated())) {
+    redirect("/");
+  }
 
   const rows = await getSchedulerPlanningRows();
   const serializedRows = rows.map((row) => ({
@@ -21,11 +23,11 @@ export default async function AdminCapacityPage() {
         const order = res.order;
         const totalRequiredEffort = order.items.reduce(
           (sum, item) =>
-            sum + item.quantity * item.product.productionDays.toNumber(),
+            sum + item.quantity * item.product.productionHours.toNumber(),
           0,
         );
         const completedEffort = order.capacityReservations.reduce(
-          (sum, r) => sum + Number(r.completedQuantity),
+          (sum, r) => sum + Number(r.completedHours),
           0,
         );
         return {
@@ -43,7 +45,7 @@ export default async function AdminCapacityPage() {
                 .filter(Boolean)
                 .join(", ")
             : "",
-          allocatedToday: res.quantity,
+          allocatedToday: res.hours ?? res.quantity,
           totalRequiredEffort,
           completedEffort,
           remainingEffort: Math.max(0, totalRequiredEffort - completedEffort),
@@ -54,7 +56,7 @@ export default async function AdminCapacityPage() {
           items: order.items.map((item) => ({
             productName: item.product.name,
             quantity: item.quantity,
-            productionDays: item.product.productionDays.toNumber(),
+            productionHours: item.product.productionHours.toNumber(),
           })),
         };
       }),

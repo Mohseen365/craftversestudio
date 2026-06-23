@@ -14,6 +14,7 @@ const orderSchema = z.object({
   occasionDate: z.coerce.date(),
   quantity: z.number().int().min(1).max(10),
   productPrice: z.number(),
+  productionHours: z.number(),
   notes: z.string().optional(),
 });
 
@@ -45,7 +46,11 @@ export async function POST(req: NextRequest) {
           state: data.state,
         },
       });
-
+      tx.product.update({
+        where: { id: data.productId },
+        data: { orderCount: { increment: 1 } },
+      });
+      const hoursRequired = data.productionHours * data.quantity;
       const newOrder = await tx.order.create({
         data: {
           orderNumber,
@@ -64,14 +69,10 @@ export async function POST(req: NextRequest) {
               productId: data.productId,
               quantity: data.quantity,
               price: data.productPrice,
+              hoursRequired,
             },
           },
         },
-      });
-
-      tx.product.update({
-        where: { id: data.productId },
-        data: { orderCount: { increment: 1 } },
       });
 
       return newOrder;

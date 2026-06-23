@@ -3,7 +3,8 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { getProductBySlug } from "@/server/data/products";
 import { OrderForm } from "./OrderForm";
-import { getCurrentUserId } from "@/lib/auth";
+import { auth } from "@/auth";
+import { setRedirectDestination } from "@/lib/redirect-cookie";
 
 export const dynamic = "force-dynamic";
 
@@ -21,9 +22,13 @@ export default async function OrderPage({
   if (!slug) {
     console.log("no slug found");
   }
-  const userId = await getCurrentUserId();
+  const session = await auth();
+
+  const userId = session?.user?.id;
   if (!userId) {
-    redirect(`/login?slug=${slug}`);
+    await setRedirectDestination(`/order/${slug}`);
+    redirect("/login");
+    // redirect(`/login?slug=${slug}`);
   }
 
   const product = await getProductBySlug(slug);
@@ -49,6 +54,7 @@ export default async function OrderPage({
               name: product.name,
               slug: product.slug,
               price: product.price,
+              productionHours: product.productionHours.toNumber(),
             }}
             userId={userId}
           />

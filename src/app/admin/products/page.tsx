@@ -1,13 +1,15 @@
 export const dynamic = "force-dynamic";
 
 import { redirect } from "next/navigation";
-import { isAdminAuthenticated } from "@/lib/auth";
+
+import { isAdminAuthenticated } from "@/adminAuth";
 import { ProductsPanel } from "./ProductsPanel";
 import { prisma } from "@/lib/prisma";
 
 export default async function AdminProductsPage() {
-  if (!(await isAdminAuthenticated())) redirect("/admin/login");
-
+  if (!(await isAdminAuthenticated())) {
+    redirect("/");
+  }
   const products = await prisma.product.findMany({
     select: {
       id: true,

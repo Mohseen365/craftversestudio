@@ -5,15 +5,19 @@ import { redirect } from "next/navigation";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 
-import { getCurrentUserId } from "@/lib/auth";
+import { auth } from "@/auth";
 import { getUserOrders } from "@/server/data/orders";
 
 import { OrdersList } from "./OrdersList";
+import { setRedirectDestination } from "@/lib/redirect-cookie";
 
 export default async function TrackPage() {
-  const userId = await getCurrentUserId();
+  const session = await auth();
+
+  const userId = session?.user?.id;
 
   if (!userId) {
+    await setRedirectDestination(`/track/`);
     redirect("/login");
   }
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { destroyAdminSession } from "@/lib/auth";
+import { signOut } from "next-auth/react";
 
 export async function POST(req: NextRequest) {
-  await destroyAdminSession();
+  await signOut();
   return NextResponse.redirect(new URL("/admin/login", req.nextUrl.origin));
 }

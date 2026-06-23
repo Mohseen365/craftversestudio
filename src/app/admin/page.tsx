@@ -1,13 +1,15 @@
 export const dynamic = "force-dynamic";
 
 import { redirect } from "next/navigation";
-import { isAdminAuthenticated } from "@/lib/auth";
+
+import { isAdminAuthenticated } from "@/adminAuth";
 import { prisma } from "@/lib/prisma";
 import { formatPrice } from "@/lib/utils";
 
 export default async function AdminDashboardPage() {
-  if (!(await isAdminAuthenticated())) redirect("/admin/login");
-
+  if (!(await isAdminAuthenticated())) {
+    redirect("/");
+  }
   const now = new Date();
   const startOfDay = new Date(now);
   startOfDay.setHours(0, 0, 0, 0);

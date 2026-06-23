@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin } from "@/lib/auth";
+import { requireAdmin } from "@/adminAuth";
 
 export async function GET() {
   if (!(await requireAdmin())) {
@@ -13,30 +13,31 @@ export async function GET() {
 
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const [revenueToday, revenueMonth, ordersMonth, topProduct] = await Promise.all([
-    prisma.order.aggregate({
-      where: {
-        createdAt: { gte: startOfDay },
-        status: { notIn: ["CANCELLED", "REFUNDED", "PAYMENT_PENDING"] },
-      },
-      _sum: { total: true },
-    }),
-    prisma.order.aggregate({
-      where: {
-        createdAt: { gte: startOfMonth },
-        status: { notIn: ["CANCELLED", "REFUNDED", "PAYMENT_PENDING"] },
-      },
-      _sum: { total: true },
-    }),
-    prisma.order.count({
-      where: { createdAt: { gte: startOfMonth } },
-    }),
-    prisma.product.findFirst({
-      where: { active: true },
-      orderBy: { orderCount: "desc" },
-      select: { name: true, orderCount: true },
-    }),
-  ]);
+  const [revenueToday, revenueMonth, ordersMonth, topProduct] =
+    await Promise.all([
+      prisma.order.aggregate({
+        where: {
+          createdAt: { gte: startOfDay },
+          status: { notIn: ["CANCELLED", "REFUNDED", "PAYMENT_PENDING"] },
+        },
+        _sum: { total: true },
+      }),
+      prisma.order.aggregate({
+        where: {
+          createdAt: { gte: startOfMonth },
+          status: { notIn: ["CANCELLED", "REFUNDED", "PAYMENT_PENDING"] },
+        },
+        _sum: { total: true },
+      }),
+      prisma.order.count({
+        where: { createdAt: { gte: startOfMonth } },
+      }),
+      prisma.product.findFirst({
+        where: { active: true },
+        orderBy: { orderCount: "desc" },
+        select: { name: true, orderCount: true },
+      }),
+    ]);
 
   const pendingVerification = await prisma.order.count({
     where: { status: "PAYMENT_VERIFICATION" },

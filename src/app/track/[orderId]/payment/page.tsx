@@ -2,8 +2,9 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { PaymentUpload } from "./PaymentUpload";
 import { notFound, redirect } from "next/navigation";
-import { getCurrentUserId } from "@/lib/auth";
+import { auth } from "@/auth";
 import { getOrderForPayment } from "@/server/data/orders";
+import { setRedirectDestination } from "@/lib/redirect-cookie";
 
 export const dynamic = "force-dynamic";
 
@@ -20,8 +21,13 @@ export default async function PaymentPage({
     redirect("/catalog");
   }
 
-  const userId = await getCurrentUserId();
-  if (!userId) redirect(`/login?orderId=${orderId}`);
+  const session = await auth();
+
+  const userId = session?.user?.id;
+  if (!userId) {
+    await setRedirectDestination(`/track/${orderId}`);
+    redirect("/login");
+  }
   const order = await getOrderForPayment(orderId, userId);
 
   if (!order) {

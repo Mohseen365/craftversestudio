@@ -57,6 +57,7 @@ export const getProductBySlug = (slug: string) =>
           description: true,
           instagramUrl: true,
           active: true,
+          productionHours: true,
         },
       }),
     [`product-by-slug-${slug}`], // unique key per slug

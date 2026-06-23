@@ -1,55 +1,16 @@
 import { LoginForm } from "./LoginForm";
 
-export default async function LoginPage({
-  searchParams,
-}: {
-  searchParams?: Promise<{
-    orderId?: string;
-    orderNumber?: string;
-    slug: string;
-    // mobileNo: string;
-  }>;
-}) {
-  const pageParams = await searchParams;
-  const orderId = pageParams?.orderId ?? "";
-  const orderNumber = pageParams?.orderNumber ?? "";
-  const slug = pageParams?.slug ?? "";
-  // const mobileNo = pageParams?.mobileNo ?? "";
-  console.log("in login page");
-
-  // void trackEvent({
-  //   userId: userId,
-  //   eventType: "LOGIN",
-  //   metadata: {
-  //     orderId: orderId,
-  //     totalAmount: orderNumber,
-  //   },
-  // });
-
+export default function LoginPage() {
   return (
     <main className="mx-auto max-w-md px-4 py-20">
-      {orderNumber && (
-        <h1 className="text-3xl font-semibold">
-          We need your contact details to proceed with your order
-        </h1>
-      )}
-      {/* <p className="mt-2 text-stone-600">
-        First we will check that we can provide you bouquet on required date
-        then we will confirm your order and send you payment information
-      </p> */}
+      <h1 className="text-3xl font-semibold">Sign in to continue</h1>
+
       <p className="mt-2 text-stone-600">
-        Entering Mobile Number is must Entering Email, Instagram Username and
-        Name is optional
+        We use Google Sign-In to identify customers for booking and tracking
+        orders.
       </p>
 
-      <LoginForm
-        order={{
-          id: orderId,
-          number: orderNumber,
-          slug: slug,
-          // mobileNo: mobileNo,
-        }}
-      />
+      <LoginForm />
     </main>
   );
 }
