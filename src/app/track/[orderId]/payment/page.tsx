@@ -4,7 +4,6 @@ import { PaymentUpload } from "./PaymentUpload";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { getOrderForPayment } from "@/server/data/orders";
-import { setRedirectDestination } from "@/lib/redirect-cookie";
 
 export const dynamic = "force-dynamic";
 
@@ -25,8 +24,7 @@ export default async function PaymentPage({
 
   const userId = session?.user?.id;
   if (!userId) {
-    await setRedirectDestination(`/track/${orderId}`);
-    redirect("/login");
+    redirect(`/auth-required?to=${encodeURIComponent(`/track/${orderId}`)}`);
   }
   const order = await getOrderForPayment(orderId, userId);
 

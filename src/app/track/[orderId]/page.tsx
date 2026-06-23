@@ -9,7 +9,6 @@ import { auth } from "@/auth";
 import { getOrderDetails } from "@/server/data/orders";
 
 import { OrderDetails } from "./OrderDetails";
-import { setRedirectDestination } from "@/lib/redirect-cookie";
 
 export default async function OrderPage({
   params,
@@ -25,8 +24,7 @@ export default async function OrderPage({
   const userId = session?.user?.id;
 
   if (!userId) {
-    await setRedirectDestination(`/track/${orderId}`);
-    redirect("/login");
+    redirect(`/auth-required?to=${encodeURIComponent(`/track/${orderId}`)}`);
   }
 
   const order = await getOrderDetails(orderId, userId);

@@ -14,7 +14,7 @@ const orderSchema = z.object({
   occasionDate: z.coerce.date(),
   quantity: z.coerce.number().int().positive().min(1).max(10),
   productPrice: z.coerce.number().int().positive(),
-  productionHours: z.coerce.number().int().positive(),
+  productionHours: z.coerce.number().positive(),
   notes: z.string().optional(),
 });
 
@@ -84,14 +84,14 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: "Invalid order data" },
-        { status: 400 },
-      );
+      // return NextResponse.json(
+      //   { error: "Invalid order data" },
+      //   { status: 400 },
+      // );
+      console.error(err);
+      const message =
+        err instanceof Error ? err.message : "Failed to create order";
+      return NextResponse.json({ error: message }, { status: 500 });
     }
-    console.error(err);
-    const message =
-      err instanceof Error ? err.message : "Failed to create order";
-    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

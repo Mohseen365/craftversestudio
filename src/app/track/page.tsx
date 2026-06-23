@@ -9,7 +9,6 @@ import { auth } from "@/auth";
 import { getUserOrders } from "@/server/data/orders";
 
 import { OrdersList } from "./OrdersList";
-import { setRedirectDestination } from "@/lib/redirect-cookie";
 
 export default async function TrackPage() {
   const session = await auth();
@@ -17,8 +16,7 @@ export default async function TrackPage() {
   const userId = session?.user?.id;
 
   if (!userId) {
-    await setRedirectDestination(`/track/`);
-    redirect("/login");
+    redirect(`/auth-required?to=${encodeURIComponent(`/track`)}`);
   }
 
   const orders = await getUserOrders(userId);

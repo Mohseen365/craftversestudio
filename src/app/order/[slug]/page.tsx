@@ -4,7 +4,6 @@ import { Footer } from "@/components/Footer";
 import { getProductBySlug } from "@/server/data/products";
 import { OrderForm } from "./OrderForm";
 import { auth } from "@/auth";
-import { setRedirectDestination } from "@/lib/redirect-cookie";
 
 export const dynamic = "force-dynamic";
 
@@ -26,8 +25,7 @@ export default async function OrderPage({
 
   const userId = session?.user?.id;
   if (!userId) {
-    await setRedirectDestination(`/order/${slug}`);
-    redirect("/login");
+    redirect(`/auth-required?to=${encodeURIComponent(`/order/${slug}`)}`);
     // redirect(`/login?slug=${slug}`);
   }
 
