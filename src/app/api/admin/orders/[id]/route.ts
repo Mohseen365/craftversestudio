@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin } from "@/lib/auth";
+import { requireAdmin } from "@/adminAuth";
 import { rebuildSchedule } from "@/lib/scheduler";
 import { SCHEDULABLE_STATUSES, INACTIVE_STATUSES } from "@/lib/constants";
 

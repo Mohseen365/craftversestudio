@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin } from "@/lib/auth";
+import { requireAdmin } from "@/adminAuth";
 import { OrderStatus } from "@prisma/client";
 
 export async function GET(req: NextRequest) {
@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
       items: {
         select: {
           quantity: true,
-          product: { select: { name: true, productionDays: true } },
+          product: { select: { name: true, productionHours: true } },
         },
       },
       payments: {
@@ -57,7 +57,7 @@ export async function GET(req: NextRequest) {
   const ordersWithDeadlines = orders.map((order) => {
     const maxProductionDays = Math.max(
       1,
-      ...order.items.map((item) => item.product.productionDays.toNumber()),
+      ...order.items.map((item) => item.product.productionHours.toNumber()),
     );
 
     return {
