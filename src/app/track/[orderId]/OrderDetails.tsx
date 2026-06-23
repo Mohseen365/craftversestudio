@@ -26,7 +26,7 @@ type OrderDetailsResult = {
     id: string;
   };
   items: Array<{
-    product: { name: string; productionDays: number };
+    product: { name: string; productionHours: number };
     quantity: number;
   }>;
   payments: Array<{ status: PaymentStatus; screenshotUrl: string | null }>;
