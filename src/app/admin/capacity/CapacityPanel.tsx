@@ -7,7 +7,7 @@ import { OrderStatusBadge } from "@/components/OrderStatusBadge";
 type OrderItem = {
   productName: string;
   quantity: number;
-  productionDays: number;
+  productionHours: number; // CHANGED
 };
 
 type PlanningOrder = {
@@ -15,12 +15,10 @@ type PlanningOrder = {
   orderNumber: string;
   customerName: string | null;
   occasionDate: string | null;
-  // Effort allocated to this specific production date
-  allocatedToday: number;
-  // Order-level effort totals
-  totalRequiredEffort: number;
-  completedEffort: number;
-  remainingEffort: number;
+  allocatedToday: number; // Hours allocated to this date
+  totalRequiredEffort: number; // Total hours needed
+  completedEffort: number; // Hours completed
+  remainingEffort: number; // Hours remaining
   shippingDurationDays: number | null;
   shippingDate: string | null;
   productionDeadline: string | null;
@@ -110,15 +108,16 @@ export function CapacityPanel({ initialData }: { initialData: CapacityRow[] }) {
                   </td>
                   <td className="px-4 py-3">
                     <div>
-                      {Number(row.used.toFixed(2))} /{" "}
-                      {Number(row.dailyCapacity.toFixed(2))}
+                      {Number(row.used.toFixed(1))}h /{" "}
+                      {Number(row.dailyCapacity.toFixed(1))}h
                     </div>
                     {expandedDate === row.date && (
                       <div className="mt-2 flex items-center gap-2">
                         <input
                           type="number"
                           min="0"
-                          step="0.01"
+                          max="24"
+                          step="0.5"
                           defaultValue={row.dailyCapacity}
                           className="w-24 rounded border px-2 py-1 text-sm"
                           ref={(el) => {
@@ -126,6 +125,7 @@ export function CapacityPanel({ initialData }: { initialData: CapacityRow[] }) {
                           }}
                           disabled={isUpdating}
                         />
+                        <span className="text-xs text-stone-500">hours</span>
                         <button
                           className="rounded bg-indigo-600 px-2 py-1 text-xs text-white hover:bg-indigo-700 disabled:bg-indigo-400"
                           disabled={isUpdating}
@@ -146,7 +146,7 @@ export function CapacityPanel({ initialData }: { initialData: CapacityRow[] }) {
                                   },
                                   body: JSON.stringify({
                                     date: row.date,
-                                    maximumCapacity: newCap,
+                                    maximumHours: newCap,
                                   }),
                                 },
                               );
@@ -172,7 +172,7 @@ export function CapacityPanel({ initialData }: { initialData: CapacityRow[] }) {
                         row.remaining <= 0 ? "text-red-600" : "text-emerald-600"
                       }
                     >
-                      {Number(row.remaining.toFixed(2))}
+                      {Number(row.remaining.toFixed(1))}h
                     </span>
                   </td>
                   <td className="px-4 py-3">
@@ -241,8 +241,8 @@ export function CapacityPanel({ initialData }: { initialData: CapacityRow[] }) {
                   {formatDate(row.date)}
                 </h2>
                 <p className="text-sm text-stone-500">
-                  Capacity used: {Number(row.used.toFixed(2))} /{" "}
-                  {Number(row.dailyCapacity.toFixed(2))}
+                  Capacity used: {Number(row.used.toFixed(1))} /{" "}
+                  {Number(row.dailyCapacity.toFixed(1))}
                 </p>
               </div>
             </div>
@@ -286,21 +286,21 @@ export function CapacityPanel({ initialData }: { initialData: CapacityRow[] }) {
                           {order.items.map((item, i) => (
                             <div key={i}>
                               {item.productName} ×{item.quantity} (
-                              {item.productionDays}d)
+                              {item.productionHours}h each)
                             </div>
                           ))}
                         </td>
                         {/* Total required effort = Σ(productionDays × qty) */}
                         <td className="py-3 pr-4 font-medium">
-                          {Number(order.totalRequiredEffort.toFixed(2))} day(s)
+                          {Number(order.totalRequiredEffort.toFixed(1))}h
                         </td>
                         {/* Effort slice allocated specifically on this date */}
                         <td className="py-3 pr-4">
-                          {Number(order.allocatedToday.toFixed(2))} day(s)
+                          {Number(order.allocatedToday.toFixed(1))}h
                         </td>
                         {/* Completed = sum of completedQuantity across all reservations */}
                         <td className="py-3 pr-4 text-emerald-700">
-                          {Number(displayCompleted.toFixed(2))} day(s)
+                          {Number(displayCompleted.toFixed(1))}h
                         </td>
                         {/* Remaining = totalRequired - completed */}
                         <td
@@ -324,10 +324,10 @@ export function CapacityPanel({ initialData }: { initialData: CapacityRow[] }) {
                           <div className="flex items-center gap-2">
                             <input
                               type="number"
-                              min="0.01"
+                              min="0.25"
                               max={Number(order.allocatedToday.toFixed(2))}
-                              step="0.01"
-                              placeholder={`max ${Number(order.allocatedToday.toFixed(2))}`}
+                              step="0.25"
+                              placeholder={`max ${Number(order.allocatedToday.toFixed(1))}h`}
                               className="w-24 rounded border px-2 py-1 text-sm"
                               ref={(el) => {
                                 progressRefs.current[
@@ -360,7 +360,7 @@ export function CapacityPanel({ initialData }: { initialData: CapacityRow[] }) {
                                       body: JSON.stringify({
                                         orderId: order.id,
                                         date: row.date,
-                                        completedUnits: completed,
+                                        completedHours: completed,
                                       }),
                                     },
                                   );
@@ -377,7 +377,7 @@ export function CapacityPanel({ initialData }: { initialData: CapacityRow[] }) {
                                   // Optimistically update the display without a full reload
                                   setProgressOverrides((prev) => ({
                                     ...prev,
-                                    [overrideKey]: result.completedQuantity,
+                                    [overrideKey]: result.completedHours,
                                   }));
                                   inputEl.value = "";
                                 } finally {

@@ -1,7 +1,11 @@
+// src/app/api/admin/capacity/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth";
-import { checkAcceptability, getSchedulerPlanningRows } from "@/lib/scheduler";
-
+import { requireAdmin } from "@/adminAuth";
+import {
+  checkAcceptability,
+  getSchedulerPlanningRows,
+  calculateOrderHours,
+} from "@/lib/scheduler";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(req: NextRequest) {
@@ -12,6 +16,7 @@ export async function GET(req: NextRequest) {
   const productionDeadline = req.nextUrl.searchParams.get("productionDeadline");
   const orderId = req.nextUrl.searchParams.get("orderId") ?? undefined;
 
+  // Check acceptability of a specific order
   if (productionDeadline && orderId) {
     const order = await prisma.order.findUnique({
       where: { id: orderId },
@@ -20,24 +25,20 @@ export async function GET(req: NextRequest) {
         items: {
           select: {
             quantity: true,
-            product: { select: { productionDays: true } },
+            product: { select: { productionHours: true } },
           },
         },
       },
     });
 
     if (order) {
-      const requiredCapacity = order.items.reduce(
-        (sum, item) =>
-          sum + item.quantity * item.product.productionDays.toNumber(),
-        0,
-      );
+      const requiredHours = calculateOrderHours(order.items);
 
       const check = await checkAcceptability({
         id: orderId,
         orderNumber: order.orderNumber,
         productionDeadline: new Date(productionDeadline),
-        requiredCapacity,
+        requiredHours,
       });
 
       return NextResponse.json({
@@ -45,13 +46,14 @@ export async function GET(req: NextRequest) {
           canAccept: check.canAccept,
           reason: check.reason,
           suggestedDates: check.suggestedDates,
-          requiredCapacity,
+          requiredHours,
           productionDeadline: new Date(productionDeadline).toISOString(),
         },
       });
     }
   }
 
+  // Get full planning data
   const rows = await getSchedulerPlanningRows();
 
   return NextResponse.json({
@@ -65,15 +67,13 @@ export async function GET(req: NextRequest) {
         .filter((res) => !res.isManual)
         .map((res) => {
           const order = res.order;
-          // Total required effort = Σ(productionDays × quantity) across all items
           const totalRequiredEffort = order.items.reduce(
             (sum, item) =>
-              sum + item.quantity * item.product.productionDays.toNumber(),
+              sum + item.quantity * item.product.productionHours.toNumber(),
             0,
           );
-          // Completed effort = sum of completedQuantity across ALL reservations for this order
           const completedEffort = order.capacityReservations.reduce(
-            (sum, r) => sum + Number(r.completedQuantity),
+            (sum, r) => sum + Number(r.completedHours),
             0,
           );
           return {
@@ -91,9 +91,7 @@ export async function GET(req: NextRequest) {
                   .filter(Boolean)
                   .join(", ")
               : "",
-            // Effort allocated to THIS specific date (the reservation slice)
-            allocatedToday: res.quantity,
-            // Order-level totals
+            allocatedToday: res.hours, // FIXED: use hours directly
             totalRequiredEffort,
             completedEffort,
             remainingEffort: Math.max(0, totalRequiredEffort - completedEffort),
@@ -104,7 +102,7 @@ export async function GET(req: NextRequest) {
             items: order.items.map((item) => ({
               productName: item.product.name,
               quantity: item.quantity,
-              productionDays: item.product.productionDays.toNumber(),
+              productionHours: item.product.productionHours.toNumber(),
             })),
           };
         }),

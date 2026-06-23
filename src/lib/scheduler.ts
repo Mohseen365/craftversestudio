@@ -149,7 +149,7 @@ export function scheduleOrdersInMemory(
 
       // Build list of viable dates from today to deadline
       const viableDates: string[] = [];
-      let currentDate = o.isLate ? todayKey : todayKey;
+      let currentDate = todayKey;
 
       while (currentDate <= o.productionDeadlineKey) {
         viableDates.push(currentDate);
@@ -455,73 +455,82 @@ export async function persistAllocations(
     capacityIdByDateKey.set(formatDateKey(row.date), row.id);
   }
 
-  await prisma.$transaction(async (tx) => {
-    // 1. Delete future non-manual reservations with no progress
-    await tx.capacityReservation.deleteMany({
-      where: {
-        capacity: { date: { gte: todayDate } },
-        isManual: false,
-        completedHours: 0,
-      },
-    });
-
-    // 2. Reset remaining future non-manual reservations
-    const remaining = await tx.capacityReservation.findMany({
-      where: {
-        capacity: { date: { gte: todayDate } },
-        isManual: false,
-      },
-      select: { id: true, completedHours: true },
-    });
-
-    for (const res of remaining) {
-      await tx.capacityReservation.update({
-        where: { id: res.id },
-        data: { plannedHours: res.completedHours },
+  await prisma.$transaction(
+    async (tx) => {
+      // 1. Delete future non-manual reservations with no progress
+      await tx.capacityReservation.deleteMany({
+        where: {
+          capacity: { date: { gte: todayDate } },
+          isManual: false,
+          completedHours: 0,
+        },
       });
-    }
 
-    // 3. Apply new allocations
-    const creates: {
-      capacityId: string;
-      orderId: string;
-      plannedHours: number;
-      completedHours: number;
-      isManual: boolean;
-    }[] = [];
+      // 2. Reset remaining future non-manual reservations
+      const remaining = await tx.capacityReservation.findMany({
+        where: {
+          capacity: { date: { gte: todayDate } },
+          isManual: false,
+        },
+        select: { id: true, completedHours: true },
+      });
 
-    for (const [orderId, allocs] of allocations.entries()) {
-      for (const a of allocs) {
-        const capacityId = capacityIdByDateKey.get(a.dateKey);
-        if (!capacityId) continue;
-
-        const existing = await tx.capacityReservation.findUnique({
-          where: { capacityId_orderId: { capacityId, orderId } },
+      for (const res of remaining) {
+        await tx.capacityReservation.update({
+          where: { id: res.id },
+          data: { plannedHours: res.completedHours, version: { increment: 1 } },
         });
+      }
 
-        if (existing) {
-          await tx.capacityReservation.update({
-            where: { id: existing.id },
-            data: {
-              plannedHours: Number(existing.completedHours) + a.hours,
-            },
+      // 3. Apply new allocations
+      const creates: {
+        capacityId: string;
+        orderId: string;
+        plannedHours: number;
+        completedHours: number;
+        isManual: boolean;
+        version: number;
+      }[] = [];
+
+      for (const [orderId, allocs] of allocations.entries()) {
+        for (const a of allocs) {
+          const capacityId = capacityIdByDateKey.get(a.dateKey);
+          if (!capacityId) continue;
+
+          const existing = await tx.capacityReservation.findUnique({
+            where: { capacityId_orderId: { capacityId, orderId } },
           });
-        } else {
-          creates.push({
-            capacityId,
-            orderId,
-            plannedHours: a.hours,
-            completedHours: 0,
-            isManual: false,
-          });
+
+          if (existing) {
+            await tx.capacityReservation.update({
+              where: { id: existing.id },
+              data: {
+                plannedHours: Number(existing.completedHours) + a.hours,
+                version: { increment: 1 },
+              },
+            });
+          } else {
+            creates.push({
+              capacityId,
+              orderId,
+              plannedHours: a.hours,
+              completedHours: 0,
+              isManual: false,
+              version: 1,
+            });
+          }
         }
       }
-    }
 
-    if (creates.length) {
-      await tx.capacityReservation.createMany({ data: creates });
-    }
-  });
+      if (creates.length) {
+        await tx.capacityReservation.createMany({ data: creates });
+      }
+    },
+    {
+      isolationLevel: "Serializable",
+      timeout: 15000,
+    },
+  );
 }
 
 // ==================== Full Rebuild ====================
