@@ -3,7 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { isAdminAuthenticated } from "@/lib/auth";
+import { redirect } from "next/navigation";
+
+import { isAdminAuthenticated } from "@/adminAuth";
 import { rebuildSchedule } from "@/lib/scheduler";
 import {
   calculateProductionDeadline,
@@ -59,7 +61,7 @@ export interface SerializedOrder {
     quantity: number;
     product: {
       name: string;
-      productionDays: number;
+      productionHours: number;
     };
   }>;
   payments: Array<{
@@ -77,7 +79,7 @@ export interface AcceptOrderParams {
 export interface CapacityResult {
   canAccept: boolean;
   reason?: string;
-  suggestedDates: Array<{ date: string; quantity: number }>;
+  suggestedDates: Array<{ date: string; hours: number }>;
   requiredCapacity: number;
   productionDeadline: string;
 }
@@ -123,7 +125,7 @@ const orderSelect = {
       product: {
         select: {
           name: true,
-          productionDays: true,
+          productionHours: true,
         },
       },
     },
@@ -148,7 +150,7 @@ function serializeOrders(orders: PrismaOrderPayload[]): SerializedOrder[] {
   return orders.map((o) => {
     const maxProductionDays = Math.max(
       1,
-      ...o.items.map((item) => item.product.productionDays.toNumber()),
+      ...o.items.map((item) => item.product.productionHours.toNumber()),
     );
 
     return {
@@ -183,7 +185,7 @@ function serializeOrders(orders: PrismaOrderPayload[]): SerializedOrder[] {
         quantity: i.quantity,
         product: {
           name: i.product.name,
-          productionDays: i.product.productionDays.toNumber(),
+          productionHours: i.product.productionHours.toNumber(),
         },
       })),
       payments: o.payments.map((p) => ({
@@ -222,7 +224,7 @@ export async function loadOrdersAction(
   status: string,
 ): Promise<SerializedOrder[]> {
   if (!(await isAdminAuthenticated())) {
-    throw new Error("Unauthorized");
+    redirect("/");
   }
 
   const orders = await prisma.order.findMany({
@@ -245,7 +247,7 @@ export async function updateOrderAction(
   },
 ) {
   if (!(await isAdminAuthenticated())) {
-    throw new Error("Unauthorized");
+    redirect("/");
   }
 
   const order = await prisma.order.findUnique({
@@ -322,7 +324,7 @@ export async function acceptOrderAction(
   },
 ) {
   if (!(await isAdminAuthenticated())) {
-    throw new Error("Unauthorized");
+    redirect("/");
   }
 
   const order = await prisma.order.findUnique({
@@ -336,7 +338,7 @@ export async function acceptOrderAction(
       items: {
         select: {
           quantity: true,
-          product: { select: { productionDays: true } },
+          product: { select: { productionHours: true } },
         },
       },
     },
@@ -354,21 +356,20 @@ export async function acceptOrderAction(
   );
   const productionDeadline = calculateProductionDeadline(shippingDate);
   const requiredCapacity = order.items.reduce(
-    (sum, item) => sum + item.quantity * item.product.productionDays.toNumber(),
+    (sum, item) =>
+      sum + item.quantity * item.product.productionHours.toNumber(),
     0,
   );
 
   // Load scheduler data
-  const schedulerData = await getSchedulerData(
-    formatDateKey(new Date(), false),
-  );
+  const schedulerData = await getSchedulerData(formatDateKey(new Date()));
 
   const check = await checkAcceptability(
     {
       id: order.id,
       orderNumber: order.orderNumber,
       productionDeadline,
-      requiredCapacity,
+      requiredHours: requiredCapacity,
     },
     schedulerData,
   );
@@ -417,7 +418,7 @@ export async function checkCapacityAction(
   productionDeadline: string,
 ): Promise<CapacityResult> {
   if (!(await isAdminAuthenticated())) {
-    throw new Error("Unauthorized");
+    redirect("/");
   }
 
   const order = await prisma.order.findUnique({
@@ -428,7 +429,7 @@ export async function checkCapacityAction(
       items: {
         select: {
           quantity: true,
-          product: { select: { productionDays: true } },
+          product: { select: { productionHours: true } },
         },
       },
     },
@@ -437,20 +438,19 @@ export async function checkCapacityAction(
   if (!order) throw new Error("Order not found");
 
   const requiredCapacity = order.items.reduce(
-    (sum, item) => sum + item.quantity * item.product.productionDays.toNumber(),
+    (sum, item) =>
+      sum + item.quantity * item.product.productionHours.toNumber(),
     0,
   );
 
-  const schedulerData = await getSchedulerData(
-    formatDateKey(new Date(), false),
-  );
+  const schedulerData = await getSchedulerData(formatDateKey(new Date()));
 
   const check = await checkAcceptability(
     {
       id: order.id,
       orderNumber: order.orderNumber,
       productionDeadline: new Date(productionDeadline),
-      requiredCapacity,
+      requiredHours: requiredCapacity,
     },
     schedulerData,
   );

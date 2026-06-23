@@ -1,13 +1,15 @@
 export const dynamic = "force-dynamic";
 
 import { redirect } from "next/navigation";
-import { isAdminAuthenticated } from "@/lib/auth";
+
+import { isAdminAuthenticated } from "@/adminAuth";
 import { OrdersPanel } from "./OrdersPanel";
 import { loadOrdersAction } from "./actions";
 
 export default async function AdminOrdersPage() {
-  if (!(await isAdminAuthenticated())) redirect("/admin/login");
-
+  if (!(await isAdminAuthenticated())) {
+    redirect("/");
+  }
   const defaultTab = "PAYMENT_VERIFICATION";
   const orders = await loadOrdersAction(defaultTab);
 

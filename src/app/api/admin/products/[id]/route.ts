@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin } from "@/lib/auth";
+import { requireAdmin } from "@/adminAuth";
 import { Decimal } from "@prisma/client/runtime/library";
 import { revalidateTag } from "next/cache";
 import { PRODUCTS_CACHE_TAG } from "@/server/data/products";

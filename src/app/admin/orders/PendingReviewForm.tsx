@@ -229,7 +229,7 @@ export function PendingReviewForm({
                 {capacityPreview.suggestedDates.map((d, i) => (
                   <li key={i}>
                     {d.date ? formatDate(d.date) : "Not set"}:{" "}
-                    {Number(d.quantity.toFixed(2))} day(s)
+                    {Number(d.hours.toFixed(2))} day(s)
                   </li>
                 ))}
               </ul>
