@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import imageCompression from "browser-image-compression";
 
 export function PaymentUpload({
   orderId,
@@ -18,6 +19,7 @@ export function PaymentUpload({
 }) {
   const router = useRouter();
   const [error, setError] = useState("");
+  const [status, setStatus] = useState("");
   const [isPending, startTransition] = useTransition();
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -26,39 +28,71 @@ export function PaymentUpload({
 
     const formData = new FormData(e.currentTarget);
     const file = formData.get("screenshot") as File;
+
     if (!file?.size) {
       setError("Please upload a payment screenshot");
       return;
     }
 
+    const compressedFile = await imageCompression(file, {
+      maxSizeMB: 0.5,
+      maxWidthOrHeight: 1200,
+      useWebWorker: true,
+    });
+
     startTransition(async () => {
       try {
+        setStatus("Compressing image...");
+
+        const compressedFile = await imageCompression(file, {
+          maxSizeMB: 0.5,
+          maxWidthOrHeight: 1200,
+          useWebWorker: true,
+        });
+
+        setStatus("Uploading image...");
+
         const uploadData = new FormData();
-        uploadData.append("file", file);
+        uploadData.append("file", compressedFile);
 
         const uploadRes = await fetch("/api/upload", {
           method: "POST",
           body: uploadData,
         });
+
         const uploadJson = await uploadRes.json();
 
-        if (!uploadRes.ok) throw new Error(uploadJson.error ?? "Upload failed");
+        if (!uploadRes.ok) {
+          throw new Error(uploadJson.error ?? "Upload failed");
+        }
+
+        setStatus("Saving payment...");
 
         const paymentRes = await fetch(
           `/api/orders/${orderId}/payment?userId=${userId}`,
           {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ screenshotUrl: uploadJson.url }),
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              screenshotUrl: uploadJson.url,
+            }),
           },
         );
+
         const paymentJson = await paymentRes.json();
-        if (!paymentRes.ok)
+
+        if (!paymentRes.ok) {
           throw new Error(paymentJson.error ?? "Payment upload failed");
+        }
+
+        setStatus("Redirecting...");
 
         router.push(`/track/${orderId}`);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Something went wrong");
+        setStatus("");
       }
     });
   }
@@ -70,7 +104,11 @@ export function PaymentUpload({
           {error}
         </div>
       )}
-
+      {status && (
+        <div className="rounded-xl bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          {status}
+        </div>
+      )}
       <div className="rounded-2xl border border-rose-100 bg-rose-50/50 p-6">
         <p className="text-sm text-stone-600">Order number</p>
         <p className="mt-1 font-mono text-lg font-medium">{orderNumber}</p>

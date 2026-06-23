@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (file.size > 5 * 1024 * 1024) {
+    if (file.size > 2 * 1024 * 1024) {
       return NextResponse.json(
         { error: "File too large (max 5MB)" },
         { status: 400 },
@@ -47,7 +47,12 @@ export async function POST(req: NextRequest) {
     const result = await new Promise<UploadApiResponse>((resolve, reject) => {
       cloudinary.uploader
         .upload_stream(
-          { folder: "payments" },
+          {
+            folder: "payments",
+            resource_type: "image",
+            quality: "auto",
+            fetch_format: "auto",
+          },
           (
             error: UploadApiErrorResponse | undefined,
             result: UploadApiResponse | undefined,
