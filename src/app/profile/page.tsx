@@ -2,10 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { ProfileForm } from "./ProfileForm";
-import {
-  getRedirectDestination,
-  clearRedirectDestination,
-} from "@/lib/redirect-cookie";
+import { getRedirectDestination } from "@/lib/redirect-cookie";
 
 export default async function ProfilePage() {
   const session = await auth();
@@ -27,7 +24,7 @@ export default async function ProfilePage() {
   });
   if (user?.mobileNo) {
     const destination = (await getRedirectDestination()) ?? "/catalog";
-    await clearRedirectDestination();
+    // await clearRedirectDestination();
     redirect(destination);
   }
   return (

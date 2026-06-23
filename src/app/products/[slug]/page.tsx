@@ -18,7 +18,7 @@ export default async function ProductPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  if (slug) {
+  if (!slug) {
     console.log("no slug found");
   }
   const product = await getProductBySlug(slug);

@@ -74,11 +74,17 @@ model User {
 
   mobileNo           String?  @unique @map("mobile_no")
   email              String?  @unique
+    emailVerified      DateTime? @map("email_verified")
+
+  image              String?
   instagramUsername  String?  @unique @map("instagram_username")
 
   isGuest            Boolean  @default(false)
 
   createdAt          DateTime @default(now()) @map("created_at")
+
+  accounts           Account[]
+  sessions           Session[]
 
   addresses          Address[]
   orders             Order[]
@@ -86,7 +92,39 @@ model User {
 
   @@map("users")
 }
+model Account {
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
 
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([provider, providerAccountId])
+}
+
+model Session {
+  sessionToken String @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
 model Address {
   id      String @id @default(cuid())
   userId  String @map("user_id")
@@ -107,7 +145,7 @@ model Product {
   category       String
   description    String
   price          Int
-  productionHours Decimal   @db.Decimal(6,2) // Changed from productionDays
+  productionHours Decimal   @db.Decimal(6,2) @default(0.5)// Changed from productionDays
   active         Boolean  @default(true)
   orderCount     Int      @default(0) @map("order_count")
   createdAt      DateTime @default(now()) @map("created_at")
@@ -173,7 +211,7 @@ model OrderItem {
   productId String @map("product_id")
   quantity  Int
   price     Int
-hoursRequired      Decimal   @db.Decimal(6,2) // Denormalized: quantity × product.productionHours
+hoursRequired      Decimal   @db.Decimal(6,2) @default(0.5) // Denormalized: quantity × product.productionHours
   order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [id])
 
@@ -207,6 +245,7 @@ model Capacity {
   reservations     CapacityReservation[]
   
   @@index([date, availableHours])
+  @@map("capacity")
 }
 
 model CapacityReservation {
@@ -224,6 +263,7 @@ model CapacityReservation {
   
   @@unique([capacityId, orderId])
   @@index([orderId, capacityId])
+  @@map("capacity_reservations")
 }
 
 model SchedulingJob {

@@ -8,7 +8,7 @@ import { ProductCard } from "@/components/ProductCard";
 
 export default async function HomePage() {
   const featured = await getFeaturedProducts();
-
+  console.log(featured);
   // // Kick off user fetch, but don't await it
   // const userPromise = getOrCreateCustomer()
   //   .then((user) => {

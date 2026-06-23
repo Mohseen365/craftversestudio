@@ -2,6 +2,19 @@ import "server-only";
 
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
+// Product DTO for React page
+export interface ProductDTO {
+  id: string;
+  name: string;
+  slug: string;
+  price: number;
+  category: string;
+  imageUrl: string | null;
+  description: string | null;
+  instagramUrl: string | null;
+  active: boolean;
+  productionHours: number;
+}
 
 export const PRODUCTS_CACHE_TAG = "products";
 
@@ -44,8 +57,8 @@ export const getDefaultCatalogProducts = unstable_cache(
 
 export const getProductBySlug = (slug: string) =>
   unstable_cache(
-    async () =>
-      prisma.product.findUnique({
+    async (): Promise<ProductDTO | null> => {
+      const product = await prisma.product.findUnique({
         where: { slug },
         select: {
           id: true,
@@ -59,7 +72,23 @@ export const getProductBySlug = (slug: string) =>
           active: true,
           productionHours: true,
         },
-      }),
+      });
+
+      if (!product) return null;
+
+      return {
+        id: product.id,
+        name: product.name,
+        slug: product.slug,
+        price: product.price,
+        category: product.category,
+        imageUrl: product.imageUrl,
+        description: product.description,
+        instagramUrl: product.instagramUrl,
+        active: product.active,
+        productionHours: product.productionHours.toNumber(),
+      };
+    },
     [`product-by-slug-${slug}`], // unique key per slug
     { revalidate: 3600, tags: [PRODUCTS_CACHE_TAG] },
   )();

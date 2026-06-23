@@ -54,7 +54,7 @@ export default async function OrderPage({
               name: product.name,
               slug: product.slug,
               price: product.price,
-              productionHours: product.productionHours.toNumber(),
+              productionHours: product.productionHours,
             }}
             userId={userId}
           />
