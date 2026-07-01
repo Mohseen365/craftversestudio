@@ -1,0 +1,31 @@
+<template>
+    <div class="slds-p-around_medium">
+        <h1 class="slds-text-heading_large slds-m-bottom_small">Catalog</h1>
+        <p class="slds-text-color_weak slds-m-bottom_large">Find the perfect bouquet for your occasion</p>
+
+        <div class="slds-grid slds-wrap slds-gutters slds-m-bottom_large">
+            <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3">
+                <lightning-input type="search" label="Search" placeholder="Search Rose, Tulip..." onchange={handleSearchChange}></lightning-input>
+            </div>
+            <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3">
+                <lightning-combobox label="Sort By" value={sortBy} options={sortOptions} onchange={handleSortChange}></lightning-combobox>
+            </div>
+        </div>
+
+        <template if:true={products}>
+            <div class="slds-grid slds-wrap slds-gutters">
+                <template for:each={products} for:item="product">
+                    <div key={product.Id} class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3 slds-m-bottom_medium">
+                        <lightning-card title={product.Name}>
+                            <div class="slds-p-horizontal_small">
+                                <p class="slds-truncate">{product.Description}</p>
+                                <p class="slds-m-top_x-small"><strong>Production: {product.Production_Hours__c}h</strong></p>
+                                <lightning-button label="Order Now" variant="brand" class="slds-m-top_small" onclick={handleOrderNow} data-id={product.Id}></lightning-button>
+                            </div>
+                        </lightning-card>
+                    </div>
+                </template>
+            </div>
+        </template>
+    </div>
+</template>
