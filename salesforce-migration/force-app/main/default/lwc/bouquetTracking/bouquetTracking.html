@@ -1,0 +1,28 @@
+<template>
+    <lightning-card title="Order Tracking" icon-name="standard:shipment">
+        <div class="slds-p-around_medium">
+            <template if:true={order}>
+                <div class="slds-box slds-m-bottom_medium">
+                    <p>Order Number: <strong>{order.Order_Number__c}</strong></p>
+                    <p>Status: <strong>{order.Status__c}</strong></p>
+                    <p>Total: {order.Total_Amount__c}</p>
+                    <template if:true={order.Tracking_Number__c}>
+                        <p>Tracking Number: <strong>{order.Tracking_Number__c}</strong></p>
+                    </template>
+                </div>
+
+                <template if:true={showPaymentUpload}>
+                    <div class="slds-box slds-theme_shade">
+                        <h3 class="slds-text-heading_small slds-m-bottom_small">Upload Payment Proof</h3>
+                        <lightning-input type="file" label="Attachment" accept="image/*" onchange={handleFileChange}></lightning-input>
+                        <lightning-button label="Submit Payment" variant="brand" onclick={handlePaymentSubmit} class="slds-m-top_small" stretch></lightning-button>
+                    </div>
+                </template>
+            </template>
+            <template if:false={order}>
+                <lightning-input label="Order ID" placeholder="Enter your order ID to track" onchange={handleOrderIdChange}></lightning-input>
+                <lightning-button label="Track" variant="brand" onclick={handleTrack} class="slds-m-top_small"></lightning-button>
+            </template>
+        </div>
+    </lightning-card>
+</template>

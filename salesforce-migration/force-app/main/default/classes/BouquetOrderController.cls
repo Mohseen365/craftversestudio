@@ -97,4 +97,62 @@ public with sharing class BouquetOrderController {
             BouquetScheduler.rebuildSchedule();
         }
     }
+
+    @AuraEnabled
+    public static Map<String, Object> placeGuestOrder(Map<String, Object> orderData) {
+        Savepoint sp = Database.setSavepoint();
+        try {
+            // 1. Find or create Contact
+            String email = (String)orderData.get('email');
+            List<Contact> contacts = [SELECT Id FROM Contact WHERE Email = :email LIMIT 1];
+            Contact c;
+            if (contacts.isEmpty()) {
+                c = new Contact(
+                    FirstName = (String)orderData.get('firstName'),
+                    LastName = (String)orderData.get('lastName'),
+                    Email = email,
+                    Phone = (String)orderData.get('phone')
+                );
+                insert c;
+            } else {
+                c = contacts[0];
+            }
+
+            // 2. Create Order
+            Bouquet_Order__c ord = new Bouquet_Order__c(
+                Customer__c = c.Id,
+                Status__c = 'PENDING_REVIEW',
+                Occasion_Date__c = Date.valueOf((String)orderData.get('occasionDate')),
+                Order_Number__c = 'BQ-' + String.valueOf(DateTime.now().getTime()).right(8),
+                Total_Amount__c = (Decimal)orderData.get('totalAmount')
+            );
+            insert ord;
+
+            // 3. Create Order Item
+            Bouquet_Order_Item__c item = new Bouquet_Order_Item__c(
+                Bouquet_Order__c = ord.Id,
+                Product__c = (Id)orderData.get('productId'),
+                Quantity__c = (Decimal)orderData.get('quantity')
+            );
+            insert item;
+
+            return new Map<String, Object>{
+                'orderId' => ord.Id,
+                'orderNumber' => ord.Order_Number__c
+            };
+        } catch (Exception e) {
+            Database.rollback(sp);
+            throw new AuraHandledException(e.getMessage());
+        }
+    }
+
+    @AuraEnabled(cacheable=true)
+    public static Bouquet_Order__c getOrderTracking(Id orderId) {
+        return [
+            SELECT Id, Order_Number__c, Status__c, Total_Amount__c, Tracking_Number__c,
+                   (SELECT Id, Status__c FROM Payments__r ORDER BY CreatedDate DESC LIMIT 1)
+            FROM Bouquet_Order__c
+            WHERE Id = :orderId
+        ];
+    }
 }

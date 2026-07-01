@@ -1,0 +1,39 @@
+<template>
+    <lightning-card title="Place Your Order" icon-name="standard:orders">
+        <div class="slds-p-around_medium">
+            <template if:true={error}>
+                <div class="slds-notify slds-notify_alert slds-theme_alert-texture slds-theme_error slds-m-bottom_medium" role="alert">
+                    <h2>{error}</h2>
+                </div>
+            </template>
+
+            <div class="slds-form slds-form_stacked">
+                <div class="slds-grid slds-gutters">
+                    <div class="slds-col slds-size_1-of-2">
+                        <lightning-input label="First Name" name="firstName" required onchange={handleInputChange}></lightning-input>
+                    </div>
+                    <div class="slds-col slds-size_1-of-2">
+                        <lightning-input label="Last Name" name="lastName" required onchange={handleInputChange}></lightning-input>
+                    </div>
+                </div>
+                <lightning-input type="email" label="Email" name="email" required onchange={handleInputChange}></lightning-input>
+                <lightning-input type="tel" label="Phone" name="phone" onchange={handleInputChange}></lightning-input>
+
+                <div class="slds-m-top_medium">
+                    <lightning-input label="Occasion Date" type="date" name="occasionDate" required onchange={handleInputChange}></lightning-input>
+                </div>
+
+                <div class="slds-m-top_medium">
+                    <lightning-input type="number" label="Quantity" name="quantity" value="1" min="1" max="10" onchange={handleInputChange}></lightning-input>
+                </div>
+
+                <div class="slds-box slds-m-top_large slds-theme_shade">
+                    <p class="slds-text-heading_small">Subtotal</p>
+                    <p class="slds-text-heading_medium">Calculated at checkout</p>
+                </div>
+
+                <lightning-button variant="brand" label="Submit Order" onclick={handleSubmit} class="slds-m-top_large" stretch disabled={isSubmitting}></lightning-button>
+            </div>
+        </div>
+    </lightning-card>
+</template>

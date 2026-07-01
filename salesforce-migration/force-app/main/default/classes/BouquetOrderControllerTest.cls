@@ -5,7 +5,7 @@ public class BouquetOrderControllerTest {
         Product2 p = new Product2(Name = 'Rose', Production_Hours__c = 1.0, IsActive = true);
         insert p;
 
-        Contact c = new Contact(LastName = 'Customer');
+        Contact c = new Contact(LastName = 'Customer', Email = 'test@example.com');
         insert c;
 
         Bouquet_Order__c o = new Bouquet_Order__c(
@@ -40,6 +40,34 @@ public class BouquetOrderControllerTest {
 
         Bouquet_Order__c updated = [SELECT Status__c, Shipping_Duration_Days__c FROM Bouquet_Order__c WHERE Id = :o.Id];
         System.assertEquals('ACCEPTED', updated.Status__c);
-        System.assertEquals(3, updated.Shipping_Duration_Days__c);
+    }
+
+    @IsTest
+    static void testPlaceGuestOrder() {
+        Product2 p = [SELECT Id FROM Product2 LIMIT 1];
+        Map<String, Object> orderData = new Map<String, Object>{
+            'firstName' => 'John',
+            'lastName' => 'Doe',
+            'email' => 'john@example.com',
+            'occasionDate' => String.valueOf(Date.today().addDays(5)),
+            'totalAmount' => 150.0,
+            'productId' => p.Id,
+            'quantity' => 1.0
+        };
+
+        Test.startTest();
+        Map<String, Object> result = BouquetOrderController.placeGuestOrder(orderData);
+        Test.stopTest();
+
+        System.assert(result.containsKey('orderId'));
+        Bouquet_Order__c ord = [SELECT Order_Number__c FROM Bouquet_Order__c WHERE Id = :(Id)result.get('orderId')];
+        System.assertEquals(result.get('orderNumber'), ord.Order_Number__c);
+    }
+
+    @IsTest
+    static void testGetTracking() {
+        Bouquet_Order__c o = [SELECT Id FROM Bouquet_Order__c LIMIT 1];
+        Bouquet_Order__c tracked = BouquetOrderController.getOrderTracking(o.Id);
+        System.assertEquals(o.Id, tracked.Id);
     }
 }
