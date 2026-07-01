@@ -775,6 +775,7 @@ ProductionProgress
 ---
 # Latest change
 replace getCurrentUser with getCurrentUserId in auth.ts because it is lightweight and changed getOrCreateCustomer to getOrCreateCustomerId now it will return the id
+replace previous logic of authenticating user with google sign in
 ----------
 ## One-Line Project Description
 **Bouquet is a capacity-aware production planning platform that calculates effort from product specifications, validates capacity via a greedy constrained scheduling algorithm, and dynamically reallocates future fractional effort while locking recorded production progress.**
