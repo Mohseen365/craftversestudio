@@ -1,0 +1,89 @@
+<template>
+    <div class="slds-p-around_medium">
+        <div class="slds-tabs_default">
+            <ul class="slds-tabs_default__nav" role="tablist">
+                <template for:each={tabs} for:item="tab">
+                    <li key={tab.key} class={tab.className} title={tab.label} role="presentation">
+                        <a class="slds-tabs_default__link" href="javascript:void(0);" role="tab" tabindex="0"
+                           onclick={handleTabClick} data-key={tab.key}>
+                            {tab.label}
+                        </a>
+                    </li>
+                </template>
+            </ul>
+        </div>
+
+        <template if:true={loading}>
+            <div class="slds-m-top_medium">Loading...</div>
+        </template>
+        <template if:false={loading}>
+            <template if:true={orders}>
+                <div class="slds-m-top_medium">
+                    <template for:each={orders} for:item="order">
+                        <article key={order.Id} class="slds-card slds-m-bottom_medium">
+                            <div class="slds-card__header slds-grid">
+                                <header class="slds-media slds-media_center slds-has-flexi-truncate">
+                                    <div class="slds-media__body">
+                                        <h2 class="slds-card__header-title">
+                                            <span>Order {order.Order_Number__c} - {order.Customer__r.Name}</span>
+                                        </h2>
+                                    </div>
+                                </header>
+                            </div>
+                            <div class="slds-card__body slds-card__body_inner">
+                                <div class="slds-grid slds-wrap">
+                                    <div class="slds-col slds-size_1-of-2">
+                                        <p>Status: <strong>{order.Status__c}</strong></p>
+                                        <p>Occasion Date: {order.Occasion_Date__c}</p>
+                                        <p>Total: {order.Total_Amount__c}</p>
+                                    </div>
+                                    <div class="slds-col slds-size_1-of-2">
+                                        <p>Shipping Date: {order.Shipping_Date__c}</p>
+                                        <p>Deadline: {order.Production_Deadline__c}</p>
+                                        <p>Tracking: {order.Tracking_Number__c}</p>
+                                    </div>
+                                </div>
+
+                                <template if:true={isPendingReview}>
+                                    <div class="slds-box slds-m-top_small slds-theme_shade">
+                                        <lightning-input type="number" label="Shipping Duration (Days)" value={shippingDuration} onchange={handleDurationChange}></lightning-input>
+
+                                        <template if:true={capacityPreview}>
+                                            <div class="slds-m-top_x-small">
+                                                <template if:true={capacityPreview.canAccept}>
+                                                    <p class="slds-text-color_success">Capacity Available</p>
+                                                    <ul>
+                                                        <template for:each={capacityPreview.suggestedDates} for:item="sd">
+                                                            <li key={sd.allocationDate}>{sd.allocationDate}: {sd.hours}h</li>
+                                                        </template>
+                                                    </ul>
+                                                    <lightning-button label="Accept Order" variant="brand" onclick={handleAccept} class="slds-m-top_x-small"></lightning-button>
+                                                </template>
+                                                <template if:false={capacityPreview.canAccept}>
+                                                    <p class="slds-text-color_error">{capacityPreview.reason}</p>
+                                                </template>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </template>
+
+                                <div class="slds-m-top_small">
+                                    <template if:true={showNextAction}>
+                                        <lightning-button label={nextActionLabel} variant="brand" onclick={handleNextStatus}></lightning-button>
+                                    </template>
+                                    <template if:true={isReadyToShip}>
+                                        <lightning-input label="Tracking Number" value={trackingNumber} onchange={handleTrackingChange} placeholder="Enter tracking and click Ship"></lightning-input>
+                                        <lightning-button label="Ship Order" variant="brand" onclick={handleNextStatus} class="slds-m-top_x-small"></lightning-button>
+                                    </template>
+                                </div>
+                            </div>
+                        </article>
+                    </template>
+                    <template if:false={orders.length}>
+                        <p>No orders in this queue.</p>
+                    </template>
+                </div>
+            </template>
+        </template>
+    </div>
+</template>

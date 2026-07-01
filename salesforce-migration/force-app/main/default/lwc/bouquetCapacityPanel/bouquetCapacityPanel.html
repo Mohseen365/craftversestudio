@@ -1,0 +1,73 @@
+<template>
+    <div class="slds-p-around_medium">
+        <h1 class="slds-text-heading_large slds-m-bottom_medium">Capacity Planning</h1>
+
+        <div class="slds-scrollable_x">
+            <table class="slds-table slds-table_bordered slds-table_cell-buffer">
+                <thead>
+                    <tr class="slds-line-height_reset">
+                        <th scope="col">Date</th>
+                        <th scope="col">Used / Capacity</th>
+                        <th scope="col">Available</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template for:each={rows} for:item="row">
+                        <tr key={row.capacityDate} class="slds-hint-parent">
+                            <td>{row.capacityDate}</td>
+                            <td>{row.used}h / {row.dailyCapacity}h</td>
+                            <td class={row.remainingClass}>{row.remaining}h</td>
+                            <td>
+                                <span class={row.statusClass}>{row.statusLabel}</span>
+                            </td>
+                            <td>
+                                <lightning-button label="View Details" variant="neutral" onclick={handleViewDetails} data-date={row.capacityDate}></lightning-button>
+                            </td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+
+        <template if:true={selectedDate}>
+            <section class="slds-m-top_large">
+                <h2 class="slds-text-heading_medium">Details for {selectedDate}</h2>
+                <div class="slds-scrollable_x slds-m-top_small">
+                    <table class="slds-table slds-table_bordered slds-table_cell-buffer">
+                        <thead>
+                            <tr class="slds-line-height_reset">
+                                <th>Order</th>
+                                <th>Customer</th>
+                                <th>Allocated</th>
+                                <th>Completed</th>
+                                <th>Remaining</th>
+                                <th>Deadline</th>
+                                <th>Progress</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template for:each={selectedOrders} for:item="order">
+                                <tr key={order.orderId}>
+                                    <td>{order.orderNumber}</td>
+                                    <td>{order.customerName}</td>
+                                    <td>{order.allocatedToday}h</td>
+                                    <td class="slds-text-color_success">{order.completedEffort}h</td>
+                                    <td>{order.remainingEffort}h</td>
+                                    <td>{order.productionDeadline}</td>
+                                    <td>
+                                        <div class="slds-grid slds-grid_vertical-align-center">
+                                            <lightning-input type="number" step="0.25" variant="label-hidden" placeholder="Hours" onchange={handleProgressChange} data-order-id={order.orderId} class="slds-m-right_x-small" style="width: 80px;"></lightning-input>
+                                            <lightning-button label="Add" variant="brand-outline" onclick={handleAddProgress} data-order-id={order.orderId}></lightning-button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </template>
+    </div>
+</template>
