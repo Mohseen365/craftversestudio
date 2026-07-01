@@ -118,7 +118,7 @@ public with sharing class BouquetScheduler {
 
                 if (available > 0.001) {
                     Decimal allocate = Math.min(need, available);
-                    consumedHours.put(d, consumed + allocate);
+                    consumedHours.put(d, (consumed + allocate));
 
                     ScheduledAllocation sa = new ScheduledAllocation();
                     sa.allocationDate = d;
@@ -238,6 +238,22 @@ public with sharing class BouquetScheduler {
         return data;
     }
 
+    // ==================== Job and Snapshot ====================
+    public static void createSchedulingJob(String eventType, Map<String, Object> payload) {
+        insert new Bouquet_Scheduling_Job__c(
+            Status__c = 'PENDING',
+            Event_Type__c = eventType,
+            Payload__c = JSON.serialize(payload)
+        );
+    }
+
+    public static void takeSnapshot(Date snapshotDate, SchedulerData data) {
+        insert new Bouquet_Scheduling_Snapshot__c(
+            Date__c = snapshotDate,
+            Snapshot__c = JSON.serialize(data)
+        );
+    }
+
     // ==================== Acceptability Check ====================
     public static AcceptabilityResult checkAcceptability(
         Id candidateOrderId,
@@ -289,6 +305,7 @@ public with sharing class BouquetScheduler {
     public static void persistAllocations(Map<Id, List<ScheduledAllocation>> allocations, Date todayDate) {
         Set<Date> allDates = new Set<Date>();
         for (List<ScheduledAllocation> allocs : allocations.values()) {
+            if (allocs == null) continue;
             for (ScheduledAllocation a : allocs) allDates.add(a.allocationDate);
         }
 
@@ -313,6 +330,7 @@ public with sharing class BouquetScheduler {
         delete [
             SELECT Id FROM Bouquet_Capacity_Reservation__c
             WHERE Bouquet_Capacity__r.Date__c >= :todayDate
+              AND Is_Manual__c = false
               AND Completed_Hours__c = 0
         ];
 
@@ -320,6 +338,7 @@ public with sharing class BouquetScheduler {
         List<Bouquet_Capacity_Reservation__c> remaining = [
             SELECT Id, Completed_Hours__c FROM Bouquet_Capacity_Reservation__c
             WHERE Bouquet_Capacity__r.Date__c >= :todayDate
+              AND Is_Manual__c = false
         ];
         for (Bouquet_Capacity_Reservation__c r : remaining) {
             r.Planned_Hours__c = r.Completed_Hours__c;
@@ -353,5 +372,6 @@ public with sharing class BouquetScheduler {
         }
 
         persistAllocations(result.allocations, todayDate);
+        takeSnapshot(todayDate, data);
     }
 }
