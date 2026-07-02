@@ -4,5 +4,5 @@
     <label>Payload (JSON)</label>
     <type>LongTextArea</type>
     <length>131072</length>
-    <visibleLines(10)></visibleLines>
+    <visibleLines>10</visibleLines>
 </CustomField>

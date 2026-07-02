@@ -5,5 +5,6 @@
     <referenceTo>Bouquet_Order__c</referenceTo>
     <relationshipLabel>Capacity Reservations</relationshipLabel>
     <relationshipName>Capacity_Reservations</relationshipName>
-    <type>Lookup</type>
+    <relationshipOrder>1</relationshipOrder>
+    <type>MasterDetail</type>
 </CustomField>

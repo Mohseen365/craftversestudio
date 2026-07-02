@@ -1,25 +1,26 @@
-import { LightningElement, track } from 'lwc';
-import getOrderTracking from '@salesforce/apex/BouquetOrderController.getOrderTracking';
+import { LightningElement, track, wire } from 'lwc';
+import { getRecord } from 'lightning/uiRecordApi';
+
+const FIELDS = ['Bouquet_Order__c.Status__c'];
 
 export default class BouquetTracking extends LightningElement {
+    @track inputOrderId;
     @track orderId;
-    @track order;
     @track file;
 
+    @wire(getRecord, { recordId: '$orderId', fields: FIELDS })
+    wiredOrder;
+
     handleOrderIdChange(event) {
-        this.orderId = event.target.value;
+        this.inputOrderId = event.target.value;
     }
 
-    async handleTrack() {
-        try {
-            this.order = await getOrderTracking({ orderId: this.orderId });
-        } catch (error) {
-            console.error(error);
-        }
+    handleTrack() {
+        this.orderId = this.inputOrderId;
     }
 
     get showPaymentUpload() {
-        return this.order && this.order.Status__c === 'PAYMENT_PENDING';
+        return this.wiredOrder.data && this.wiredOrder.data.fields.Status__c.value === 'PAYMENT_PENDING';
     }
 
     handleFileChange(event) {
@@ -28,6 +29,5 @@ export default class BouquetTracking extends LightningElement {
 
     async handlePaymentSubmit() {
         console.log('Uploading payment proof for order:', this.orderId);
-        // Logic to upload file as ContentVersion and link to Order
     }
 }

@@ -238,23 +238,76 @@ public with sharing class BouquetScheduler {
         return data;
     }
 
-    // ==================== Job and Snapshot ====================
-    public static void createSchedulingJob(String eventType, Map<String, Object> payload) {
-        insert new Bouquet_Scheduling_Job__c(
-            Status__c = 'PENDING',
-            Event_Type__c = eventType,
-            Payload__c = JSON.serialize(payload)
-        );
+    public static void rebuildSchedule() {
+        Date todayDate = Date.today();
+        SchedulerData data = getSchedulerData(todayDate);
+        SchedulingResult result = scheduleOrdersInMemory(todayDate, data.inputs, data.capacityLimits, data.completedWorkMap);
+
+        if (!result.success) {
+            throw new AuraHandledException('Cannot rebuild schedule: ' + result.reason);
+        }
+
+        persistAllocations(result.allocations, todayDate);
     }
 
-    public static void takeSnapshot(Date snapshotDate, SchedulerData data) {
-        insert new Bouquet_Scheduling_Snapshot__c(
-            Date__c = snapshotDate,
-            Snapshot__c = JSON.serialize(data)
-        );
+    public static void persistAllocations(Map<Id, List<ScheduledAllocation>> allocations, Date todayDate) {
+        Set<Date> allDates = new Set<Date>();
+        for (List<ScheduledAllocation> allocs : allocations.values()) {
+            if (allocs == null) continue;
+            for (ScheduledAllocation a : allocs) allDates.add(a.allocationDate);
+        }
+
+        List<Bouquet_Capacity__c> existingCaps = [SELECT Date__c FROM Bouquet_Capacity__c WHERE Date__c IN :allDates];
+        Set<Date> existingDates = new Set<Date>();
+        for (Bouquet_Capacity__c c : existingCaps) existingDates.add(c.Date__c);
+
+        List<Bouquet_Capacity__c> newCaps = new List<Bouquet_Capacity__c>();
+        for (Date d : allDates) {
+            if (!existingDates.contains(d)) {
+                newCaps.add(new Bouquet_Capacity__c(Date__c = d, Name = d.toString(), Maximum_Hours__c = DEFAULT_HOURS_PER_DAY));
+            }
+        }
+        if (!newCaps.isEmpty()) insert newCaps;
+
+        Map<Date, Id> capIdByDate = new Map<Date, Id>();
+        for (Bouquet_Capacity__c c : [SELECT Id, Date__c FROM Bouquet_Capacity__c WHERE Date__c >= :todayDate]) {
+            capIdByDate.put(c.Date__c, c.Id);
+        }
+
+        delete [
+            SELECT Id FROM Bouquet_Capacity_Reservation__c
+            WHERE Bouquet_Capacity__r.Date__c >= :todayDate
+              AND Is_Manual__c = false
+              AND Completed_Hours__c = 0
+        ];
+
+        List<Bouquet_Capacity_Reservation__c> remaining = [
+            SELECT Id, Completed_Hours__c FROM Bouquet_Capacity_Reservation__c
+            WHERE Bouquet_Capacity__r.Date__c >= :todayDate
+              AND Is_Manual__c = false
+        ];
+        for (Bouquet_Capacity_Reservation__c r : remaining) {
+            r.Planned_Hours__c = r.Completed_Hours__c;
+        }
+        update remaining;
+
+        List<Bouquet_Capacity_Reservation__c> toInsert = new List<Bouquet_Capacity_Reservation__c>();
+        for (Id orderId : allocations.keySet()) {
+            if (allocations.get(orderId) == null) continue;
+            for (ScheduledAllocation sa : allocations.get(orderId)) {
+                Id capId = capIdByDate.get(sa.allocationDate);
+                if (capId == null) continue;
+
+                toInsert.add(new Bouquet_Capacity_Reservation__c(
+                    Bouquet_Capacity__c = capId,
+                    Bouquet_Order__c = orderId,
+                    Planned_Hours__c = sa.hours
+                ));
+            }
+        }
+        if (!toInsert.isEmpty()) insert toInsert;
     }
 
-    // ==================== Acceptability Check ====================
     public static AcceptabilityResult checkAcceptability(
         Id candidateOrderId,
         String candidateOrderNumber,
@@ -299,79 +352,5 @@ public with sharing class BouquetScheduler {
         ar.schedulerData = data;
         ar.schedulerData.inputs = allInputs;
         return ar;
-    }
-
-    // ==================== Persistence ====================
-    public static void persistAllocations(Map<Id, List<ScheduledAllocation>> allocations, Date todayDate) {
-        Set<Date> allDates = new Set<Date>();
-        for (List<ScheduledAllocation> allocs : allocations.values()) {
-            if (allocs == null) continue;
-            for (ScheduledAllocation a : allocs) allDates.add(a.allocationDate);
-        }
-
-        List<Bouquet_Capacity__c> existingCaps = [SELECT Date__c FROM Bouquet_Capacity__c WHERE Date__c IN :allDates];
-        Set<Date> existingDates = new Set<Date>();
-        for (Bouquet_Capacity__c c : existingCaps) existingDates.add(c.Date__c);
-
-        List<Bouquet_Capacity__c> newCaps = new List<Bouquet_Capacity__c>();
-        for (Date d : allDates) {
-            if (!existingDates.contains(d)) {
-                newCaps.add(new Bouquet_Capacity__c(Date__c = d, Name = d.toString(), Maximum_Hours__c = DEFAULT_HOURS_PER_DAY));
-            }
-        }
-        if (!newCaps.isEmpty()) insert newCaps;
-
-        Map<Date, Id> capIdByDate = new Map<Date, Id>();
-        for (Bouquet_Capacity__c c : [SELECT Id, Date__c FROM Bouquet_Capacity__c WHERE Date__c >= :todayDate]) {
-            capIdByDate.put(c.Date__c, c.Id);
-        }
-
-        // Delete future non-manual reservations with no progress
-        delete [
-            SELECT Id FROM Bouquet_Capacity_Reservation__c
-            WHERE Bouquet_Capacity__r.Date__c >= :todayDate
-              AND Is_Manual__c = false
-              AND Completed_Hours__c = 0
-        ];
-
-        // Reset remaining future reservations
-        List<Bouquet_Capacity_Reservation__c> remaining = [
-            SELECT Id, Completed_Hours__c FROM Bouquet_Capacity_Reservation__c
-            WHERE Bouquet_Capacity__r.Date__c >= :todayDate
-              AND Is_Manual__c = false
-        ];
-        for (Bouquet_Capacity_Reservation__c r : remaining) {
-            r.Planned_Hours__c = r.Completed_Hours__c;
-        }
-        update remaining;
-
-        List<Bouquet_Capacity_Reservation__c> toInsert = new List<Bouquet_Capacity_Reservation__c>();
-        for (Id orderId : allocations.keySet()) {
-            if (allocations.get(orderId) == null) continue;
-            for (ScheduledAllocation sa : allocations.get(orderId)) {
-                Id capId = capIdByDate.get(sa.allocationDate);
-                if (capId == null) continue;
-
-                toInsert.add(new Bouquet_Capacity_Reservation__c(
-                    Bouquet_Capacity__c = capId,
-                    Bouquet_Order__c = orderId,
-                    Planned_Hours__c = sa.hours
-                ));
-            }
-        }
-        if (!toInsert.isEmpty()) insert toInsert;
-    }
-
-    public static void rebuildSchedule() {
-        Date todayDate = Date.today();
-        SchedulerData data = getSchedulerData(todayDate);
-        SchedulingResult result = scheduleOrdersInMemory(todayDate, data.inputs, data.capacityLimits, data.completedWorkMap);
-
-        if (!result.success) {
-            throw new AuraHandledException('Cannot rebuild schedule: ' + result.reason);
-        }
-
-        persistAllocations(result.allocations, todayDate);
-        takeSnapshot(todayDate, data);
     }
 }
