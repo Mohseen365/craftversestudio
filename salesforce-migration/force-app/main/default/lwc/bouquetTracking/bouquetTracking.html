@@ -50,6 +50,15 @@
                                     </lightning-file-upload>
                                 </div>
                             </template>
+
+                            <template if:true={orderFiles}>
+                                <div class="slds-m-top_medium">
+                                    <h3 class="slds-text-title_bold slds-m-bottom_small">Payment Proofs</h3>
+                                    <template for:each={orderFiles} for:item="file">
+                                        <lightning-file-card key={file.id} file-id={file.id}></lightning-file-card>
+                                    </template>
+                                </div>
+                            </template>
                         </template>
                     </div>
 

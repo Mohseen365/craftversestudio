@@ -15,11 +15,20 @@ public with sharing class BouquetOrderSelector {
     public static Bouquet_Order__c getOrderById(Id orderId) {
         List<Bouquet_Order__c> orders = [
             SELECT Id, Order_Number__c, Status__c, Occasion_Date__c, Total_Amount__c,
-                   Shipping_Duration_Days__c, Shipping_Date__c, Production_Deadline__c
+                   Shipping_Duration_Days__c, Shipping_Date__c, Production_Deadline__c, Is_Urgent__c
             FROM Bouquet_Order__c
             WHERE Id = :orderId
             WITH SECURITY_ENFORCED
         ];
         return orders.isEmpty() ? null : orders[0];
+    }
+
+    public static List<ContentDocumentLink> getPaymentFiles(Id orderId) {
+        return [
+            SELECT ContentDocumentId, ContentDocument.Title, ContentDocument.LatestPublishedVersionId
+            FROM ContentDocumentLink
+            WHERE LinkedEntityId = :orderId
+            WITH SECURITY_ENFORCED
+        ];
     }
 }

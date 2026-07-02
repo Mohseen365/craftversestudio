@@ -3,6 +3,8 @@ import { getRecord, updateRecord } from 'lightning/uiRecordApi';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import { CurrentPageReference } from 'lightning/navigation';
 import getOrderTracking from '@salesforce/apex/BouquetOrderController.getOrderTracking';
+import getOrderFiles from '@salesforce/apex/BouquetOrderController.getOrderFiles';
+import { refreshApex } from '@salesforce/apex';
 
 const STATUS_MESSAGES = {
     'PENDING_REVIEW': { title: 'Order in Review', description: 'We are checking our production capacity for your selected date.' },
@@ -20,15 +22,22 @@ export default class BouquetTracking extends LightningElement {
     @track inputOrderId;
     @track orderId;
     @track orderData;
+    @track orderFiles;
+    wiredFilesResult;
 
     @wire(CurrentPageReference)
     getStateParameters(currentPageReference) {
-        if (currentPageReference && currentPageReference.state) {
-            // Handle both authenticated (list) and direct order navigation
-            if (currentPageReference.state.c__orderId) {
-                this.orderId = currentPageReference.state.c__orderId;
-                this.loadOrderData();
-            }
+        if (currentPageReference && currentPageReference.state && currentPageReference.state.c__orderId) {
+            this.orderId = currentPageReference.state.c__orderId;
+            this.loadOrderData();
+        }
+    }
+
+    @wire(getOrderFiles, { orderId: '$orderId' })
+    wiredFiles(result) {
+        this.wiredFilesResult = result;
+        if (result.data) {
+            this.orderFiles = result.data;
         }
     }
 
@@ -66,6 +75,7 @@ export default class BouquetTracking extends LightningElement {
             const fields = { Id: this.orderId, Status__c: 'PAYMENT_SUBMITTED' };
             try {
                 await updateRecord({ fields });
+                refreshApex(this.wiredFilesResult);
                 this.loadOrderData();
             } catch (err) {
                 console.error('Update failed:', err);

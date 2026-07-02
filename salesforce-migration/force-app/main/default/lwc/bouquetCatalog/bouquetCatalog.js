@@ -1,4 +1,4 @@
-import { LightningElement, track, wire } from 'lwc';
+import { LightningElement, wire, track } from 'lwc';
 import getAvailableProducts from '@salesforce/apex/BouquetProductController.getAvailableProducts';
 import { NavigationMixin } from 'lightning/navigation';
 import { publish, MessageContext } from 'lightning/messageService';
@@ -13,22 +13,43 @@ export default class BouquetCatalog extends NavigationMixin(LightningElement) {
     @wire(MessageContext)
     messageContext;
 
-    // ... sortOptions and categories as before ...
+    categories = ['All', 'Rose', 'Tulip', 'Mini', 'Luxury'];
+
+    sortOptions = [
+        { label: 'Newest', value: 'newest' },
+        { label: 'Price: Low to High', value: 'price-low' },
+        { label: 'Price: High to Low', value: 'price-high' },
+        { label: 'Best Sellers', value: 'best' }
+    ];
 
     @wire(getAvailableProducts, { query: '$searchQuery', category: '$selectedCategory', priceRange: 'all', sortBy: '$sortBy' })
     products;
+
+    handleSearchChange(event) {
+        window.clearTimeout(this.delayTimeout);
+        const searchKey = event.target.value;
+        this.delayTimeout = setTimeout(() => {
+            this.searchQuery = searchKey;
+        }, 350);
+    }
+
+    handleSortChange(event) {
+        this.sortBy = event.target.value;
+    }
+
+    handleCategoryClick(event) {
+        this.selectedCategory = event.target.dataset.name;
+    }
 
     handleOrderNow(event) {
         const productId = event.detail.productId;
         const price = event.detail.price;
 
-        // Native Optimization: Use LMS to notify other components (e.g., a sticky cart or detail sidebar)
         publish(this.messageContext, BOUQUET_MC, {
             productId: productId,
             price: price
         });
 
-        // Still provide standard navigation
         this[NavigationMixin.Navigate]({
             type: 'standard__recordPage',
             attributes: {
@@ -38,6 +59,4 @@ export default class BouquetCatalog extends NavigationMixin(LightningElement) {
             }
         });
     }
-
-    // ... search and sort handlers ...
 }

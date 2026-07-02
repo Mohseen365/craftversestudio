@@ -42,13 +42,16 @@ export default class BouquetOrderForm extends NavigationMixin(LightningElement) 
         this.error = null;
 
         try {
+            // Read values from template correctly
+            const notes = this.template.querySelector('lightning-textarea[name="notes"]')?.value;
+
             const result = await placeGuestOrder({
                 orderData: {
                     ...this.formData,
                     productId: this.productId,
                     productionHours: this.productionHours,
                     totalAmount: this.subtotal,
-                    notes: this.template.querySelector('[name="notes"]').value
+                    notes: notes
                 }
             });
 
@@ -62,7 +65,7 @@ export default class BouquetOrderForm extends NavigationMixin(LightningElement) 
                 }
             });
         } catch (err) {
-            this.error = err.body.message;
+            this.error = err.body ? err.body.message : err.message;
         } finally {
             this.isSubmitting = false;
         }

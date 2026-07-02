@@ -4,6 +4,7 @@ import getCapacityPreview from '@salesforce/apex/BouquetOrderController.getCapac
 import acceptOrder from '@salesforce/apex/BouquetOrderController.acceptOrder';
 import updateOrderStatus from '@salesforce/apex/BouquetOrderController.updateOrderStatus';
 import { refreshApex } from '@salesforce/apex';
+import { subscribe, unsubscribe } from 'lightning/empApi';
 
 const TABS = [
     { key: 'PENDING_REVIEW', label: 'Review' },
@@ -32,6 +33,7 @@ export default class BouquetOrderPanel extends LightningElement {
     @track trackingNumber = '';
 
     wiredOrdersResult;
+    subscription = {};
 
     @wire(getOrdersByStatus, { status: '$activeTab' })
     wiredOrders(result) {
@@ -43,6 +45,27 @@ export default class BouquetOrderPanel extends LightningElement {
             console.error(result.error);
             this.loading = false;
         }
+    }
+
+    connectedCallback() {
+        this.handleSubscribe();
+    }
+
+    disconnectedCallback() {
+        this.handleUnsubscribe();
+    }
+
+    handleSubscribe() {
+        const messageCallback = (response) => {
+            refreshApex(this.wiredOrdersResult);
+        };
+        subscribe('/event/Bouquet_Schedule_Response__e', -1, messageCallback).then(response => {
+            this.subscription = response;
+        });
+    }
+
+    handleUnsubscribe() {
+        unsubscribe(this.subscription, response => {});
     }
 
     get tabs() {
