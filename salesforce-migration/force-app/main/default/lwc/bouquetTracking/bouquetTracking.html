@@ -9,22 +9,24 @@
                         <lightning-output-field field-name="Order_Number__c"></lightning-output-field>
                         <lightning-output-field field-name="Status__c"></lightning-output-field>
                         <lightning-output-field field-name="Total_Amount__c"></lightning-output-field>
-                        <lightning-output-field field-name="Tracking_Number__c"></lightning-output-field>
                     </div>
                 </lightning-record-view-form>
 
                 <template if:true={showPaymentUpload}>
                     <div class="slds-box slds-theme_shade">
                         <h3 class="slds-text-heading_small slds-m-bottom_small">Upload Payment Proof</h3>
-                        <lightning-input type="file" label="Attachment" accept="image/*" onchange={handleFileChange}></lightning-input>
-                        <lightning-button label="Submit Payment" variant="brand" onclick={handlePaymentSubmit} class="slds-m-top_small" stretch></lightning-button>
+                        <lightning-file-upload
+                            label="Attach screenshot"
+                            name="fileUploader"
+                            accept={acceptedFormats}
+                            record-id={orderId}
+                            onuploadfinished={handleUploadFinished}
+                            multiple="false">
+                        </lightning-file-upload>
                     </div>
                 </template>
             </template>
-            <template if:false={orderId}>
-                <lightning-input label="Order ID" placeholder="Enter your order ID to track" onchange={handleOrderIdChange}></lightning-input>
-                <lightning-button label="Track" variant="brand" onclick={handleTrack} class="slds-m-top_small"></lightning-button>
-            </template>
+            <!-- ... -->
         </div>
     </lightning-card>
 </template>

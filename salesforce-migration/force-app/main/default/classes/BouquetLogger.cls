@@ -1,25 +1,28 @@
 public with sharing class BouquetLogger {
 
-    public static void logEvent(String eventType, Id userId, Id productId, Id orderId, Map<String, Object> metadata) {
-        Bouquet_Event__c evt = new Bouquet_Event__c();
-        evt.User__c = userId;
-        evt.Product__c = productId;
-        evt.Order__c = orderId;
-        evt.Event_Type__c = eventType;
-        if (metadata != null) {
-            evt.Metadata__c = JSON.serialize(metadata);
-        }
-        insert evt;
+    public enum Severity { INFO, WARNING, ERROR }
+
+    public static void log(String message, Severity sev, String stackTrace) {
+        Bouquet_Log__c log = new Bouquet_Log__c(
+            Message__c = message,
+            Severity__c = sev.name(),
+            Stack_Trace__c = stackTrace
+        );
+        insert Security.stripInaccessible(AccessType.CREATABLE, new List<Bouquet_Log__c>{log}).getRecords();
     }
 
-    public static void logAudit(String action, String entityId, String entityType, String beforeJson, String afterJson) {
-        insert new Bouquet_Audit_Log__c(
-            Action__c = action,
-            Entity_Id__c = entityId,
-            Entity_Type__c = entityType,
-            Before_JSON__c = beforeJson,
-            After_JSON__c = afterJson,
-            User__c = UserInfo.getUserId()
+    public static void error(String message, Exception e) {
+        log(message + ': ' + e.getMessage(), Severity.ERROR, e.getStackTraceString());
+    }
+
+    public static void logEvent(String eventType, Id userId, Id productId, Id orderId, Map<String, Object> metadata) {
+        Bouquet_Event__c evt = new Bouquet_Event__c(
+            User__c = userId,
+            Product__c = productId,
+            Order__c = orderId,
+            Event_Type__c = eventType,
+            Metadata__c = metadata != null ? JSON.serialize(metadata) : null
         );
+        insert Security.stripInaccessible(AccessType.CREATABLE, new List<Bouquet_Event__c>{evt}).getRecords();
     }
 }

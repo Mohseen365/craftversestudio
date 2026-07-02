@@ -102,7 +102,7 @@ public with sharing class BouquetOrderController {
                 Status__c = 'PENDING_REVIEW',
                 Occasion_Date__c = Date.valueOf((String)orderData.get('occasionDate')),
                 Occasion_Type__c = (String)orderData.get('occasionType'),
-                Total_Amount__c = (Decimal)orderData.get('totalAmount'),
+                Subtotal__c = (Decimal)orderData.get('totalAmount'), // Total_Amount__c is a formula!
                 Notes__c = (String)orderData.get('notes')
             );
             insert Security.stripInaccessible(AccessType.CREATABLE, new List<Bouquet_Order__c>{ord}).getRecords();
@@ -118,7 +118,7 @@ public with sharing class BouquetOrderController {
 
             return new Map<String, Object>{
                 'orderId' => ord.Id,
-                'orderNumber' => ord.Order_Number__c
+                'orderNumber' => [SELECT Order_Number__c FROM Bouquet_Order__c WHERE Id = :ord.Id].Order_Number__c
             };
         } catch (Exception e) {
             Database.rollback(sp);

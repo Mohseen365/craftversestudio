@@ -1,11 +1,13 @@
 public with sharing class BouquetSettings {
 
     public static String getSetting(String key, String defaultValue) {
-        List<Bouquet_Setting__c> settings = [SELECT Value__c FROM Bouquet_Setting__c WHERE Name = :key LIMIT 1];
-        return settings.isEmpty() ? defaultValue : settings[0].Value__c;
+        // Native Optimization: Use Custom Metadata for constants
+        Bouquet_Setting__mdt setting = Bouquet_Setting__mdt.getInstance(key);
+        return setting != null ? setting.Value__c : defaultValue;
     }
 
     public static Decimal getProductionHoursPerDay() {
-        return Decimal.valueOf(getSetting('DAILY_PRODUCTION_CAPACITY', '8.0'));
+        String val = getSetting('DEFAULT_HOURS', '8.0');
+        return Decimal.valueOf(val);
     }
 }

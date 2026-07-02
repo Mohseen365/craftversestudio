@@ -1,5 +1,5 @@
 public with sharing class BouquetScheduler {
-    public static final Decimal DEFAULT_HOURS_PER_DAY = 8.0;
+    public static final Decimal DEFAULT_HOURS_PER_DAY = BouquetSettings.getProductionHoursPerDay();
     public static final Integer HOUR_PRECISION = 4;
 
     public static final Set<String> SCHEDULABLE_STATUSES = new Set<String>{
@@ -25,6 +25,7 @@ public with sharing class BouquetScheduler {
         @AuraEnabled public Decimal lockedHours;
         @AuraEnabled public String status;
         @AuraEnabled public Boolean isLate;
+        @AuraEnabled public Boolean isUrgent;
     }
 
     public class SchedulerData {
@@ -63,6 +64,16 @@ public with sharing class BouquetScheduler {
         return total <= 0.001 ? 0.25 : total;
     }
 
+    // Native Optimization: Cache holidays to avoid redundant queries
+    private static Set<Date> holidayDates;
+    private static void loadHolidays() {
+        if (holidayDates != null) return;
+        holidayDates = new Set<Date>();
+        for (Holiday h : [SELECT ActivityDate FROM Holiday]) {
+            holidayDates.add(h.ActivityDate);
+        }
+    }
+
     // ==================== Core Scheduling Algorithm ====================
     public static SchedulingResult scheduleOrdersInMemory(
         Date todayDate,
@@ -70,6 +81,7 @@ public with sharing class BouquetScheduler {
         Map<Date, Decimal> capacityLimits,
         Map<Date, Decimal> completedWorkMap
     ) {
+        loadHolidays();
         SchedulingResult result = new SchedulingResult();
         result.allocations = new Map<Id, List<ScheduledAllocation>>();
         Map<Date, Decimal> consumedHours = new Map<Date, Decimal>();
@@ -83,7 +95,9 @@ public with sharing class BouquetScheduler {
             List<Date> viableDates = new List<Date>();
             Date currentDate = todayDate;
             while (currentDate <= o.productionDeadline) {
-                viableDates.add(currentDate);
+                if (!holidayDates.contains(currentDate)) {
+                    viableDates.add(currentDate);
+                }
                 currentDate = currentDate.addDays(1);
             }
             if (viableDates.isEmpty()) {
@@ -157,6 +171,11 @@ public with sharing class BouquetScheduler {
 
         public Integer compareTo(Object compareTo) {
             PendingOrder other = (PendingOrder)compareTo;
+
+            if (this.order.isUrgent != other.order.isUrgent) {
+                return this.order.isUrgent ? -1 : 1;
+            }
+
             if (this.windowSize != other.windowSize) return this.windowSize - other.windowSize;
             if (this.slack != other.slack) {
                 return this.slack < other.slack ? -1 : 1;
@@ -174,7 +193,7 @@ public with sharing class BouquetScheduler {
         data.todayDate = todayDate;
 
         List<Bouquet_Order__c> orders = [
-            SELECT Id, Order_Number__c, Production_Deadline__c, Status__c,
+            SELECT Id, Order_Number__c, Production_Deadline__c, Status__c, Is_Urgent__c,
                    (SELECT Quantity__c, Product__r.Production_Hours__c FROM Order_Items__r),
                    (SELECT Completed_Hours__c FROM Capacity_Reservations__r)
             FROM Bouquet_Order__c
@@ -217,6 +236,7 @@ public with sharing class BouquetScheduler {
             input.orderNumber = o.Order_Number__c;
             input.productionDeadline = o.Production_Deadline__c;
             input.status = o.Status__c;
+            input.isUrgent = o.Is_Urgent__c;
 
             Decimal req = 0;
             for (Bouquet_Order_Item__c item : o.Order_Items__r) {
@@ -324,6 +344,7 @@ public with sharing class BouquetScheduler {
         candidateInput.requiredHours = requiredHours;
         candidateInput.lockedHours = 0;
         candidateInput.status = 'ACCEPTED';
+        candidateInput.isUrgent = false;
 
         List<OrderScheduleInput> allInputs = new List<OrderScheduleInput>();
         Boolean replaced = false;

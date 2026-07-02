@@ -6,9 +6,10 @@ public class BouquetOrderControllerTest {
         insert p;
         Contact c = new Contact(LastName = 'Customer', Email = 'test@example.com');
         insert c;
+        // Formula fields can't be set directly.
         Bouquet_Order__c o = new Bouquet_Order__c(
             Customer__c = c.Id, Status__c = 'PENDING_REVIEW',
-            Occasion_Date__c = Date.today().addDays(10), Order_Number__c = 'TEST-001', Total_Amount__c = 100
+            Occasion_Date__c = Date.today().addDays(10), Subtotal__c = 100
         );
         insert o;
         insert new Bouquet_Order_Item__c(Bouquet_Order__c = o.Id, Product__c = p.Id, Quantity__c = 2, Production_Hours__c = 1.0, Hours_Required__c = 2.0);

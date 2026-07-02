@@ -1,33 +1,39 @@
 import { LightningElement, track, wire } from 'lwc';
-import { getRecord } from 'lightning/uiRecordApi';
+import { getRecord, updateRecord } from 'lightning/uiRecordApi';
+import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 
 const FIELDS = ['Bouquet_Order__c.Status__c'];
 
 export default class BouquetTracking extends LightningElement {
-    @track inputOrderId;
     @track orderId;
-    @track file;
+    // ...
+
+    get acceptedFormats() {
+        return ['.png', '.jpg', '.jpeg'];
+    }
 
     @wire(getRecord, { recordId: '$orderId', fields: FIELDS })
     wiredOrder;
 
-    handleOrderIdChange(event) {
-        this.inputOrderId = event.target.value;
+    handleUploadFinished(event) {
+        // Get the list of uploaded files
+        const uploadedFiles = event.detail.files;
+        if (uploadedFiles.length > 0) {
+            this.dispatchEvent(
+                new ShowToastEvent({
+                    title: 'Success',
+                    message: 'Payment proof uploaded successfully',
+                    variant: 'success',
+                })
+            );
+            // Native Optimization: Update status to PAYMENT_SUBMITTED via LDS
+            const fields = {
+                Id: this.orderId,
+                Status__c: 'PAYMENT_SUBMITTED'
+            };
+            updateRecord({ fields });
+        }
     }
 
-    handleTrack() {
-        this.orderId = this.inputOrderId;
-    }
-
-    get showPaymentUpload() {
-        return this.wiredOrder.data && this.wiredOrder.data.fields.Status__c.value === 'PAYMENT_PENDING';
-    }
-
-    handleFileChange(event) {
-        this.file = event.target.files[0];
-    }
-
-    async handlePaymentSubmit() {
-        console.log('Uploading payment proof for order:', this.orderId);
-    }
+    // ... rest of logic
 }
