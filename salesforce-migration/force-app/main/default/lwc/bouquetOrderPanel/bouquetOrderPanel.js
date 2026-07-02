@@ -62,28 +62,35 @@ export default class BouquetOrderPanel extends LightningElement {
     }
 
     handleDurationChange(event) {
-        this.shippingDuration = event.target.value;
-        this.loadPreview();
+        this.shippingDuration = parseInt(event.target.value, 10);
+        const orderId = event.target.dataset.id;
+        this.loadPreview(orderId);
     }
 
-    async loadPreview() {
-        if (this.orders.length > 0) {
-            // Just preview the first one for demo purposes or use a specific orderId
-            try {
-                this.capacityPreview = await getCapacityPreview({
-                    orderId: this.orders[0].Id,
-                    shippingDurationDays: this.shippingDuration
-                });
-            } catch (error) {
-                console.error(error);
-            }
+    async loadPreview(orderId) {
+        if (!orderId) return;
+        try {
+            this.capacityPreview = await getCapacityPreview({
+                orderId: orderId,
+                shippingDurationDays: this.shippingDuration
+            });
+        } catch (error) {
+            console.error(error);
         }
     }
 
     async handleAccept(event) {
-        const orderId = this.orders[0].Id; // Simplified
+        const orderId = event.target.dataset.id;
         try {
-            await acceptOrder({ orderId, shippingDurationDays: this.shippingDuration });
+            await acceptOrder({
+                orderId,
+                params: {
+                    shippingDurationDays: this.shippingDuration,
+                    customizationCharge: 0,
+                    deliveryCharge: 0,
+                    urgentOrderCharge: 0
+                }
+            });
             refreshApex(this.wiredOrdersResult);
         } catch (error) {
             alert(error.body.message);
@@ -98,8 +105,8 @@ export default class BouquetOrderPanel extends LightningElement {
         return `Move to ${NEXT_STATUS[this.activeTab]}`;
     }
 
-    async handleNextStatus() {
-        const orderId = this.orders[0].Id; // Simplified
+    async handleNextStatus(event) {
+        const orderId = event.target.dataset.id;
         const nextStatus = NEXT_STATUS[this.activeTab];
         const trackNum = nextStatus === 'SHIPPED' ? this.trackingNumber : null;
         try {

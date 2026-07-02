@@ -29,8 +29,11 @@ public with sharing class BouquetOrderController {
     public static Bouquet_Order__c getOrderTracking(Id orderId) {
         try {
             return [
-                SELECT Id, Order_Number__c, Status__c, Total_Amount__c, Tracking_Number__c,
-                    (SELECT Id, Status__c FROM Payments__r ORDER BY CreatedDate DESC LIMIT 1)
+                SELECT Id, Order_Number__c, Status__c, Total_Amount__c, Tracking_Number__c, CreatedDate,
+                       Subtotal__c, Customization_Charge__c, Delivery_Charge__c, Urgent_Order_Charge__c,
+                       Occasion_Date__c, Shipping_Date__c, Production_Deadline__c,
+                       (SELECT Id, Quantity__c, Product__r.Name FROM Order_Items__r),
+                       (SELECT Id, Status__c FROM Payments__r ORDER BY CreatedDate DESC LIMIT 1)
                 FROM Bouquet_Order__c
                 WHERE Id = :orderId
                 WITH SECURITY_ENFORCED
@@ -73,6 +76,16 @@ public with sharing class BouquetOrderController {
     public static Map<String, Object> placeGuestOrder(Map<String, Object> orderData) {
         Savepoint sp = Database.setSavepoint();
         try {
+            Id productId = (Id)orderData.get('productId');
+            Decimal quantity = (Decimal)orderData.get('quantity');
+
+            // Product Stock Validation
+            Product2 prod = [SELECT Id, Stock_Quantity__c, Name FROM Product2 WHERE Id = :productId WITH SECURITY_ENFORCED];
+            if (prod.Stock_Quantity__c < quantity) {
+                throw new BouquetException('Sorry, only ' + prod.Stock_Quantity__c + ' units of ' + prod.Name + ' are in stock.');
+            }
+
+            // Find or create Contact
             String email = (String)orderData.get('email');
             List<Contact> contacts = [SELECT Id FROM Contact WHERE Email = :email WITH SECURITY_ENFORCED LIMIT 1];
             Contact c;
@@ -88,6 +101,7 @@ public with sharing class BouquetOrderController {
                 c = contacts[0];
             }
 
+            // Create Address
             Bouquet_Address__c addr = new Bouquet_Address__c(
                 Customer__c = c.Id,
                 Address__c = (String)orderData.get('address'),
@@ -97,24 +111,33 @@ public with sharing class BouquetOrderController {
             );
             insert Security.stripInaccessible(AccessType.CREATABLE, new List<Bouquet_Address__c>{addr}).getRecords();
 
+            // Decrement Inventory
+            prod.Stock_Quantity__c -= quantity;
+            prod.Order_Count__c = (prod.Order_Count__c != null ? prod.Order_Count__c : 0) + 1;
+            update Security.stripInaccessible(AccessType.UPDATABLE, new List<Product2>{prod}).getRecords();
+
+            // Create Order
             Bouquet_Order__c ord = new Bouquet_Order__c(
                 Customer__c = c.Id,
                 Status__c = 'PENDING_REVIEW',
                 Occasion_Date__c = Date.valueOf((String)orderData.get('occasionDate')),
                 Occasion_Type__c = (String)orderData.get('occasionType'),
-                Subtotal__c = (Decimal)orderData.get('totalAmount'), // Total_Amount__c is a formula!
+                Subtotal__c = (Decimal)orderData.get('totalAmount'),
                 Notes__c = (String)orderData.get('notes')
             );
             insert Security.stripInaccessible(AccessType.CREATABLE, new List<Bouquet_Order__c>{ord}).getRecords();
 
+            // Create Order Item
             Bouquet_Order_Item__c item = new Bouquet_Order_Item__c(
                 Bouquet_Order__c = ord.Id,
-                Product__c = (Id)orderData.get('productId'),
-                Quantity__c = (Decimal)orderData.get('quantity'),
+                Product__c = productId,
+                Quantity__c = quantity,
                 Production_Hours__c = (Decimal)orderData.get('productionHours'),
-                Hours_Required__c = ((Decimal)orderData.get('productionHours') * (Decimal)orderData.get('quantity'))
+                Hours_Required__c = ((Decimal)orderData.get('productionHours') * quantity)
             );
             insert Security.stripInaccessible(AccessType.CREATABLE, new List<Bouquet_Order_Item__c>{item}).getRecords();
+
+            BouquetLogger.logEvent('ORDER_CREATED', c.Id, productId, ord.Id, orderData);
 
             return new Map<String, Object>{
                 'orderId' => ord.Id,

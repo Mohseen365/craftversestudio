@@ -1,32 +1,99 @@
 <template>
-    <lightning-card title="Order Tracking" icon-name="standard:shipment">
+    <lightning-card title="Order Details" icon-name="standard:orders">
         <div class="slds-p-around_medium">
             <template if:true={orderId}>
-                <lightning-record-view-form
-                    record-id={orderId}
-                    object-api-name="Bouquet_Order__c">
-                    <div class="slds-box slds-m-bottom_medium">
-                        <lightning-output-field field-name="Order_Number__c"></lightning-output-field>
-                        <lightning-output-field field-name="Status__c"></lightning-output-field>
-                        <lightning-output-field field-name="Total_Amount__c"></lightning-output-field>
-                    </div>
-                </lightning-record-view-form>
+                <div class="slds-grid slds-wrap slds-gutters">
+                    <!-- Column 1: Core Info, Action Card & Timeline -->
+                    <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+                        <template if:true={orderData}>
+                            <!-- Status Action Card -->
+                            <div class="slds-box slds-m-bottom_medium slds-theme_inverse">
+                                <h2 class="slds-text-heading_small">{statusTitle}</h2>
+                                <p class="slds-m-top_x-small">{statusDescription}</p>
+                            </div>
 
-                <template if:true={showPaymentUpload}>
-                    <div class="slds-box slds-theme_shade">
-                        <h3 class="slds-text-heading_small slds-m-bottom_small">Upload Payment Proof</h3>
-                        <lightning-file-upload
-                            label="Attach screenshot"
-                            name="fileUploader"
-                            accept={acceptedFormats}
-                            record-id={orderId}
-                            onuploadfinished={handleUploadFinished}
-                            multiple="false">
-                        </lightning-file-upload>
+                            <lightning-record-view-form record-id={orderId} object-api-name="Bouquet_Order__c">
+                                <div class="slds-box slds-m-bottom_medium">
+                                    <div class="slds-grid slds-grid_align-spread">
+                                        <h1 class="slds-text-heading_medium font-mono">{orderNumber}</h1>
+                                        <p class="slds-text-color_weak">Placed on {createdDate}</p>
+                                    </div>
+                                    <div class="slds-m-top_small">
+                                        <lightning-output-field field-name="Status__c"></lightning-output-field>
+                                    </div>
+                                </div>
+
+                                <div class="slds-box slds-m-bottom_medium">
+                                    <h2 class="slds-text-title_bold slds-m-bottom_small">Delivery Information</h2>
+                                    <div class="slds-grid slds-wrap">
+                                        <div class="slds-col slds-size_1-of-2">
+                                            <lightning-output-field field-name="Occasion_Date__c"></lightning-output-field>
+                                            <lightning-output-field field-name="Shipping_Date__c"></lightning-output-field>
+                                        </div>
+                                        <div class="slds-col slds-size_1-of-2">
+                                            <lightning-output-field field-name="Production_Deadline__c"></lightning-output-field>
+                                            <lightning-output-field field-name="Tracking_Number__c"></lightning-output-field>
+                                        </div>
+                                    </div>
+                                </div>
+                            </lightning-record-view-form>
+
+                            <template if:true={showPaymentUpload}>
+                                <div class="slds-box slds-theme_shade">
+                                    <h3 class="slds-text-heading_small slds-m-bottom_small">Upload Payment Proof</h3>
+                                    <p class="slds-m-bottom_small">Please upload a screenshot of your transfer to initiate verification.</p>
+                                    <lightning-file-upload
+                                        label="Attach screenshot"
+                                        accept=".png,.jpg,.jpeg"
+                                        record-id={orderId}
+                                        onuploadfinished={handleUploadFinished}>
+                                    </lightning-file-upload>
+                                </div>
+                            </template>
+                        </template>
                     </div>
-                </template>
+
+                    <!-- Column 2: Items, Pricing & Progress -->
+                    <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+                        <div class="slds-box slds-m-bottom_medium">
+                            <h2 class="slds-text-title_bold slds-m-bottom_small">Order Progress</h2>
+                            <c-bouquet-order-timeline current-status={orderStatus}></c-bouquet-order-timeline>
+                        </div>
+
+                        <!-- Order Items -->
+                        <div class="slds-box slds-m-bottom_medium">
+                            <h2 class="slds-text-title_bold slds-m-bottom_small">Order Items</h2>
+                            <template if:true={orderItems}>
+                                <template for:each={orderItems} for:item="item">
+                                    <div key={item.Id} class="slds-p-vertical_x-small slds-border_bottom">
+                                        <p><strong>{item.Product__r.Name}</strong></p>
+                                        <p class="slds-text-color_weak">Quantity: {item.Quantity__c}</p>
+                                    </div>
+                                </template>
+                            </template>
+                        </div>
+
+                        <div class="slds-box slds-m-bottom_medium">
+                            <h2 class="slds-text-title_bold slds-m-bottom_small">Price Breakdown</h2>
+                            <lightning-record-view-form record-id={orderId} object-api-name="Bouquet_Order__c">
+                                <lightning-output-field field-name="Subtotal__c"></lightning-output-field>
+                                <lightning-output-field field-name="Customization_Charge__c"></lightning-output-field>
+                                <lightning-output-field field-name="Delivery_Charge__c"></lightning-output-field>
+                                <lightning-output-field field-name="Urgent_Order_Charge__c"></lightning-output-field>
+                                <div class="slds-border_top slds-m-top_small slds-p-top_small">
+                                    <lightning-output-field field-name="Total_Amount__c"></lightning-output-field>
+                                </div>
+                            </lightning-record-view-form>
+                        </div>
+                    </div>
+                </div>
             </template>
-            <!-- ... -->
+            <template if:false={orderId}>
+                <div class="slds-align_absolute-center slds-m-top_large" style="flex-direction: column;">
+                    <lightning-input label="Order ID" placeholder="Enter your order ID to track" onchange={handleOrderIdChange} class="slds-size_1-of-3"></lightning-input>
+                    <lightning-button label="Track My Order" variant="brand" onclick={handleTrack} class="slds-m-top_medium"></lightning-button>
+                </div>
+            </template>
         </div>
     </lightning-card>
 </template>

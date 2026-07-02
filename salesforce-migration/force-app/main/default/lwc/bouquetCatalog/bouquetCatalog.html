@@ -10,15 +10,16 @@
             <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3">
                 <lightning-combobox label="Sort By" value={sortBy} options={sortOptions} onchange={handleSortChange}></lightning-combobox>
             </div>
-            <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3">
-                <div class="slds-button-group" role="group">
-                    <template for:each={categories} for:item="cat">
-                        <button key={cat} class={cat.className} onclick={handleCategoryClick} data-name={cat}>{cat}</button>
-                    </template>
-                </div>
-            </div>
         </div>
 
-        <!-- ... (product list) -->
+        <template if:true={products.data}>
+            <div class="slds-grid slds-wrap slds-gutters">
+                <template for:each={products.data} for:item="product">
+                    <div key={product.Id} class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3 slds-m-bottom_medium">
+                        <c-bouquet-product-card product={product} onordernow={handleOrderNow}></c-bouquet-product-card>
+                    </div>
+                </template>
+            </div>
+        </template>
     </div>
 </template>

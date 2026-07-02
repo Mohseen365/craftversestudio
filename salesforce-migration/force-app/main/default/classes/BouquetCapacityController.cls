@@ -27,7 +27,6 @@ public with sharing class BouquetCapacityController {
         try {
             Date todayDate = Date.today();
 
-            // Find latest deadline efficiently
             List<Bouquet_Order__c> latestOrder = [
                 SELECT Production_Deadline__c
                 FROM Bouquet_Order__c
@@ -38,7 +37,6 @@ public with sharing class BouquetCapacityController {
             ];
             Date endDate = latestOrder.isEmpty() ? todayDate.addDays(7) : latestOrder[0].Production_Deadline__c;
 
-            // Performance Optimization: Map-based join logic to handle large datasets
             List<Bouquet_Capacity__c> caps = [
                 SELECT Id, Date__c, Maximum_Hours__c,
                        (SELECT Id, Planned_Hours__c, Completed_Hours__c, Bouquet_Order__c,
@@ -71,8 +69,6 @@ public with sharing class BouquetCapacityController {
                     orRes.allocatedToday = res.Planned_Hours__c;
                     orRes.productionDeadline = res.Bouquet_Order__r.Production_Deadline__c;
                     orRes.status = res.Bouquet_Order__r.Status__c;
-
-                    // Native Optimization: Use Roll-up Summary fields instead of manual SOQL loops
                     orRes.totalRequiredEffort = res.Bouquet_Order__r.Required_Hours__c;
                     orRes.completedEffort = res.Bouquet_Order__r.Completed_Hours__c;
                     orRes.remainingEffort = Math.max(0, orRes.totalRequiredEffort - orRes.completedEffort);
@@ -91,16 +87,12 @@ public with sharing class BouquetCapacityController {
     }
 
     @AuraEnabled
-    public static void overrideCapacity(Date overrideDate, Decimal maximumHours) {
+    public static void overrideCapacity(Date overrideDate, Decimal maximumHours, String reason) {
         try {
-            List<Bouquet_Capacity__c> caps = [SELECT Id FROM Bouquet_Capacity__c WHERE Date__c = :overrideDate WITH SECURITY_ENFORCED LIMIT 1];
-            if (caps.isEmpty()) {
-                Bouquet_Capacity__c newCap = new Bouquet_Capacity__c(Date__c = overrideDate, Name = overrideDate.toString(), Maximum_Hours__c = maximumHours);
-                insert Security.stripInaccessible(AccessType.CREATABLE, new List<Bouquet_Capacity__c>{newCap}).getRecords();
-            } else {
-                caps[0].Maximum_Hours__c = maximumHours;
-                update Security.stripInaccessible(AccessType.UPDATABLE, caps).getRecords();
+            if (!FeatureManagement.checkPermission('Manage_Capacity')) {
+                throw new BouquetException('You do not have permission to manage capacity.');
             }
+            BouquetCapacityService.overrideCapacity(overrideDate, maximumHours, reason);
         } catch (Exception e) {
             throw new AuraHandledException(e.getMessage());
         }
@@ -125,7 +117,6 @@ public with sharing class BouquetCapacityController {
             res[0].Completed_Hours__c = (res[0].Completed_Hours__c != null ? res[0].Completed_Hours__c : 0) + completedHours;
             update Security.stripInaccessible(AccessType.UPDATABLE, res).getRecords();
 
-            // Native Optimization: Use Order roll-up instead of manual aggregate query
             Bouquet_Order__c ord = [SELECT Completed_Hours__c FROM Bouquet_Order__c WHERE Id = :orderId];
             return ord.Completed_Hours__c;
         } catch (Exception e) {

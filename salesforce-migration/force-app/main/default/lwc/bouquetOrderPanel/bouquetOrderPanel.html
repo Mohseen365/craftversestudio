@@ -35,7 +35,7 @@
                                     <div class="slds-col slds-size_1-of-2">
                                         <p>Status: <strong>{order.Status__c}</strong></p>
                                         <p>Occasion Date: {order.Occasion_Date__c}</p>
-                                        <p>Total: {order.Total_Amount__c}</p>
+                                        <p>Total: ₹{order.Total_Amount__c}</p>
                                     </div>
                                     <div class="slds-col slds-size_1-of-2">
                                         <p>Shipping Date: {order.Shipping_Date__c}</p>
@@ -46,18 +46,13 @@
 
                                 <template if:true={isPendingReview}>
                                     <div class="slds-box slds-m-top_small slds-theme_shade">
-                                        <lightning-input type="number" label="Shipping Duration (Days)" value={shippingDuration} onchange={handleDurationChange}></lightning-input>
+                                        <lightning-input type="number" label="Shipping Duration (Days)" value={shippingDuration} onchange={handleDurationChange} data-id={order.Id}></lightning-input>
 
                                         <template if:true={capacityPreview}>
                                             <div class="slds-m-top_x-small">
                                                 <template if:true={capacityPreview.canAccept}>
                                                     <p class="slds-text-color_success">Capacity Available</p>
-                                                    <ul>
-                                                        <template for:each={capacityPreview.suggestedDates} for:item="sd">
-                                                            <li key={sd.allocationDate}>{sd.allocationDate}: {sd.hours}h</li>
-                                                        </template>
-                                                    </ul>
-                                                    <lightning-button label="Accept Order" variant="brand" onclick={handleAccept} class="slds-m-top_x-small"></lightning-button>
+                                                    <lightning-button label="Accept Order" variant="brand" onclick={handleAccept} data-id={order.Id} class="slds-m-top_x-small"></lightning-button>
                                                 </template>
                                                 <template if:false={capacityPreview.canAccept}>
                                                     <p class="slds-text-color_error">{capacityPreview.reason}</p>
@@ -69,11 +64,13 @@
 
                                 <div class="slds-m-top_small">
                                     <template if:true={showNextAction}>
-                                        <lightning-button label={nextActionLabel} variant="brand" onclick={handleNextStatus}></lightning-button>
+                                        <lightning-button label={nextActionLabel} variant="brand" onclick={handleNextStatus} data-id={order.Id}></lightning-button>
                                     </template>
                                     <template if:true={isReadyToShip}>
-                                        <lightning-input label="Tracking Number" value={trackingNumber} onchange={handleTrackingChange} placeholder="Enter tracking and click Ship"></lightning-input>
-                                        <lightning-button label="Ship Order" variant="brand" onclick={handleNextStatus} class="slds-m-top_x-small"></lightning-button>
+                                        <div class="slds-m-top_small">
+                                            <lightning-input label="Tracking Number" value={trackingNumber} onchange={handleTrackingChange} placeholder="Enter tracking..." class="slds-m-bottom_x-small"></lightning-input>
+                                            <lightning-button label="Ship Order" variant="brand" onclick={handleNextStatus} data-id={order.Id}></lightning-button>
+                                        </div>
                                     </template>
                                 </div>
                             </div>

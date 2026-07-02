@@ -1,0 +1,18 @@
+<template>
+    <div class="slds-p-around_medium">
+        <template if:true={product}>
+            <div class="slds-grid slds-wrap slds-gutters">
+                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+                    <img src={product.Image_URL__c} alt={product.Name} class="slds-m-bottom_medium" />
+                </div>
+                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+                    <p class="slds-text-title_caps">{product.Category__c}</p>
+                    <h1 class="slds-text-heading_large">{product.Name}</h1>
+                    <p class="slds-text-heading_medium slds-m-top_medium">₹{product.Price__c}</p>
+                    <p class="slds-m-top_large">{product.Description}</p>
+                    <lightning-button label="Order this bouquet" variant="brand" class="slds-m-top_large" onclick={handleOrder}></lightning-button>
+                </div>
+            </div>
+        </template>
+    </div>
+</template>
