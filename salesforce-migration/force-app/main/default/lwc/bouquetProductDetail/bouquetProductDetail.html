@@ -1,16 +1,30 @@
 <template>
-    <div class="slds-p-around_medium">
+    <div class="slds-p-around_medium slds-theme_default slds-box">
         <template if:true={product}>
             <div class="slds-grid slds-wrap slds-gutters">
                 <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
-                    <img src={product.Image_URL__c} alt={product.Name} class="slds-m-bottom_medium" />
+                    <div class="image-wrapper slds-align_absolute-center slds-theme_shade" style="min-height: 400px; border-radius: 1rem; overflow: hidden;">
+                        <img src={product.Image_URL__c} alt={product.Name} style="width: 100%; object-fit: cover;" />
+                    </div>
                 </div>
-                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
-                    <p class="slds-text-title_caps">{product.Category__c}</p>
-                    <h1 class="slds-text-heading_large">{product.Name}</h1>
+                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2 slds-p-around_medium">
+                    <p class="slds-text-title_caps slds-text-color_error">{product.Category__c}</p>
+                    <h1 class="slds-text-heading_large slds-m-top_small">{product.Name}</h1>
                     <p class="slds-text-heading_medium slds-m-top_medium">₹{product.Price__c}</p>
-                    <p class="slds-m-top_large">{product.Description}</p>
-                    <lightning-button label="Order this bouquet" variant="brand" class="slds-m-top_large" onclick={handleOrder}></lightning-button>
+
+                    <div class="slds-m-top_large slds-text-longform">
+                        <p>{product.Description}</p>
+                    </div>
+
+                    <div class="slds-m-top_large">
+                        <template if:false={isOutOfStock}>
+                            <lightning-button label="Order this bouquet" variant="brand" class="slds-button_stretch" onclick={handleOrder}></lightning-button>
+                            <p class="slds-m-top_small slds-text-color_weak">Estimated production: {product.Production_Hours__c}h</p>
+                        </template>
+                        <template if:true={isOutOfStock}>
+                            <p class="slds-text-color_error slds-text-heading_small">Currently Out of Stock</p>
+                        </template>
+                    </div>
                 </div>
             </div>
         </template>

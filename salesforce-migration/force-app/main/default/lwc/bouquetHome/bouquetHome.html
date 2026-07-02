@@ -1,8 +1,10 @@
 <template>
     <c-bouquet-header></c-bouquet-header>
     <main>
+        <!-- Hero Section -->
         <section class="hero slds-p-around_xx-large slds-theme_shade">
             <div class="slds-max-medium-size_1-of-1 slds-size_2-of-3">
+                <p class="slds-text-title_caps slds-text-color_error slds-m-bottom_small">Instagram → Order → Delivered</p>
                 <h1 class="slds-text-heading_large font-serif">Bouquets crafted with care, delivered on your date</h1>
                 <p class="slds-text-heading_small slds-m-top_medium">Browse our catalog, pick your delivery date, upload payment, and track your order — no endless DMs required.</p>
                 <div class="slds-m-top_large">
@@ -12,9 +14,29 @@
             </div>
         </section>
 
+        <!-- Featured Products -->
         <section class="slds-p-around_x-large">
-            <h2 class="slds-text-heading_medium slds-m-bottom_medium">Popular bouquets</h2>
-            <c-bouquet-featured-products></c-bouquet-featured-products>
+            <div class="slds-grid slds-grid_align-spread slds-m-bottom_medium">
+                <h2 class="slds-text-heading_medium">Popular bouquets</h2>
+                <lightning-button label="View all" variant="base" onclick={navigateToCatalog}></lightning-button>
+            </div>
+            <c-bouquet-featured-products onordernow={handleOrderNow}></c-bouquet-featured-products>
+        </section>
+
+        <!-- How it works -->
+        <section class="slds-p-around_x-large slds-theme_default slds-border_top">
+            <h2 class="slds-text-heading_medium slds-m-bottom_large">How it works</h2>
+            <div class="slds-grid slds-wrap slds-gutters">
+                <template for:each={steps} for:item="step">
+                    <div key={step.id} class="slds-col slds-size_1-of-1 slds-medium-size_1-of-4 slds-m-bottom_medium">
+                        <div class="slds-box slds-box_small slds-theme_shade">
+                            <p class="slds-text-heading_small slds-text-color_error"><strong>{step.id}</strong></p>
+                            <h3 class="slds-text-title_bold slds-m-top_x-small">{step.title}</h3>
+                            <p class="slds-text-color_weak slds-m-top_xx-small">{step.desc}</p>
+                        </div>
+                    </div>
+                </template>
+            </div>
         </section>
     </main>
     <c-bouquet-footer></c-bouquet-footer>

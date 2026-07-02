@@ -9,6 +9,26 @@ public with sharing class BouquetOrderController {
         }
     }
 
+    @AuraEnabled(cacheable=true)
+    public static List<Bouquet_Order__c> getMyOrders() {
+        try {
+            Id userId = UserInfo.getUserId();
+            User u = [SELECT ContactId FROM User WHERE Id = :userId WITH SECURITY_ENFORCED];
+            if (u.ContactId == null) return new List<Bouquet_Order__c>();
+
+            return [
+                SELECT Id, Order_Number__c, Status__c, Occasion_Date__c, Total_Amount__c, CreatedDate,
+                       (SELECT Product__r.Name FROM Order_Items__r LIMIT 1)
+                FROM Bouquet_Order__c
+                WHERE Customer__c = :u.ContactId
+                WITH SECURITY_ENFORCED
+                ORDER BY CreatedDate DESC
+            ];
+        } catch (Exception e) {
+            throw new AuraHandledException(e.getMessage());
+        }
+    }
+
     @AuraEnabled
     public static BouquetScheduler.AcceptabilityResult getCapacityPreview(Id orderId, Integer shippingDurationDays) {
         try {
@@ -79,13 +99,11 @@ public with sharing class BouquetOrderController {
             Id productId = (Id)orderData.get('productId');
             Decimal quantity = (Decimal)orderData.get('quantity');
 
-            // Product Stock Validation
             Product2 prod = [SELECT Id, Stock_Quantity__c, Name FROM Product2 WHERE Id = :productId WITH SECURITY_ENFORCED];
             if (prod.Stock_Quantity__c < quantity) {
                 throw new BouquetException('Sorry, only ' + prod.Stock_Quantity__c + ' units of ' + prod.Name + ' are in stock.');
             }
 
-            // Find or create Contact
             String email = (String)orderData.get('email');
             List<Contact> contacts = [SELECT Id FROM Contact WHERE Email = :email WITH SECURITY_ENFORCED LIMIT 1];
             Contact c;
@@ -101,7 +119,6 @@ public with sharing class BouquetOrderController {
                 c = contacts[0];
             }
 
-            // Create Address
             Bouquet_Address__c addr = new Bouquet_Address__c(
                 Customer__c = c.Id,
                 Address__c = (String)orderData.get('address'),
@@ -111,12 +128,10 @@ public with sharing class BouquetOrderController {
             );
             insert Security.stripInaccessible(AccessType.CREATABLE, new List<Bouquet_Address__c>{addr}).getRecords();
 
-            // Decrement Inventory
             prod.Stock_Quantity__c -= quantity;
             prod.Order_Count__c = (prod.Order_Count__c != null ? prod.Order_Count__c : 0) + 1;
             update Security.stripInaccessible(AccessType.UPDATABLE, new List<Product2>{prod}).getRecords();
 
-            // Create Order
             Bouquet_Order__c ord = new Bouquet_Order__c(
                 Customer__c = c.Id,
                 Status__c = 'PENDING_REVIEW',
@@ -127,17 +142,14 @@ public with sharing class BouquetOrderController {
             );
             insert Security.stripInaccessible(AccessType.CREATABLE, new List<Bouquet_Order__c>{ord}).getRecords();
 
-            // Create Order Item
             Bouquet_Order_Item__c item = new Bouquet_Order_Item__c(
                 Bouquet_Order__c = ord.Id,
                 Product__c = productId,
                 Quantity__c = quantity,
                 Production_Hours__c = (Decimal)orderData.get('productionHours'),
-                Hours_Required__c = ((Decimal)orderData.get('productionHours') * quantity)
+                Hours_Required__c = ((Decimal)orderData.get('productionHours') * (Decimal)orderData.get('quantity'))
             );
             insert Security.stripInaccessible(AccessType.CREATABLE, new List<Bouquet_Order_Item__c>{item}).getRecords();
-
-            BouquetLogger.logEvent('ORDER_CREATED', c.Id, productId, ord.Id, orderData);
 
             return new Map<String, Object>{
                 'orderId' => ord.Id,

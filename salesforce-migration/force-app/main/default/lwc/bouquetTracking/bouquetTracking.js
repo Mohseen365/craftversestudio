@@ -23,9 +23,12 @@ export default class BouquetTracking extends LightningElement {
 
     @wire(CurrentPageReference)
     getStateParameters(currentPageReference) {
-        if (currentPageReference && currentPageReference.state && currentPageReference.state.c__orderId) {
-            this.orderId = currentPageReference.state.c__orderId;
-            this.loadOrderData();
+        if (currentPageReference && currentPageReference.state) {
+            // Handle both authenticated (list) and direct order navigation
+            if (currentPageReference.state.c__orderId) {
+                this.orderId = currentPageReference.state.c__orderId;
+                this.loadOrderData();
+            }
         }
     }
 
@@ -34,7 +37,9 @@ export default class BouquetTracking extends LightningElement {
         try {
             this.orderData = await getOrderTracking({ orderId: this.orderId });
         } catch (error) {
-            console.error(error);
+            console.error('Error loading order data:', error);
+            this.dispatchEvent(new ShowToastEvent({ title: 'Error', message: 'Order not found or access denied.', variant: 'error' }));
+            this.orderData = null;
         }
     }
 
@@ -47,40 +52,24 @@ export default class BouquetTracking extends LightningElement {
         this.loadOrderData();
     }
 
-    get orderNumber() {
-        return this.orderData ? this.orderData.Order_Number__c : '';
-    }
-
-    get orderStatus() {
-        return this.orderData ? this.orderData.Status__c : null;
-    }
-
-    get createdDate() {
-        return this.orderData ? new Date(this.orderData.CreatedDate).toLocaleDateString() : '';
-    }
-
-    get orderItems() {
-        return this.orderData ? this.orderData.Order_Items__r : [];
-    }
-
-    get showPaymentUpload() {
-        return this.orderStatus === 'PAYMENT_PENDING' || this.orderStatus === 'ACCEPTED';
-    }
-
-    get statusTitle() {
-        return STATUS_MESSAGES[this.orderStatus]?.title || 'Order Tracking';
-    }
-
-    get statusDescription() {
-        return STATUS_MESSAGES[this.orderStatus]?.description || 'Follow your bouquet\'s journey here.';
-    }
+    get orderNumber() { return this.orderData?.Order_Number__c || ''; }
+    get orderStatus() { return this.orderData?.Status__c || null; }
+    get createdDate() { return this.orderData?.CreatedDate ? new Date(this.orderData.CreatedDate).toLocaleDateString() : ''; }
+    get orderItems() { return this.orderData?.Order_Items__r || []; }
+    get showPaymentUpload() { return this.orderStatus === 'PAYMENT_PENDING' || this.orderStatus === 'ACCEPTED'; }
+    get statusTitle() { return STATUS_MESSAGES[this.orderStatus]?.title || 'Order Tracking'; }
+    get statusDescription() { return STATUS_MESSAGES[this.orderStatus]?.description || 'Follow your bouquet\'s journey here.'; }
 
     async handleUploadFinished(event) {
         if (event.detail.files.length > 0) {
             this.dispatchEvent(new ShowToastEvent({ title: 'Success', message: 'Payment proof uploaded for verification.', variant: 'success' }));
             const fields = { Id: this.orderId, Status__c: 'PAYMENT_SUBMITTED' };
-            await updateRecord({ fields });
-            this.loadOrderData();
+            try {
+                await updateRecord({ fields });
+                this.loadOrderData();
+            } catch (err) {
+                console.error('Update failed:', err);
+            }
         }
     }
 }
