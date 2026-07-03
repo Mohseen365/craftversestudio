@@ -25,4 +25,16 @@ public with sharing class BouquetLogger {
         );
         insert Security.stripInaccessible(AccessType.CREATABLE, new List<Bouquet_Event__c>{evt}).getRecords();
     }
+
+    public static void logAudit(String action, Id entityId, String entityType, String beforeJson, String afterJson) {
+        Bouquet_Audit_Log__c audit = new Bouquet_Audit_Log__c(
+            Action__c = action,
+            Entity_Id__c = entityId,
+            Entity_Type__c = entityType,
+            Before_Data__c = beforeJson,
+            After_Data__c = afterJson,
+            User__c = UserInfo.getUserId()
+        );
+        insert Security.stripInaccessible(AccessType.CREATABLE, new List<Bouquet_Audit_Log__c>{audit}).getRecords();
+    }
 }

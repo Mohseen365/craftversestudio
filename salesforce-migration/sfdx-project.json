@@ -5,7 +5,7 @@
       "default": true
     }
   ],
-  "name": "BouquetSalesforce",
+  "name": "Bouquet-Migration",
   "namespace": "",
   "sfdcLoginUrl": "https://login.salesforce.com",
   "sourceApiVersion": "60.0"

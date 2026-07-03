@@ -4,7 +4,6 @@ import { NavigationMixin, CurrentPageReference } from 'lightning/navigation';
 
 export default class BouquetOrderForm extends NavigationMixin(LightningElement) {
     @api productId;
-    @api productionHours;
     @api productPrice;
     @track formData = {
         quantity: 1,
@@ -17,7 +16,6 @@ export default class BouquetOrderForm extends NavigationMixin(LightningElement) 
     getStateParameters(currentPageReference) {
         if (currentPageReference && currentPageReference.state) {
             this.productId = currentPageReference.state.c__productId || this.productId;
-            this.productionHours = currentPageReference.state.c__productionHours || this.productionHours;
             this.productPrice = currentPageReference.state.c__productPrice || this.productPrice;
         }
     }
@@ -34,24 +32,30 @@ export default class BouquetOrderForm extends NavigationMixin(LightningElement) 
     }
 
     get subtotal() {
-        return (this.productPrice || 0) * this.formData.quantity;
+        return (this.productPrice || 0) * (this.formData.quantity || 1);
     }
 
     async handleSubmit() {
+        // Validate inputs
+        const allValid = [...this.template.querySelectorAll('lightning-input, lightning-combobox, lightning-textarea')]
+            .reduce((validSoFar, inputCmp) => {
+                inputCmp.reportValidity();
+                return validSoFar && inputCmp.checkValidity();
+            }, true);
+
+        if (!allValid) {
+            this.error = 'Please fill in all required fields.';
+            return;
+        }
+
         this.isSubmitting = true;
         this.error = null;
 
         try {
-            // Read values from template correctly
-            const notes = this.template.querySelector('lightning-textarea[name="notes"]')?.value;
-
             const result = await placeGuestOrder({
                 orderData: {
                     ...this.formData,
-                    productId: this.productId,
-                    productionHours: this.productionHours,
-                    totalAmount: this.subtotal,
-                    notes: notes
+                    productId: this.productId
                 }
             });
 
@@ -65,6 +69,7 @@ export default class BouquetOrderForm extends NavigationMixin(LightningElement) 
                 }
             });
         } catch (err) {
+            console.error(err);
             this.error = err.body ? err.body.message : err.message;
         } finally {
             this.isSubmitting = false;

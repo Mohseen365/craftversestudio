@@ -3,5 +3,7 @@
     <fullName>Payment__c</fullName>
     <label>Payment</label>
     <referenceTo>Bouquet_Payment__c</referenceTo>
+    <relationshipLabel>Bouquet Events</relationshipLabel>
+    <relationshipName>Bouquet_Events</relationshipName>
     <type>Lookup</type>
 </CustomField>

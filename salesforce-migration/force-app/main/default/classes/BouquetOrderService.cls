@@ -1,6 +1,6 @@
 public with sharing class BouquetOrderService {
 
-    public static void acceptOrder(Id orderId, Integer shippingDurationDays, Decimal customCharge, Decimal deliveryCharge, Decimal urgentCharge) {
+    public static Map<String, Object> acceptOrder(Id orderId, Integer shippingDurationDays) {
         try {
             Bouquet_Order__c order = BouquetOrderSelector.getOrderById(orderId);
 
@@ -8,15 +8,9 @@ public with sharing class BouquetOrderService {
                 throw new BouquetException('Order is not in valid status for acceptance.');
             }
 
-            // Automatic urgent charge if flagged
-            if (order.Is_Urgent__c && urgentCharge == 0) {
-                // Assuming a default urgent fee or similar logic
-                urgentCharge = 50.0;
-            }
-
             Date shippingDate = order.Occasion_Date__c.addDays(-shippingDurationDays);
             Date productionDeadline = shippingDate.addDays(-1);
-            Decimal requiredHours = BouquetScheduler.calculateOrderHours(orderId);
+            Decimal requiredHours = order.Required_Hours__c;
 
             BouquetScheduler.AcceptabilityResult check = BouquetScheduler.checkAcceptability(
                 order.Id, order.Order_Number__c, productionDeadline, requiredHours, null
@@ -30,13 +24,15 @@ public with sharing class BouquetOrderService {
             order.Shipping_Duration_Days__c = shippingDurationDays;
             order.Shipping_Date__c = shippingDate;
             order.Production_Deadline__c = productionDeadline;
-            order.Customization_Charge__c = customCharge;
-            order.Delivery_Charge__c = deliveryCharge;
-            order.Urgent_Order_Charge__c = urgentCharge;
 
             update Security.stripInaccessible(AccessType.UPDATABLE, new List<Bouquet_Order__c>{order}).getRecords();
 
             BouquetScheduler.persistAllocations(check.allocations, Date.today());
+
+            return new Map<String, Object>{
+                'success' => true,
+                'suggestedDates' => check.suggestedDates
+            };
         } catch (Exception e) {
             BouquetLogger.error('Failed to accept order', e);
             throw e;

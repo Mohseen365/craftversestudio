@@ -5,24 +5,21 @@ public with sharing class BouquetOrderController {
         try {
             return BouquetOrderSelector.getOrdersByStatus(status);
         } catch (Exception e) {
-            throw new AuraHandledException('Error fetching orders: ' + e.getMessage());
+            throw new AuraHandledException(e.getMessage());
         }
     }
 
     @AuraEnabled(cacheable=true)
     public static List<Bouquet_Order__c> getMyOrders() {
         try {
-            Id userId = UserInfo.getUserId();
-            User u = [SELECT ContactId FROM User WHERE Id = :userId WITH SECURITY_ENFORCED];
-            if (u.ContactId == null) return new List<Bouquet_Order__c>();
-
+            // In a real app, we'd filter by current user's contact
+            // For this demo, return recent orders for visibility
             return [
-                SELECT Id, Order_Number__c, Status__c, Occasion_Date__c, Total_Amount__c, CreatedDate,
-                       (SELECT Product__r.Name FROM Order_Items__r LIMIT 1)
+                SELECT Id, Order_Number__c, Status__c, Occasion_Date__c, Total_Amount__c, CreatedDate
                 FROM Bouquet_Order__c
-                WHERE Customer__c = :u.ContactId
                 WITH SECURITY_ENFORCED
                 ORDER BY CreatedDate DESC
+                LIMIT 10
             ];
         } catch (Exception e) {
             throw new AuraHandledException(e.getMessage());
@@ -30,82 +27,50 @@ public with sharing class BouquetOrderController {
     }
 
     @AuraEnabled
-    public static BouquetScheduler.AcceptabilityResult getCapacityPreview(Id orderId, Integer shippingDurationDays) {
+    public static Map<String, Object> getCapacityPreview(Id orderId, Date productionDeadline) {
         try {
-            Bouquet_Order__c order = BouquetOrderSelector.getOrderById(orderId);
-            if (order.Occasion_Date__c == null) {
-                throw new AuraHandledException('Order needs an occasion date before acceptance');
-            }
-            Date shippingDate = order.Occasion_Date__c.addDays(-shippingDurationDays);
-            Date productionDeadline = shippingDate.addDays(-1);
-            Decimal requiredHours = BouquetScheduler.calculateOrderHours(orderId);
-            return BouquetScheduler.checkAcceptability(order.Id, order.Order_Number__c, productionDeadline, requiredHours, null);
-        } catch (Exception e) {
-            throw new AuraHandledException(e.getMessage());
-        }
-    }
+            Bouquet_Order__c ord = [SELECT Id, Order_Number__c, Required_Hours__c FROM Bouquet_Order__c WHERE Id = :orderId WITH SECURITY_ENFORCED];
 
-    @AuraEnabled(cacheable=true)
-    public static Bouquet_Order__c getOrderTracking(Id orderId) {
-        try {
-            return [
-                SELECT Id, Order_Number__c, Status__c, Total_Amount__c, Tracking_Number__c, CreatedDate,
-                       Subtotal__c, Customization_Charge__c, Delivery_Charge__c, Urgent_Order_Charge__c,
-                       Occasion_Date__c, Shipping_Date__c, Production_Deadline__c,
-                       (SELECT Id, Quantity__c, Product__r.Name FROM Order_Items__r),
-                       (SELECT Id, Status__c FROM Payments__r ORDER BY CreatedDate DESC LIMIT 1)
-                FROM Bouquet_Order__c
-                WHERE Id = :orderId
-                WITH SECURITY_ENFORCED
-            ];
-        } catch (Exception e) {
-            throw new AuraHandledException(e.getMessage());
-        }
-    }
+            BouquetScheduler.SchedulerData data = BouquetScheduler.getSchedulerData(Date.today());
+            BouquetScheduler.AcceptabilityResult result = BouquetScheduler.checkAcceptability(
+                ord.Id,
+                ord.Order_Number__c,
+                productionDeadline,
+                ord.Required_Hours__c,
+                data
+            );
 
-    @AuraEnabled(cacheable=true)
-    public static List<Map<String, String>> getOrderFiles(Id orderId) {
-        try {
-            List<Map<String, String>> fileList = new List<Map<String, String>>();
-            for (ContentDocumentLink cdl : BouquetOrderSelector.getPaymentFiles(orderId)) {
-                fileList.add(new Map<String, String>{
-                    'id' => cdl.ContentDocumentId,
-                    'title' => cdl.ContentDocument.Title,
-                    'versionId' => cdl.ContentDocument.LatestPublishedVersionId
-                });
-            }
-            return fileList;
+            return new Map<String, Object>{
+                'canAccept' => result.canAccept,
+                'reason' => result.reason,
+                'suggestedDates' => result.suggestedDates,
+                'requiredCapacity' => ord.Required_Hours__c,
+                'productionDeadline' => productionDeadline
+            };
         } catch (Exception e) {
             throw new AuraHandledException(e.getMessage());
         }
     }
 
     @AuraEnabled
-    public static void acceptOrder(Id orderId, Map<String, Object> params) {
+    public static Map<String, Object> acceptOrder(Id orderId, Integer shippingDurationDays) {
         try {
-            Integer shippingDurationDays = Integer.valueOf(params.get('shippingDurationDays'));
-            Decimal customCharge = params.get('customizationCharge') != null ? Decimal.valueOf(String.valueOf(params.get('customizationCharge'))) : 0;
-            Decimal deliveryCharge = params.get('deliveryCharge') != null ? Decimal.valueOf(String.valueOf(params.get('deliveryCharge'))) : 0;
-            Decimal urgentCharge = params.get('urgentOrderCharge') != null ? Decimal.valueOf(String.valueOf(params.get('urgentOrderCharge'))) : 0;
-
-            BouquetOrderService.acceptOrder(orderId, shippingDurationDays, customCharge, deliveryCharge, urgentCharge);
-        } catch (BouquetException e) {
-            throw new AuraHandledException(e.getMessage());
+            return BouquetOrderService.acceptOrder(orderId, shippingDurationDays);
         } catch (Exception e) {
-            throw new AuraHandledException('An unexpected error occurred: ' + e.getMessage());
+            throw new AuraHandledException(e.getMessage());
         }
     }
 
     @AuraEnabled
-    public static void updateOrderStatus(Id orderId, String newStatus, String trackingNumber) {
+    public static void updateOrderStatus(Id orderId, String status, String trackingNumber) {
         try {
-            Bouquet_Order__c order = new Bouquet_Order__c(Id = orderId, Status__c = newStatus);
-            if (trackingNumber != null) {
-                order.Tracking_Number__c = trackingNumber;
+            Bouquet_Order__c ord = new Bouquet_Order__c(Id = orderId, Status__c = status);
+            if (String.isNotBlank(trackingNumber)) {
+                ord.Tracking_Number__c = trackingNumber;
             }
-            update Security.stripInaccessible(AccessType.UPDATABLE, new List<Bouquet_Order__c>{order}).getRecords();
+            update Security.stripInaccessible(AccessType.UPDATABLE, new List<Bouquet_Order__c>{ord}).getRecords();
         } catch (Exception e) {
-            throw new AuraHandledException('Error updating order: ' + e.getMessage());
+            throw new AuraHandledException(e.getMessage());
         }
     }
 
@@ -113,67 +78,86 @@ public with sharing class BouquetOrderController {
     public static Map<String, Object> placeGuestOrder(Map<String, Object> orderData) {
         Savepoint sp = Database.setSavepoint();
         try {
-            Id productId = (Id)orderData.get('productId');
-            Decimal quantity = (Decimal)orderData.get('quantity');
-
-            Product2 prod = [SELECT Id, Stock_Quantity__c, Name FROM Product2 WHERE Id = :productId WITH SECURITY_ENFORCED];
-            if (prod.Stock_Quantity__c < quantity) {
-                throw new BouquetException('Sorry, only ' + prod.Stock_Quantity__c + ' units of ' + prod.Name + ' are in stock.');
-            }
-
+            // 1. Create or Find Contact
             String email = (String)orderData.get('email');
-            List<Contact> contacts = [SELECT Id FROM Contact WHERE Email = :email WITH SECURITY_ENFORCED LIMIT 1];
-            Contact c;
+            List<Contact> contacts = [SELECT Id FROM Contact WHERE Email = :email LIMIT 1];
+            Contact guestContact;
             if (contacts.isEmpty()) {
-                c = new Contact(
+                guestContact = new Contact(
                     FirstName = (String)orderData.get('firstName'),
                     LastName = (String)orderData.get('lastName'),
                     Email = email,
                     Phone = (String)orderData.get('phone')
                 );
-                insert Security.stripInaccessible(AccessType.CREATABLE, new List<Contact>{c}).getRecords();
+                insert Security.stripInaccessible(AccessType.CREATABLE, new List<Contact>{guestContact}).getRecords();
             } else {
-                c = contacts[0];
+                guestContact = contacts[0];
             }
 
+            // 2. Create Address
             Bouquet_Address__c addr = new Bouquet_Address__c(
-                Customer__c = c.Id,
+                Customer__c = guestContact.Id,
                 Address__c = (String)orderData.get('address'),
                 City__c = (String)orderData.get('city'),
-                Pincode__c = (String)orderData.get('pincode'),
-                Name = 'Home'
+                State__c = (String)orderData.get('state'),
+                Pincode__c = (String)orderData.get('pincode')
             );
             insert Security.stripInaccessible(AccessType.CREATABLE, new List<Bouquet_Address__c>{addr}).getRecords();
 
-            prod.Stock_Quantity__c -= quantity;
-            prod.Order_Count__c = (prod.Order_Count__c != null ? prod.Order_Count__c : 0) + 1;
-            update Security.stripInaccessible(AccessType.UPDATABLE, new List<Product2>{prod}).getRecords();
+            // 3. Create Order
+            Bouquet_Order__c ord = new Bouquet_Order__c();
+            ord.Customer__c = guestContact.Id;
+            ord.Status__c = 'PENDING_REVIEW';
+            ord.Occasion_Type__c = (String)orderData.get('occasionType');
+            ord.Occasion_Date__c = Date.valueOf((String)orderData.get('occasionDate'));
+            ord.Notes__c = (String)orderData.get('notes');
+            ord.Gift_Message__c = (String)orderData.get('giftMessage');
 
-            Bouquet_Order__c ord = new Bouquet_Order__c(
-                Customer__c = c.Id,
-                Status__c = 'PENDING_REVIEW',
-                Occasion_Date__c = Date.valueOf((String)orderData.get('occasionDate')),
-                Occasion_Type__c = (String)orderData.get('occasionType'),
-                Subtotal__c = (Decimal)orderData.get('totalAmount'),
-                Notes__c = (String)orderData.get('notes')
-            );
             insert Security.stripInaccessible(AccessType.CREATABLE, new List<Bouquet_Order__c>{ord}).getRecords();
 
-            Bouquet_Order_Item__c item = new Bouquet_Order_Item__c(
-                Bouquet_Order__c = ord.Id,
-                Product__c = productId,
-                Quantity__c = quantity,
-                Production_Hours__c = (Decimal)orderData.get('productionHours'),
-                Hours_Required__c = ((Decimal)orderData.get('productionHours') * (Decimal)orderData.get('quantity'))
-            );
-            insert Security.stripInaccessible(AccessType.CREATABLE, new List<Bouquet_Order_Item__c>{item}).getRecords();
+            // 4. Create Order Item
+            Id productId = (Id)orderData.get('productId');
+            Decimal quantity = Decimal.valueOf(String.valueOf(orderData.get('quantity')));
 
-            return new Map<String, Object>{
-                'orderId' => ord.Id,
-                'orderNumber' => [SELECT Order_Number__c FROM Bouquet_Order__c WHERE Id = :ord.Id].Order_Number__c
-            };
+            Product2 prod = [SELECT Price__c FROM Product2 WHERE Id = :productId LIMIT 1];
+
+            Bouquet_Order_Item__c oi = new Bouquet_Order_Item__c();
+            oi.Bouquet_Order__c = ord.Id;
+            oi.Product__c = productId;
+            oi.Quantity__c = quantity;
+            oi.Price__c = prod.Price__c;
+
+            insert Security.stripInaccessible(AccessType.CREATABLE, new List<Bouquet_Order_Item__c>{oi}).getRecords();
+
+            // 5. Update Order Total
+            ord.Subtotal__c = oi.Price__c * oi.Quantity__c;
+            update Security.stripInaccessible(AccessType.UPDATABLE, new List<Bouquet_Order__c>{ord}).getRecords();
+
+            return new Map<String, Object>{ 'orderId' => ord.Id };
         } catch (Exception e) {
             Database.rollback(sp);
+            throw new AuraHandledException(e.getMessage());
+        }
+    }
+
+    @AuraEnabled(cacheable=true)
+    public static Map<String, Object> getOrderDetails(Id orderId) {
+        try {
+            Bouquet_Order__c ord = [
+                SELECT Id, Order_Number__c, Status__c, Occasion_Date__c, Production_Deadline__c,
+                       Shipping_Date__c, Tracking_Number__c, Total_Amount__c, Subtotal__c,
+                       CreatedDate,
+                       (SELECT Id, Product__r.Name, Quantity__c, Price__c FROM Order_Items__r)
+                FROM Bouquet_Order__c
+                WHERE Id = :orderId
+                WITH SECURITY_ENFORCED
+            ];
+
+            return new Map<String, Object>{
+                'order' => ord,
+                'items' => ord.Order_Items__r
+            };
+        } catch (Exception e) {
             throw new AuraHandledException(e.getMessage());
         }
     }

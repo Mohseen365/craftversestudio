@@ -3,5 +3,7 @@
     <fullName>User__c</fullName>
     <label>User</label>
     <referenceTo>Contact</referenceTo>
+    <relationshipLabel>Bouquet Events</relationshipLabel>
+    <relationshipName>Bouquet_Events_User</relationshipName>
     <type>Lookup</type>
 </CustomField>

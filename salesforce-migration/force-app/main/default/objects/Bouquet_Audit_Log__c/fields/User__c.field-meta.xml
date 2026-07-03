@@ -3,5 +3,6 @@
     <fullName>User__c</fullName>
     <label>User</label>
     <referenceTo>User</referenceTo>
+    <relationshipName>Bouquet_Audit_Logs</relationshipName>
     <type>Lookup</type>
 </CustomField>

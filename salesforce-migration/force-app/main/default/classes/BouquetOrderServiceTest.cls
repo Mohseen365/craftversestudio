@@ -18,7 +18,7 @@ public class BouquetOrderServiceTest {
     static void testAcceptOrder() {
         Bouquet_Order__c o = [SELECT Id FROM Bouquet_Order__c LIMIT 1];
         Test.startTest();
-        BouquetOrderService.acceptOrder(o.Id, 3, 0, 0, 0);
+        BouquetOrderService.acceptOrder(o.Id, 3);
         Test.stopTest();
         Bouquet_Order__c updated = [SELECT Status__c FROM Bouquet_Order__c WHERE Id = :o.Id];
         System.assertEquals('ACCEPTED', updated.Status__c);

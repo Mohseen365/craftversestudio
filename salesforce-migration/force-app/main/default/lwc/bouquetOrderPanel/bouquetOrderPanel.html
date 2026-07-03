@@ -46,16 +46,16 @@
 
                                 <template if:true={isPendingReview}>
                                     <div class="slds-box slds-m-top_small slds-theme_shade">
-                                        <lightning-input type="number" label="Shipping Duration (Days)" value={shippingDuration} onchange={handleDurationChange} data-id={order.Id}></lightning-input>
+                                        <lightning-input type="number" label="Shipping Duration (Days)" value={order.shippingDuration} onchange={handleDurationChange} data-id={order.Id}></lightning-input>
 
-                                        <template if:true={capacityPreview}>
+                                        <template if:true={order.preview}>
                                             <div class="slds-m-top_x-small">
-                                                <template if:true={capacityPreview.canAccept}>
-                                                    <p class="slds-text-color_success">Capacity Available</p>
+                                                <template if:true={order.preview.canAccept}>
+                                                    <p class="slds-text-color_success">Capacity Available ({order.preview.requiredCapacity}h required)</p>
                                                     <lightning-button label="Accept Order" variant="brand" onclick={handleAccept} data-id={order.Id} class="slds-m-top_x-small"></lightning-button>
                                                 </template>
-                                                <template if:false={capacityPreview.canAccept}>
-                                                    <p class="slds-text-color_error">{capacityPreview.reason}</p>
+                                                <template if:false={order.preview.canAccept}>
+                                                    <p class="slds-text-color_error">{order.preview.reason}</p>
                                                 </template>
                                             </div>
                                         </template>
@@ -64,11 +64,11 @@
 
                                 <div class="slds-m-top_small">
                                     <template if:true={showNextAction}>
-                                        <lightning-button label={nextActionLabel} variant="brand" onclick={handleNextStatus} data-id={order.Id}></lightning-button>
+                                        <lightning-button label="Advance Order" variant="brand" onclick={handleNextStatus} data-id={order.Id}></lightning-button>
                                     </template>
                                     <template if:true={isReadyToShip}>
                                         <div class="slds-m-top_small">
-                                            <lightning-input label="Tracking Number" value={trackingNumber} onchange={handleTrackingChange} placeholder="Enter tracking..." class="slds-m-bottom_x-small"></lightning-input>
+                                            <lightning-input label="Tracking Number" value={order.trackingNumber} onchange={handleTrackingChange} data-id={order.Id} placeholder="Enter tracking..." class="slds-m-bottom_x-small"></lightning-input>
                                             <lightning-button label="Ship Order" variant="brand" onclick={handleNextStatus} data-id={order.Id}></lightning-button>
                                         </div>
                                     </template>

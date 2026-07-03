@@ -1,8 +1,6 @@
 import { LightningElement, wire, track } from 'lwc';
 import getAvailableProducts from '@salesforce/apex/BouquetProductController.getAvailableProducts';
 import { NavigationMixin } from 'lightning/navigation';
-import { publish, MessageContext } from 'lightning/messageService';
-import BOUQUET_MC from '@salesforce/messageChannel/BouquetMessageChannel__c';
 
 export default class BouquetCatalog extends NavigationMixin(LightningElement) {
     @track searchQuery = '';
@@ -10,10 +8,7 @@ export default class BouquetCatalog extends NavigationMixin(LightningElement) {
     @track selectedCategory = 'All';
     delayTimeout;
 
-    @wire(MessageContext)
-    messageContext;
-
-    categories = ['All', 'Rose', 'Tulip', 'Mini', 'Luxury'];
+    categories = ['All', 'Bouquets', 'Wedding', 'Mini', 'Luxury'];
 
     sortOptions = [
         { label: 'Newest', value: 'newest' },
@@ -22,7 +17,12 @@ export default class BouquetCatalog extends NavigationMixin(LightningElement) {
         { label: 'Best Sellers', value: 'best' }
     ];
 
-    @wire(getAvailableProducts, { query: '$searchQuery', category: '$selectedCategory', priceRange: 'all', sortBy: '$sortBy' })
+    @wire(getAvailableProducts, {
+        query: '$searchQuery',
+        category: '$selectedCategory',
+        priceRange: 'all',
+        sortBy: '$sortBy'
+    })
     products;
 
     handleSearchChange(event) {
@@ -30,7 +30,7 @@ export default class BouquetCatalog extends NavigationMixin(LightningElement) {
         const searchKey = event.target.value;
         this.delayTimeout = setTimeout(() => {
             this.searchQuery = searchKey;
-        }, 350);
+        }, 400);
     }
 
     handleSortChange(event) {
@@ -43,19 +43,16 @@ export default class BouquetCatalog extends NavigationMixin(LightningElement) {
 
     handleOrderNow(event) {
         const productId = event.detail.productId;
-        const price = event.detail.price;
-
-        publish(this.messageContext, BOUQUET_MC, {
-            productId: productId,
-            price: price
-        });
+        const product = this.products.data.find(p => p.Id === productId);
 
         this[NavigationMixin.Navigate]({
-            type: 'standard__recordPage',
+            type: 'standard__navItemPage',
             attributes: {
-                recordId: productId,
-                objectApiName: 'Product2',
-                actionName: 'view'
+                apiName: 'Bouquet_Order_Form'
+            },
+            state: {
+                c__productId: productId,
+                c__productPrice: product?.Price__c
             }
         });
     }

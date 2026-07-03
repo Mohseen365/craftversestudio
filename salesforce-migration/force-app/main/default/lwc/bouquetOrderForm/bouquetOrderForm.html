@@ -8,31 +8,69 @@
             </template>
 
             <div class="slds-form slds-form_stacked">
-                <div class="slds-grid slds-gutters">
-                    <div class="slds-col slds-size_1-of-2">
-                        <lightning-input label="First Name" name="firstName" required onchange={handleInputChange}></lightning-input>
-                    </div>
-                    <div class="slds-col slds-size_1-of-2">
-                        <lightning-input label="Last Name" name="lastName" required onchange={handleInputChange}></lightning-input>
+                <div class="slds-section slds-is-open">
+                    <h3 class="slds-section__title slds-theme_shade">
+                        <span class="slds-truncate slds-p-horizontal_small" title="Contact Information">Contact Information</span>
+                    </h3>
+                    <div class="slds-section__content">
+                        <div class="slds-grid slds-gutters">
+                            <div class="slds-col slds-size_1-of-2">
+                                <lightning-input label="First Name" name="firstName" required onchange={handleInputChange}></lightning-input>
+                            </div>
+                            <div class="slds-col slds-size_1-of-2">
+                                <lightning-input label="Last Name" name="lastName" required onchange={handleInputChange}></lightning-input>
+                            </div>
+                        </div>
+                        <lightning-input type="email" label="Email" name="email" required onchange={handleInputChange}></lightning-input>
+                        <lightning-input type="tel" label="Phone" name="phone" required onchange={handleInputChange}></lightning-input>
                     </div>
                 </div>
-                <lightning-input type="email" label="Email" name="email" required onchange={handleInputChange}></lightning-input>
-                <lightning-input type="tel" label="Phone" name="phone" onchange={handleInputChange}></lightning-input>
 
-                <div class="slds-m-top_medium">
-                    <lightning-input label="Occasion Date" type="date" name="occasionDate" required onchange={handleInputChange}></lightning-input>
+                <div class="slds-section slds-is-open">
+                    <h3 class="slds-section__title slds-theme_shade">
+                        <span class="slds-truncate slds-p-horizontal_small" title="Delivery Address">Delivery Address</span>
+                    </h3>
+                    <div class="slds-section__content">
+                        <lightning-input label="Street Address" name="address" required onchange={handleInputChange}></lightning-input>
+                        <div class="slds-grid slds-gutters">
+                            <div class="slds-col slds-size_1-of-3">
+                                <lightning-input label="City" name="city" required onchange={handleInputChange}></lightning-input>
+                            </div>
+                            <div class="slds-col slds-size_1-of-3">
+                                <lightning-input label="State" name="state" required onchange={handleInputChange}></lightning-input>
+                            </div>
+                            <div class="slds-col slds-size_1-of-3">
+                                <lightning-input label="Pincode" name="pincode" required onchange={handleInputChange} pattern="[0-9]{6}"></lightning-input>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="slds-m-top_medium">
-                    <lightning-input type="number" label="Quantity" name="quantity" value="1" min="1" max="10" onchange={handleInputChange}></lightning-input>
+                <div class="slds-section slds-is-open">
+                    <h3 class="slds-section__title slds-theme_shade">
+                        <span class="slds-truncate slds-p-horizontal_small" title="Order Details">Order Details</span>
+                    </h3>
+                    <div class="slds-section__content">
+                        <div class="slds-grid slds-gutters">
+                            <div class="slds-col slds-size_1-of-2">
+                                <lightning-combobox label="Occasion Type" name="occasionType" value={formData.occasionType} options={occasionOptions} onchange={handleInputChange}></lightning-combobox>
+                            </div>
+                            <div class="slds-col slds-size_1-of-2">
+                                <lightning-input label="Occasion Date" type="date" name="occasionDate" required onchange={handleInputChange}></lightning-input>
+                            </div>
+                        </div>
+                        <lightning-input type="number" label="Quantity" name="quantity" value={formData.quantity} min="1" max="10" onchange={handleInputChange}></lightning-input>
+                        <lightning-textarea label="Gift Message" name="giftMessage" onchange={handleInputChange}></lightning-textarea>
+                        <lightning-textarea label="Additional Notes" name="notes" onchange={handleInputChange}></lightning-textarea>
+                    </div>
                 </div>
 
                 <div class="slds-box slds-m-top_large slds-theme_shade">
                     <p class="slds-text-heading_small">Subtotal</p>
-                    <p class="slds-text-heading_medium">Calculated at checkout</p>
+                    <p class="slds-text-heading_medium">₹{subtotal}</p>
                 </div>
 
-                <lightning-button variant="brand" label="Submit Order" onclick={handleSubmit} class="slds-m-top_large" stretch disabled={isSubmitting}></lightning-button>
+                <lightning-button variant="brand" label="Place Order" onclick={handleSubmit} class="slds-m-top_large" stretch disabled={isSubmitting}></lightning-button>
             </div>
         </div>
     </lightning-card>

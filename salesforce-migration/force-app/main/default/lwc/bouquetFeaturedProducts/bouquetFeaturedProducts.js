@@ -6,6 +6,9 @@ export default class BouquetFeaturedProducts extends LightningElement {
     products;
 
     handleOrderNow(event) {
-        // Bubble up or navigate
+        const productId = event.detail.productId;
+        this.dispatchEvent(new CustomEvent('ordernow', {
+            detail: { productId }
+        }));
     }
 }

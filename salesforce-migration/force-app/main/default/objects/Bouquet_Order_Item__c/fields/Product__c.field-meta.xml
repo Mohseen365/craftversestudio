@@ -3,5 +3,7 @@
     <fullName>Product__c</fullName>
     <label>Product</label>
     <referenceTo>Product2</referenceTo>
+    <relationshipLabel>Bouquet Order Items</relationshipLabel>
+    <relationshipName>Bouquet_Order_Items</relationshipName>
     <type>Lookup</type>
 </CustomField>

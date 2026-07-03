@@ -28,9 +28,9 @@ export default class BouquetOrderPanel extends LightningElement {
     @track activeTab = 'PENDING_REVIEW';
     @track orders = [];
     @track loading = false;
-    @track shippingDuration = 3;
-    @track capacityPreview;
-    @track trackingNumber = '';
+    @track shippingDurations = {}; // Per-order durations
+    @track previews = {}; // Per-order previews
+    @track trackingNumbers = {}; // Per-order tracking
 
     wiredOrdersResult;
     subscription = {};
@@ -39,7 +39,12 @@ export default class BouquetOrderPanel extends LightningElement {
     wiredOrders(result) {
         this.wiredOrdersResult = result;
         if (result.data) {
-            this.orders = result.data;
+            this.orders = result.data.map(order => ({
+                ...order,
+                shippingDuration: this.shippingDurations[order.Id] || 3,
+                preview: this.previews[order.Id] || null,
+                trackingNumber: this.trackingNumbers[order.Id] || ''
+            }));
             this.loading = false;
         } else if (result.error) {
             console.error(result.error);
@@ -85,34 +90,49 @@ export default class BouquetOrderPanel extends LightningElement {
     }
 
     handleDurationChange(event) {
-        this.shippingDuration = parseInt(event.target.value, 10);
         const orderId = event.target.dataset.id;
-        this.loadPreview(orderId);
+        const duration = parseInt(event.target.value, 10);
+        this.shippingDurations[orderId] = duration;
+        this.loadPreview(orderId, duration);
     }
 
-    async loadPreview(orderId) {
-        if (!orderId) return;
+    async loadPreview(orderId, duration) {
+        const order = this.orders.find(o => o.Id === orderId);
+        if (!order || !order.Occasion_Date__c) return;
+
+        // Calculate production deadline: occasionDate - duration - 1
+        const occasionDate = new Date(order.Occasion_Date__c);
+        const deadlineDate = new Date(occasionDate);
+        deadlineDate.setDate(occasionDate.getDate() - duration - 1);
+
         try {
-            this.capacityPreview = await getCapacityPreview({
+            const preview = await getCapacityPreview({
                 orderId: orderId,
-                shippingDurationDays: this.shippingDuration
+                productionDeadline: deadlineDate.toISOString().split('T')[0]
             });
+            this.previews[orderId] = preview;
+            this.refreshOrderList();
         } catch (error) {
             console.error(error);
         }
     }
 
+    refreshOrderList() {
+        this.orders = this.orders.map(order => ({
+            ...order,
+            shippingDuration: this.shippingDurations[order.Id] || 3,
+            preview: this.previews[order.Id] || null,
+            trackingNumber: this.trackingNumbers[order.Id] || ''
+        }));
+    }
+
     async handleAccept(event) {
         const orderId = event.target.dataset.id;
+        const duration = this.shippingDurations[orderId] || 3;
         try {
             await acceptOrder({
                 orderId,
-                params: {
-                    shippingDurationDays: this.shippingDuration,
-                    customizationCharge: 0,
-                    deliveryCharge: 0,
-                    urgentOrderCharge: 0
-                }
+                shippingDurationDays: duration
             });
             refreshApex(this.wiredOrdersResult);
         } catch (error) {
@@ -124,16 +144,12 @@ export default class BouquetOrderPanel extends LightningElement {
         return NEXT_STATUS[this.activeTab] !== undefined;
     }
 
-    get nextActionLabel() {
-        return `Move to ${NEXT_STATUS[this.activeTab]}`;
-    }
-
     async handleNextStatus(event) {
         const orderId = event.target.dataset.id;
         const nextStatus = NEXT_STATUS[this.activeTab];
-        const trackNum = nextStatus === 'SHIPPED' ? this.trackingNumber : null;
+        const trackNum = nextStatus === 'SHIPPED' ? this.trackingNumbers[orderId] : null;
         try {
-            await updateOrderStatus({ orderId, newStatus: nextStatus, trackingNumber: trackNum });
+            await updateOrderStatus({ orderId, status: nextStatus, trackingNumber: trackNum });
             refreshApex(this.wiredOrdersResult);
         } catch (error) {
             alert(error.body.message);
@@ -145,6 +161,7 @@ export default class BouquetOrderPanel extends LightningElement {
     }
 
     handleTrackingChange(event) {
-        this.trackingNumber = event.target.value;
+        const orderId = event.target.dataset.id;
+        this.trackingNumbers[orderId] = event.target.value;
     }
 }

@@ -3,5 +3,7 @@
     <fullName>Customer__c</fullName>
     <label>Customer</label>
     <referenceTo>Contact</referenceTo>
+    <relationshipLabel>Bouquet Orders</relationshipLabel>
+    <relationshipName>Bouquet_Orders</relationshipName>
     <type>Lookup</type>
 </CustomField>

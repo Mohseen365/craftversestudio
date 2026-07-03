@@ -9,4 +9,63 @@
         <type>AutoNumber</type>
     </nameField>
     <sharingModel>ReadWrite</sharingModel>
+    <fields>
+        <fullName>Event_Type__c</fullName>
+        <label>Event Type</label>
+        <type>Picklist</type>
+        <valueSet>
+            <restricted>true</restricted>
+            <valueSetDefinition>
+                <sorted>false</sorted>
+                <value>
+                    <fullName>ORDER_CREATED</fullName>
+                    <label>Order Created</label>
+                </value>
+                <value>
+                    <fullName>ORDER_ACCEPTED</fullName>
+                    <label>Order Accepted</label>
+                </value>
+                <value>
+                    <fullName>PAYMENT_UPLOADED</fullName>
+                    <label>Payment Uploaded</label>
+                </value>
+                <value>
+                    <fullName>PAYMENT_VERIFIED</fullName>
+                    <label>Payment Verified</label>
+                </value>
+                <value>
+                    <fullName>CAPACITY_OVERRIDE</fullName>
+                    <label>Capacity Override</label>
+                </value>
+                <value>
+                    <fullName>PROGRESS_UPDATE</fullName>
+                    <label>Progress Update</label>
+                </value>
+            </valueSetDefinition>
+        </valueSet>
+    </fields>
+    <fields>
+        <fullName>Order__c</fullName>
+        <label>Order</label>
+        <referenceTo>Bouquet_Order__c</referenceTo>
+        <relationshipLabel>Bouquet Events</relationshipLabel>
+        <relationshipName>Bouquet_Events</relationshipName>
+        <type>Lookup</type>
+    </fields>
+    <fields>
+        <fullName>User__c</fullName>
+        <label>User</label>
+        <referenceTo>User</referenceTo>
+        <relationshipLabel>Bouquet Events</relationshipLabel>
+        <relationshipName>Bouquet_Events</relationshipName>
+        <type>Lookup</type>
+    </fields>
+    <fields>
+        <fullName>Product__c</fullName>
+        <label>Product</label>
+        <referenceTo>Product2</referenceTo>
+        <relationshipLabel>Bouquet Events</relationshipLabel>
+        <relationshipName>Bouquet_Events</relationshipName>
+        <type>Lookup</type>
+    </fields>
 </CustomObject>

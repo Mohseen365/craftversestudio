@@ -3,5 +3,4 @@
     <fullName>Date__c</fullName>
     <label>Date</label>
     <type>Date</type>
-    <unique>true</unique>
 </CustomField>

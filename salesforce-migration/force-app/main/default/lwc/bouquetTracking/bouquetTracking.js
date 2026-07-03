@@ -1,9 +1,8 @@
 import { LightningElement, track, wire } from 'lwc';
-import { getRecord, updateRecord } from 'lightning/uiRecordApi';
+import { updateRecord } from 'lightning/uiRecordApi';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import { CurrentPageReference } from 'lightning/navigation';
-import getOrderTracking from '@salesforce/apex/BouquetOrderController.getOrderTracking';
-import getOrderFiles from '@salesforce/apex/BouquetOrderController.getOrderFiles';
+import getOrderDetails from '@salesforce/apex/BouquetOrderController.getOrderDetails';
 import { refreshApex } from '@salesforce/apex';
 
 const STATUS_MESSAGES = {
@@ -18,12 +17,21 @@ const STATUS_MESSAGES = {
     'DELIVERED': { title: 'Order Delivered', description: 'Enjoy your beautiful bouquet!' }
 };
 
+const STEPS = [
+    { label: 'Review', value: 'PENDING_REVIEW' },
+    { label: 'Accepted', value: 'ACCEPTED' },
+    { label: 'Confirmed', value: 'CONFIRMED' },
+    { label: 'Production', value: 'IN_PRODUCTION' },
+    { label: 'Shipping', value: 'SHIPPED' },
+    { label: 'Delivered', value: 'DELIVERED' }
+];
+
 export default class BouquetTracking extends LightningElement {
     @track inputOrderId;
     @track orderId;
     @track orderData;
-    @track orderFiles;
-    wiredFilesResult;
+    @track items;
+    isLoading = false;
 
     @wire(CurrentPageReference)
     getStateParameters(currentPageReference) {
@@ -33,22 +41,19 @@ export default class BouquetTracking extends LightningElement {
         }
     }
 
-    @wire(getOrderFiles, { orderId: '$orderId' })
-    wiredFiles(result) {
-        this.wiredFilesResult = result;
-        if (result.data) {
-            this.orderFiles = result.data;
-        }
-    }
-
     async loadOrderData() {
         if (!this.orderId) return;
+        this.isLoading = true;
         try {
-            this.orderData = await getOrderTracking({ orderId: this.orderId });
+            const result = await getOrderDetails({ orderId: this.orderId });
+            this.orderData = result.order;
+            this.items = result.items;
         } catch (error) {
             console.error('Error loading order data:', error);
             this.dispatchEvent(new ShowToastEvent({ title: 'Error', message: 'Order not found or access denied.', variant: 'error' }));
             this.orderData = null;
+        } finally {
+            this.isLoading = false;
         }
     }
 
@@ -63,11 +68,25 @@ export default class BouquetTracking extends LightningElement {
 
     get orderNumber() { return this.orderData?.Order_Number__c || ''; }
     get orderStatus() { return this.orderData?.Status__c || null; }
-    get createdDate() { return this.orderData?.CreatedDate ? new Date(this.orderData.CreatedDate).toLocaleDateString() : ''; }
-    get orderItems() { return this.orderData?.Order_Items__r || []; }
-    get showPaymentUpload() { return this.orderStatus === 'PAYMENT_PENDING' || this.orderStatus === 'ACCEPTED'; }
+    get orderTotal() { return this.orderData?.Total_Amount__c || 0; }
+    get trackingNumber() { return this.orderData?.Tracking_Number__c || 'N/A'; }
+    get productionDeadline() { return this.orderData?.Production_Deadline__c || 'TBD'; }
+    get shippingDate() { return this.orderData?.Shipping_Date__c || 'TBD'; }
+
+    get showPaymentUpload() {
+        return this.orderStatus === 'PAYMENT_PENDING' || this.orderStatus === 'ACCEPTED';
+    }
+
     get statusTitle() { return STATUS_MESSAGES[this.orderStatus]?.title || 'Order Tracking'; }
     get statusDescription() { return STATUS_MESSAGES[this.orderStatus]?.description || 'Follow your bouquet\'s journey here.'; }
+
+    get timelineSteps() {
+        const currentIdx = STEPS.findIndex(s => s.value === this.orderStatus);
+        return STEPS.map((s, idx) => ({
+            ...s,
+            className: idx <= currentIdx ? 'slds-is-active' : 'slds-is-incomplete'
+        }));
+    }
 
     async handleUploadFinished(event) {
         if (event.detail.files.length > 0) {
@@ -75,10 +94,10 @@ export default class BouquetTracking extends LightningElement {
             const fields = { Id: this.orderId, Status__c: 'PAYMENT_SUBMITTED' };
             try {
                 await updateRecord({ fields });
-                refreshApex(this.wiredFilesResult);
                 this.loadOrderData();
             } catch (err) {
                 console.error('Update failed:', err);
+                this.dispatchEvent(new ShowToastEvent({ title: 'Error', message: 'Failed to update order status.', variant: 'error' }));
             }
         }
     }
