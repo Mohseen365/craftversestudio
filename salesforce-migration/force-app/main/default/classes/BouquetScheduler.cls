@@ -56,6 +56,7 @@ public with sharing class BouquetScheduler {
             SELECT Quantity__c, Product__r.Production_Hours__c
             FROM Bouquet_Order_Item__c
             WHERE Bouquet_Order__c = :orderId
+            WITH USER_MODE
         ];
         for (Bouquet_Order_Item__c item : items) {
             Decimal hoursPerUnit = item.Product__r.Production_Hours__c != null ? item.Product__r.Production_Hours__c : 0.5;
@@ -64,12 +65,11 @@ public with sharing class BouquetScheduler {
         return total <= 0.001 ? 0.25 : total;
     }
 
-    // Native Optimization: Cache holidays to avoid redundant queries
     private static Set<Date> holidayDates;
     private static void loadHolidays() {
         if (holidayDates != null) return;
         holidayDates = new Set<Date>();
-        for (Holiday h : [SELECT ActivityDate FROM Holiday]) {
+        for (Holiday h : [SELECT ActivityDate FROM Holiday WITH USER_MODE]) {
             holidayDates.add(h.ActivityDate);
         }
     }
@@ -94,7 +94,11 @@ public with sharing class BouquetScheduler {
 
             List<Date> viableDates = new List<Date>();
             Date currentDate = todayDate;
-            while (currentDate <= o.productionDeadline) {
+
+            // Refinement: If deadline is in the past, treat today as the deadline to clear the backlog
+            Date effectiveDeadline = (o.productionDeadline < todayDate) ? todayDate : o.productionDeadline;
+
+            while (currentDate <= effectiveDeadline) {
                 if (!holidayDates.contains(currentDate)) {
                     viableDates.add(currentDate);
                 }
@@ -144,7 +148,7 @@ public with sharing class BouquetScheduler {
 
             if (need > 0.001) {
                 result.success = false;
-                result.reason = 'Order ' + po.order.orderNumber + ' (' + po.order.orderId + ') cannot be satisfied. Missing ' + need.setScale(2) + 'h before ' + po.order.productionDeadline;
+                result.reason = 'Order ' + po.order.orderNumber + ' (' + po.order.orderId + ') cannot be satisfied. Backlog exceeds capacity before ' + po.order.productionDeadline;
                 return result;
             }
             result.allocations.put(po.order.orderId, allocs);
@@ -172,10 +176,17 @@ public with sharing class BouquetScheduler {
         public Integer compareTo(Object compareTo) {
             PendingOrder other = (PendingOrder)compareTo;
 
+            // Priority 1: Late orders (backlog) should be addressed first
+            if (this.order.isLate != other.order.isLate) {
+                return this.order.isLate ? -1 : 1;
+            }
+
+            // Priority 2: Urgent orders
             if (this.order.isUrgent != other.order.isUrgent) {
                 return this.order.isUrgent ? -1 : 1;
             }
 
+            // Priority 3: Tightest window (least slack)
             if (this.windowSize != other.windowSize) return this.windowSize - other.windowSize;
             if (this.slack != other.slack) {
                 return this.slack < other.slack ? -1 : 1;
@@ -199,6 +210,7 @@ public with sharing class BouquetScheduler {
             FROM Bouquet_Order__c
             WHERE Status__c IN :SCHEDULABLE_STATUSES
               AND Production_Deadline__c != null
+            WITH USER_MODE
         ];
 
         Date maxDeadline = todayDate;
@@ -210,6 +222,7 @@ public with sharing class BouquetScheduler {
             SELECT Date__c, Maximum_Hours__c
             FROM Bouquet_Capacity__c
             WHERE Date__c >= :todayDate AND Date__c <= :maxDeadline
+            WITH USER_MODE
         ];
         data.capacityLimits = new Map<Date, Decimal>();
         for (Bouquet_Capacity__c c : caps) {
@@ -222,6 +235,7 @@ public with sharing class BouquetScheduler {
             WHERE Bouquet_Capacity__r.Date__c >= :todayDate
               AND Bouquet_Capacity__r.Date__c <= :maxDeadline
               AND Completed_Hours__c > 0
+            WITH USER_MODE
         ];
         data.completedWorkMap = new Map<Date, Decimal>();
         for (Bouquet_Capacity_Reservation__c r : reservations) {
@@ -259,12 +273,23 @@ public with sharing class BouquetScheduler {
     }
 
     public static void rebuildSchedule() {
+        // Prevent concurrent rebuilds by checking for existing active jobs
+        List<Bouquet_Scheduling_Job__c> activeJobs = [
+            SELECT Id FROM Bouquet_Scheduling_Job__c
+            WHERE Status__c = 'IN_PROGRESS'
+              AND CreatedDate = TODAY
+            WITH USER_MODE
+            LIMIT 1
+        ];
+        if (!activeJobs.isEmpty()) return;
+
         Date todayDate = Date.today();
         SchedulerData data = getSchedulerData(todayDate);
         SchedulingResult result = scheduleOrdersInMemory(todayDate, data.inputs, data.capacityLimits, data.completedWorkMap);
 
         if (!result.success) {
-            throw new AuraHandledException('Cannot rebuild schedule: ' + result.reason);
+            BouquetLogger.log('Schedule rebuild failed: ' + result.reason, BouquetLogger.Severity.WARNING, null);
+            return; // Don't throw to avoid blocking the trigger/UI, just log it
         }
 
         persistAllocations(result.allocations, todayDate);
@@ -277,7 +302,7 @@ public with sharing class BouquetScheduler {
             for (ScheduledAllocation a : allocs) allDates.add(a.allocationDate);
         }
 
-        List<Bouquet_Capacity__c> existingCaps = [SELECT Date__c FROM Bouquet_Capacity__c WHERE Date__c IN :allDates];
+        List<Bouquet_Capacity__c> existingCaps = [SELECT Date__c FROM Bouquet_Capacity__c WHERE Date__c IN :allDates WITH USER_MODE];
         Set<Date> existingDates = new Set<Date>();
         for (Bouquet_Capacity__c c : existingCaps) existingDates.add(c.Date__c);
 
@@ -287,14 +312,14 @@ public with sharing class BouquetScheduler {
                 newCaps.add(new Bouquet_Capacity__c(Date__c = d, Name = d.toString(), Maximum_Hours__c = DEFAULT_HOURS_PER_DAY));
             }
         }
-        if (!newCaps.isEmpty()) insert newCaps;
+        if (!newCaps.isEmpty()) insert as user newCaps;
 
         Map<Date, Id> capIdByDate = new Map<Date, Id>();
-        for (Bouquet_Capacity__c c : [SELECT Id, Date__c FROM Bouquet_Capacity__c WHERE Date__c >= :todayDate]) {
+        for (Bouquet_Capacity__c c : [SELECT Id, Date__c FROM Bouquet_Capacity__c WHERE Date__c >= :todayDate WITH USER_MODE]) {
             capIdByDate.put(c.Date__c, c.Id);
         }
 
-        delete [
+        delete as user [
             SELECT Id FROM Bouquet_Capacity_Reservation__c
             WHERE Bouquet_Capacity__r.Date__c >= :todayDate
               AND Is_Manual__c = false
@@ -305,11 +330,12 @@ public with sharing class BouquetScheduler {
             SELECT Id, Completed_Hours__c FROM Bouquet_Capacity_Reservation__c
             WHERE Bouquet_Capacity__r.Date__c >= :todayDate
               AND Is_Manual__c = false
+            WITH USER_MODE
         ];
         for (Bouquet_Capacity_Reservation__c r : remaining) {
             r.Planned_Hours__c = r.Completed_Hours__c;
         }
-        update remaining;
+        update as user remaining;
 
         List<Bouquet_Capacity_Reservation__c> toInsert = new List<Bouquet_Capacity_Reservation__c>();
         for (Id orderId : allocations.keySet()) {
@@ -325,7 +351,7 @@ public with sharing class BouquetScheduler {
                 ));
             }
         }
-        if (!toInsert.isEmpty()) insert toInsert;
+        if (!toInsert.isEmpty()) insert as user toInsert;
     }
 
     public static AcceptabilityResult checkAcceptability(

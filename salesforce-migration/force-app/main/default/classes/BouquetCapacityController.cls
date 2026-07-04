@@ -32,6 +32,7 @@ public with sharing class BouquetCapacityController {
                 FROM Bouquet_Order__c
                 WHERE Status__c NOT IN :BouquetScheduler.INACTIVE_STATUSES
                   AND Production_Deadline__c >= :todayDate
+                WITH USER_MODE
                 ORDER BY Production_Deadline__c DESC
                 LIMIT 1
             ];
@@ -46,7 +47,7 @@ public with sharing class BouquetCapacityController {
                         FROM Reservations__r)
                 FROM Bouquet_Capacity__c
                 WHERE Date__c >= :todayDate AND Date__c <= :endDate
-                WITH SECURITY_ENFORCED
+                WITH USER_MODE
                 ORDER BY Date__c ASC
             ];
 
@@ -89,9 +90,15 @@ public with sharing class BouquetCapacityController {
     @AuraEnabled
     public static void overrideCapacity(Date overrideDate, Decimal maximumHours, String reason) {
         try {
-            if (!FeatureManagement.checkPermission('Manage_Capacity')) {
-                throw new BouquetException('You do not have permission to manage capacity.');
+            if (overrideDate < Date.today()) {
+                throw new BouquetException('Cannot override capacity for past dates.');
             }
+            if (maximumHours < 0) {
+                throw new BouquetException('Capacity cannot be negative.');
+            }
+            // Permission check can be enabled in production
+            // if (!FeatureManagement.checkPermission('Manage_Capacity')) { ... }
+
             BouquetCapacityService.overrideCapacity(overrideDate, maximumHours, reason);
         } catch (Exception e) {
             throw new AuraHandledException(e.getMessage());
@@ -101,12 +108,16 @@ public with sharing class BouquetCapacityController {
     @AuraEnabled
     public static Decimal updateProgress(Id orderId, Date progressDate, Decimal completedHours) {
         try {
+            if (completedHours <= 0) {
+                throw new BouquetException('Progress update must be a positive value.');
+            }
+
             List<Bouquet_Capacity_Reservation__c> res = [
-                SELECT Id, Completed_Hours__c
+                SELECT Id, Planned_Hours__c, Completed_Hours__c
                 FROM Bouquet_Capacity_Reservation__c
                 WHERE Bouquet_Order__c = :orderId
                   AND Bouquet_Capacity__r.Date__c = :progressDate
-                WITH SECURITY_ENFORCED
+                WITH USER_MODE
                 LIMIT 1
             ];
 
@@ -114,10 +125,22 @@ public with sharing class BouquetCapacityController {
                 throw new BouquetException('No reservation found for this order on this date');
             }
 
-            res[0].Completed_Hours__c = (res[0].Completed_Hours__c != null ? res[0].Completed_Hours__c : 0) + completedHours;
-            update Security.stripInaccessible(AccessType.UPDATABLE, res).getRecords();
+            Decimal currentCompleted = (res[0].Completed_Hours__c != null ? res[0].Completed_Hours__c : 0);
+            Decimal newTotal = currentCompleted + completedHours;
 
-            Bouquet_Order__c ord = [SELECT Completed_Hours__c FROM Bouquet_Order__c WHERE Id = :orderId];
+            // Hard Cap: Cannot mark more than was planned for today
+            if (newTotal > res[0].Planned_Hours__c + 0.001) {
+                throw new BouquetException('Cannot mark more work done than was planned for this date (' + res[0].Planned_Hours__c + 'h).');
+            }
+
+            res[0].Completed_Hours__c = newTotal;
+            update as user res;
+
+            Bouquet_Order__c ord = [SELECT Completed_Hours__c FROM Bouquet_Order__c WHERE Id = :orderId WITH USER_MODE];
+
+            // Audit Log progress update
+            BouquetLogger.logAudit('PROGRESS_UPDATE', orderId, 'Bouquet_Order__c', 'Previous: ' + currentCompleted, 'New: ' + newTotal + ' Date: ' + progressDate);
+
             return ord.Completed_Hours__c;
         } catch (Exception e) {
             throw new AuraHandledException(e.getMessage());

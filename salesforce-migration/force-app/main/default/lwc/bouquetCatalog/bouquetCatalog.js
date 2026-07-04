@@ -25,6 +25,10 @@ export default class BouquetCatalog extends NavigationMixin(LightningElement) {
     })
     products;
 
+    get hasProducts() {
+        return this.products.data && this.products.data.length > 0;
+    }
+
     handleSearchChange(event) {
         window.clearTimeout(this.delayTimeout);
         const searchKey = event.target.value;
@@ -39,6 +43,12 @@ export default class BouquetCatalog extends NavigationMixin(LightningElement) {
 
     handleCategoryClick(event) {
         this.selectedCategory = event.target.dataset.name;
+    }
+
+    handleClearSearch() {
+        this.searchQuery = '';
+        const searchInput = this.template.querySelector('lightning-input[type="search"]');
+        if (searchInput) searchInput.value = '';
     }
 
     handleOrderNow(event) {

@@ -25,7 +25,7 @@ public with sharing class BouquetOrderService {
             order.Shipping_Date__c = shippingDate;
             order.Production_Deadline__c = productionDeadline;
 
-            update Security.stripInaccessible(AccessType.UPDATABLE, new List<Bouquet_Order__c>{order}).getRecords();
+            update as user order;
 
             BouquetScheduler.persistAllocations(check.allocations, Date.today());
 

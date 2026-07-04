@@ -1,5 +1,6 @@
 import { LightningElement, api, track, wire } from 'lwc';
 import placeGuestOrder from '@salesforce/apex/BouquetOrderController.placeGuestOrder';
+import isUserLoggedIn from '@salesforce/apex/BouquetUserController.isUserLoggedIn';
 import { NavigationMixin, CurrentPageReference } from 'lightning/navigation';
 
 export default class BouquetOrderForm extends NavigationMixin(LightningElement) {
@@ -11,6 +12,7 @@ export default class BouquetOrderForm extends NavigationMixin(LightningElement) 
     };
     @track error;
     @track isSubmitting = false;
+    @track isLoggedIn = false;
 
     @wire(CurrentPageReference)
     getStateParameters(currentPageReference) {
@@ -18,6 +20,15 @@ export default class BouquetOrderForm extends NavigationMixin(LightningElement) 
             this.productId = currentPageReference.state.c__productId || this.productId;
             this.productPrice = currentPageReference.state.c__productPrice || this.productPrice;
         }
+    }
+
+    @wire(isUserLoggedIn)
+    wiredLogin({ data }) {
+        this.isLoggedIn = data;
+    }
+
+    get minDate() {
+        return new Date().toISOString().split('T')[0];
     }
 
     occasionOptions = [
@@ -36,7 +47,6 @@ export default class BouquetOrderForm extends NavigationMixin(LightningElement) 
     }
 
     async handleSubmit() {
-        // Validate inputs
         const allValid = [...this.template.querySelectorAll('lightning-input, lightning-combobox, lightning-textarea')]
             .reduce((validSoFar, inputCmp) => {
                 inputCmp.reportValidity();
@@ -44,7 +54,7 @@ export default class BouquetOrderForm extends NavigationMixin(LightningElement) 
             }, true);
 
         if (!allValid) {
-            this.error = 'Please fill in all required fields.';
+            this.error = 'Please fill in all required fields correctly.';
             return;
         }
 

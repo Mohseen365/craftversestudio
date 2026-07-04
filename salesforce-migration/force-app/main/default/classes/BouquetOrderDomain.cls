@@ -26,17 +26,28 @@ public with sharing class BouquetOrderDomain {
         for (Bouquet_Order__c ord : records) {
             Bouquet_Order__c oldOrd = oldMap.get(ord.Id);
             if (ord.Status__c != oldOrd.Status__c) {
+                // Validation: Prevent moving back from Terminal statuses
+                if (isTerminalStatus(oldOrd.Status__c) && ord.Status__c != oldOrd.Status__c) {
+                    ord.addError('Cannot change status of a delivered or cancelled order.');
+                    continue;
+                }
+
                 if (schedulingImpacted(oldOrd.Status__c, ord.Status__c)) rebuildNeeded = true;
 
                 String email = customerMap.get(ord.Customer__c)?.Email;
                 if (String.isNotBlank(email)) {
-                    notifications.add(createNotification(ord, email));
+                    Bouquet_Notification_Event__e note = createNotification(ord, email);
+                    if (note != null) notifications.add(note);
                 }
             }
         }
 
         if (rebuildNeeded) EventBus.publish(new Bouquet_Schedule_Request__e());
         if (!notifications.isEmpty()) EventBus.publish(notifications);
+    }
+
+    private Boolean isTerminalStatus(String status) {
+        return status == 'DELIVERED' || status == 'CANCELLED' || status == 'REFUNDED';
     }
 
     private Boolean schedulingImpacted(String oldStatus, String newStatus) {
@@ -46,7 +57,15 @@ public with sharing class BouquetOrderDomain {
     }
 
     private Bouquet_Notification_Event__e createNotification(Bouquet_Order__c ord, String email) {
-        String template = ord.Status__c == 'ACCEPTED' ? 'Order_Accepted' : (ord.Status__c == 'CONFIRMED' ? 'Payment_Verified' : null);
-        return template != null ? new Bouquet_Notification_Event__e(Template_Name__c = template, Recipient_Email__c = email, Order_Id__c = ord.Id) : null;
+        String template = null;
+        if (ord.Status__c == 'ACCEPTED') template = 'Order_Accepted';
+        else if (ord.Status__c == 'CONFIRMED') template = 'Payment_Verified';
+        else if (ord.Status__c == 'SHIPPED') template = 'Order_Shipped';
+
+        return template != null ? new Bouquet_Notification_Event__e(
+            Template_Name__c = template,
+            Recipient_Email__c = email,
+            Order_Id__c = ord.Id
+        ) : null;
     }
 }
