@@ -13,7 +13,7 @@ public class BouquetSchedulerTest {
             Status__c = 'PENDING_REVIEW',
             Occasion_Date__c = Date.today().addDays(10),
             Order_Number__c = 'TEST-001',
-            Total_Amount__c = 100
+            Subtotal__c = 100
         );
         insert o;
 
@@ -44,6 +44,8 @@ public class BouquetSchedulerTest {
         i1.requiredHours = 10;
         i1.lockedHours = 0;
         i1.status = 'ACCEPTED';
+        i1.isLate = false;
+        i1.isUrgent = false;
         inputs.add(i1);
 
         Map<Date, Decimal> capacityLimits = new Map<Date, Decimal>();

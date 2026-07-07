@@ -7,8 +7,7 @@ public with sharing class BouquetEmailService {
             Messaging.SingleEmailMessage mail = new Messaging.SingleEmailMessage();
             mail.setToAddresses(new String[] { recipientEmail });
             mail.setTemplateId(et.Id);
-            mail.setTargetObjectId(UserInfo.getUserId()); // Use current user as dummy for template merge if not Contact
-            mail.setWhatId(targetObjectId); // Link to Order for field merge
+            mail.setTargetObjectId(targetObjectId);
             mail.setSaveAsActivity(true);
 
             Messaging.sendEmail(new Messaging.SingleEmailMessage[] { mail });

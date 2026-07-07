@@ -17,7 +17,7 @@ public class BouquetCapacityControllerTest {
             Status__c = 'ACCEPTED',
             Occasion_Date__c = Date.today().addDays(5),
             Order_Number__c = 'TEST-CAP',
-            Total_Amount__c = 50,
+            Subtotal__c = 50,
             Production_Deadline__c = Date.today().addDays(2)
         );
         insert o;

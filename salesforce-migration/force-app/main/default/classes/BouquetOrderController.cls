@@ -121,38 +121,18 @@ public with sharing class BouquetOrderController {
                 }
             }
 
-            // Address Deduplication Logic
+            // Create Address
             String street = (String)orderData.get('address');
             String city = (String)orderData.get('city');
             String state = (String)orderData.get('state');
             String pincode = (String)orderData.get('pincode');
 
-            List<Bouquet_Address__c> existingAddresses = [
-                SELECT Id FROM Bouquet_Address__c
-                WHERE Customer__c = :customerId
-                  AND Address__c = :street
-                  AND City__c = :city
-                  AND State__c = :state
-                  AND Pincode__c = :pincode
-                WITH USER_MODE
-                LIMIT 1
-            ];
-
-            if (existingAddresses.isEmpty()) {
+            List<Bouquet_Address__c> existing = [SELECT Id FROM Bouquet_Address__c WHERE Customer__c = :customerId AND Address__c = :street AND City__c = :city LIMIT 1];
+            if (existing.isEmpty()) {
                 Bouquet_Address__c addr = new Bouquet_Address__c(
-                    Customer__c = customerId,
-                    Address__c = street,
-                    City__c = city,
-                    State__c = state,
-                    Pincode__c = pincode
+                    Customer__c = customerId, Address__c = street, City__c = city, State__c = state, Pincode__c = pincode
                 );
                 insert as user addr;
-            }
-
-            // Occasion Date Validation
-            Date occasionDate = Date.valueOf((String)orderData.get('occasionDate'));
-            if (occasionDate < Date.today()) {
-                throw new BouquetException('Occasion date cannot be in the past.');
             }
 
             // Create Order
@@ -160,20 +140,14 @@ public with sharing class BouquetOrderController {
             ord.Customer__c = customerId;
             ord.Status__c = 'PENDING_REVIEW';
             ord.Occasion_Type__c = (String)orderData.get('occasionType');
-            ord.Occasion_Date__c = occasionDate;
+            ord.Occasion_Date__c = Date.valueOf((String)orderData.get('occasionDate'));
             ord.Notes__c = (String)orderData.get('notes');
             ord.Gift_Message__c = (String)orderData.get('giftMessage');
-
             insert as user ord;
 
             // Create Order Item
             Id productId = (Id)orderData.get('productId');
             Decimal quantity = Decimal.valueOf(String.valueOf(orderData.get('quantity')));
-
-            if (quantity <= 0) {
-                throw new BouquetException('Quantity must be at least 1.');
-            }
-
             Product2 prod = [SELECT Price__c, Production_Hours__c FROM Product2 WHERE Id = :productId WITH USER_MODE LIMIT 1];
 
             Bouquet_Order_Item__c oi = new Bouquet_Order_Item__c();
@@ -183,7 +157,6 @@ public with sharing class BouquetOrderController {
             oi.Price__c = prod.Price__c;
             oi.Production_Hours__c = prod.Production_Hours__c;
             oi.Hours_Required__c = (prod.Production_Hours__c != null ? prod.Production_Hours__c : 0) * quantity;
-
             insert as user oi;
 
             ord.Subtotal__c = oi.Price__c * oi.Quantity__c;

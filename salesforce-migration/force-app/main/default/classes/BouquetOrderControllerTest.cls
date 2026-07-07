@@ -4,7 +4,7 @@ public class BouquetOrderControllerTest {
     static void setup() {
         Product2 p = new Product2(Name = 'Rose', Production_Hours__c = 1.0, IsActive = true, Price__c = 50);
         insert p;
-        Contact c = new Contact(LastName = 'Customer', Email = 'test@example.com');
+        Contact c = new Contact(LastName = 'Customer', Email = 'test@example.com', Phone = '1234567890');
         insert c;
 
         Bouquet_Order__c o = new Bouquet_Order__c(
@@ -49,6 +49,13 @@ public class BouquetOrderControllerTest {
     }
 
     @IsTest
+    static void testTrackOrder() {
+        Bouquet_Order__c o = [SELECT Order_Number__c FROM Bouquet_Order__c LIMIT 1];
+        Map<String, Object> result = BouquetOrderController.trackOrder(o.Order_Number__c, '1234567890');
+        System.assertEquals(o.Id, result.get('orderId'));
+    }
+
+    @IsTest
     static void testGetPreview() {
         Bouquet_Order__c o = [SELECT Id FROM Bouquet_Order__c LIMIT 1];
         Map<String, Object> result = BouquetOrderController.getCapacityPreview(o.Id, Date.today().addDays(5));
@@ -56,31 +63,32 @@ public class BouquetOrderControllerTest {
     }
 
     @IsTest
-    static void testPlaceOrder() {
-        Contact c = [SELECT Id FROM Contact LIMIT 1];
+    static void testPlaceGuestOrder() {
         Product2 p = [SELECT Id FROM Product2 LIMIT 1];
 
         Map<String, Object> orderData = new Map<String, Object>{
-            'customerId' => c.Id,
+            'firstName' => 'John',
+            'lastName' => 'Doe',
+            'email' => 'john@example.com',
+            'phone' => '9876543210',
+            'address' => '123 Street',
+            'city' => 'City',
+            'state' => 'State',
+            'pincode' => '123456',
             'occasionType' => 'Birthday',
             'occasionDate' => String.valueOf(Date.today().addDays(7)),
             'notes' => 'Test notes',
             'giftMessage' => 'Happy Birthday',
-            'items' => new List<Map<String, Object>>{
-                new Map<String, Object>{
-                    'productId' => p.Id,
-                    'quantity' => 1.0,
-                    'price' => 50.0
-                }
-            }
+            'productId' => p.Id,
+            'quantity' => 1.0
         };
 
         Test.startTest();
-        Id orderId = BouquetOrderController.placeOrder(orderData);
+        Map<String, Object> result = BouquetOrderController.placeGuestOrder(orderData);
         Test.stopTest();
 
-        System.assertNotEquals(null, orderId);
-        Bouquet_Order__c ord = [SELECT Subtotal__c FROM Bouquet_Order__c WHERE Id = :orderId];
+        System.assertNotEquals(null, result.get('orderId'));
+        Bouquet_Order__c ord = [SELECT Subtotal__c FROM Bouquet_Order__c WHERE Id = :(Id)result.get('orderId')];
         System.assertEquals(50.0, ord.Subtotal__c);
     }
 }

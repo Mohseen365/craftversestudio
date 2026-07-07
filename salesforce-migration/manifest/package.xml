@@ -71,6 +71,7 @@
         <members>Bouquet_Schedule_Response__e</members>
         <members>Bouquet_Scheduling_Job__c</members>
         <members>Bouquet_Scheduling_Snapshot__c</members>
+        <members>Bouquet_Setting__mdt</members>
         <name>CustomObject</name>
     </types>
     <types>

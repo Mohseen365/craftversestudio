@@ -8,7 +8,18 @@ public with sharing class BouquetOrderSelector {
                    (SELECT Id, Quantity__c, Product__r.Name, Product__r.Production_Hours__c FROM Order_Items__r)
             FROM Bouquet_Order__c
             WHERE Status__c = :status
-            WITH SECURITY_ENFORCED
+            WITH USER_MODE
+            ORDER BY CreatedDate DESC
+        ];
+    }
+
+    public static List<Bouquet_Order__c> getOrdersByCustomer(Id customerId) {
+        return [
+            SELECT Id, Order_Number__c, Status__c, Occasion_Date__c, Total_Amount__c, CreatedDate,
+                   (SELECT Id, Product__r.Name FROM Order_Items__r LIMIT 1)
+            FROM Bouquet_Order__c
+            WHERE Customer__c = :customerId
+            WITH USER_MODE
             ORDER BY CreatedDate DESC
         ];
     }
@@ -20,7 +31,7 @@ public with sharing class BouquetOrderSelector {
                    Required_Hours__c, Completed_Hours__c
             FROM Bouquet_Order__c
             WHERE Id = :orderId
-            WITH SECURITY_ENFORCED
+            WITH USER_MODE
         ];
         return orders.isEmpty() ? null : orders[0];
     }
@@ -30,7 +41,7 @@ public with sharing class BouquetOrderSelector {
             SELECT ContentDocumentId, ContentDocument.Title, ContentDocument.LatestPublishedVersionId
             FROM ContentDocumentLink
             WHERE LinkedEntityId = :orderId
-            WITH SECURITY_ENFORCED
+            WITH USER_MODE
         ];
     }
 }
