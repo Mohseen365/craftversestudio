@@ -5,7 +5,7 @@
         <language>en_US</language>
         <protected>false</protected>
         <shortDescription>Bouquet Catalog Title</shortDescription>
-        <value>Catalog</shortDescription>
+        <value>Catalog</value>
     </labels>
     <labels>
         <fullName>Bouquet_Order_Now</fullName>
@@ -13,5 +13,12 @@
         <protected>false</protected>
         <shortDescription>Bouquet Order Now Button</shortDescription>
         <value>Order Now</value>
+    </labels>
+    <labels>
+        <fullName>Bouquet_Track_Order</fullName>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Bouquet Track Order Title</shortDescription>
+        <value>Track Order</value>
     </labels>
 </CustomLabels>

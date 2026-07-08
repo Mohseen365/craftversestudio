@@ -190,4 +190,22 @@ public with sharing class BouquetOrderController {
             throw new AuraHandledException(e.getMessage());
         }
     }
+
+    @AuraEnabled(cacheable=true)
+    public static List<Map<String, String>> getOrderFiles(Id orderId) {
+        try {
+            List<ContentDocumentLink> links = BouquetOrderSelector.getPaymentFiles(orderId);
+            List<Map<String, String>> files = new List<Map<String, String>>();
+            for (ContentDocumentLink link : links) {
+                files.add(new Map<String, String>{
+                    'id' => link.ContentDocumentId,
+                    'title' => link.ContentDocument.Title,
+                    'versionId' => link.ContentDocument.LatestPublishedVersionId
+                });
+            }
+            return files;
+        } catch (Exception e) {
+            throw new AuraHandledException(e.getMessage());
+        }
+    }
 }
