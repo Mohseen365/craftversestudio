@@ -51,7 +51,7 @@ public with sharing class BouquetProductController {
                 SELECT Id, Name, Description, Production_Hours__c, Price__c, Image_URL__c, Category__c
                 FROM Product2
                 WHERE IsActive = true
-                WITH SECURITY_ENFORCED
+                WITH USER_MODE
                 ORDER BY Order_Count__c DESC
                 LIMIT 4
             ];

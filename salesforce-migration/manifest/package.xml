@@ -38,6 +38,39 @@
         <name>CustomApplication</name>
     </types>
     <types>
+        <members>Bouquet_Address__c.Address__c</members>
+        <members>Bouquet_Address__c.City__c</members>
+        <members>Bouquet_Address__c.Customer__c</members>
+        <members>Bouquet_Address__c.Pincode__c</members>
+        <members>Bouquet_Address__c.State__c</members>
+        <members>Bouquet_Order_Item__c.Bouquet_Order__c</members>
+        <members>Bouquet_Order_Item__c.Hours_Required__c</members>
+        <members>Bouquet_Order_Item__c.Price__c</members>
+        <members>Bouquet_Order_Item__c.Product__c</members>
+        <members>Bouquet_Order_Item__c.Production_Hours__c</members>
+        <members>Bouquet_Order_Item__c.Quantity__c</members>
+        <members>Bouquet_Order__c.Completed_Hours__c</members>
+        <members>Bouquet_Order__c.Customer__c</members>
+        <members>Bouquet_Order__c.Customization_Charge__c</members>
+        <members>Bouquet_Order__c.Delivery_Charge__c</members>
+        <members>Bouquet_Order__c.Delivery_Date__c</members>
+        <members>Bouquet_Order__c.Gift_Message__c</members>
+        <members>Bouquet_Order__c.Is_Urgent__c</members>
+        <members>Bouquet_Order__c.Notes__c</members>
+        <members>Bouquet_Order__c.Occasion_Date__c</members>
+        <members>Bouquet_Order__c.Occasion_Type__c</members>
+        <members>Bouquet_Order__c.Order_Number__c</members>
+        <members>Bouquet_Order__c.Production_Deadline__c</members>
+        <members>Bouquet_Order__c.Quantity__c</members>
+        <members>Bouquet_Order__c.Remaining_Hours__c</members>
+        <members>Bouquet_Order__c.Required_Hours__c</members>
+        <members>Bouquet_Order__c.Shipping_Date__c</members>
+        <members>Bouquet_Order__c.Shipping_Duration_Days__c</members>
+        <members>Bouquet_Order__c.Status__c</members>
+        <members>Bouquet_Order__c.Subtotal__c</members>
+        <members>Bouquet_Order__c.Total_Amount__c</members>
+        <members>Bouquet_Order__c.Tracking_Number__c</members>
+        <members>Bouquet_Order__c.Urgent_Order_Charge__c</members>
         <members>Contact.Is_Guest__c</members>
         <members>Product2.Category__c</members>
         <members>Product2.Image_URL__c</members>
