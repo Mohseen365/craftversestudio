@@ -1,0 +1,45 @@
+<template>
+    <lightning-card title="Product Management" icon-name="standard:product">
+        <div slot="actions">
+            <lightning-button label="New Product" onclick={handleNewProduct}></lightning-button>
+        </div>
+        <div class="slds-p-around_medium">
+            <template if:true={products}>
+                <lightning-datatable
+                    key-field="Id"
+                    data={products}
+                    columns={columns}
+                    onrowaction={handleRowAction}
+                    hide-checkbox-column>
+                </lightning-datatable>
+            </template>
+        </div>
+    </lightning-card>
+
+    <template if:true={isModalOpen}>
+        <section role="dialog" tabindex="-1" class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <header class="slds-modal__header">
+                    <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse" title="Close" onclick={closeModal}>
+                        <lightning-icon icon-name="utility:close" size="small"></lightning-icon>
+                        <span class="slds-assistive-text">Close</span>
+                    </button>
+                    <h2 class="slds-text-heading_medium">{modalTitle}</h2>
+                </header>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <lightning-record-edit-form object-api-name="Product2" record-id={selectedProductId} onsuccess={handleSuccess}>
+                        <lightning-input-field field-name="Name"></lightning-input-field>
+                        <lightning-input-field field-name="Description"></lightning-input-field>
+                        <lightning-input-field field-name="Production_Hours__c"></lightning-input-field>
+                        <lightning-input-field field-name="IsActive"></lightning-input-field>
+                        <div class="slds-m-top_medium slds-text-align_right">
+                            <lightning-button label="Cancel" onclick={closeModal} class="slds-m-right_small"></lightning-button>
+                            <lightning-button variant="brand" type="submit" label="Save"></lightning-button>
+                        </div>
+                    </lightning-record-edit-form>
+                </div>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+</template>

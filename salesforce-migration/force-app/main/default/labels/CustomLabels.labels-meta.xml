@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomLabels xmlns="http://soap.sforce.com/2006/04/metadata">
+    <labels>
+        <fullName>Bouquet_Catalog_Title</fullName>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Bouquet Catalog Title</shortDescription>
+        <value>Catalog</value>
+    </labels>
+    <labels>
+        <fullName>Bouquet_Order_Now</fullName>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Bouquet Order Now Button</shortDescription>
+        <value>Order Now</value>
+    </labels>
+    <labels>
+        <fullName>Bouquet_Track_Order</fullName>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Bouquet Track Order Title</shortDescription>
+        <value>Track Order</value>
+    </labels>
+</CustomLabels>

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomApplication xmlns="http://soap.sforce.com/2006/04/metadata">
+    <brand>
+        <headerColor>#E11D48</headerColor>
+    </brand>
+    <formFactors>Large</formFactors>
+    <label>Bouquet</label>
+    <navType>Standard</navType>
+    <tabs>Bouquet_Catalog</tabs>
+    <tabs>Bouquet_Orders</tabs>
+    <tabs>Bouquet_Tracking</tabs>
+    <tabs>Bouquet_Capacity</tabs>
+    <tabs>Bouquet_Order_Form</tabs>
+    <tabs>Bouquet_Product_Detail</tabs>
+    <uiType>Lightning</uiType>
+</CustomApplication>

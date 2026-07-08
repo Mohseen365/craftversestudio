@@ -1,0 +1,18 @@
+<template>
+    <div class="product-card slds-card slds-card_boundary slds-grid slds-grid_vertical">
+        <div class="image-container slds-align_absolute-center slds-m-bottom_small" style="height: 200px; overflow: hidden; background: #f9fafb;">
+            <template if:true={product.Image_URL__c}>
+                <img src={product.Image_URL__c} alt={product.Name} style="height: 100%; width: 100%; object-fit: cover;" />
+            </template>
+            <template if:false={product.Image_URL__c}>
+                <span style="font-size: 48px;">🌷</span>
+            </template>
+        </div>
+        <div class="slds-p-around_small">
+            <p class="slds-text-title_caps slds-text-color_weak">{product.Category__c}</p>
+            <h3 class="slds-text-heading_small slds-m-top_xx-small">{product.Name}</h3>
+            <p class="slds-text-heading_medium slds-m-top_x-small slds-text-color_success">₹{product.Price__c}</p>
+            <lightning-button label="Order Now" variant="brand" class="slds-m-top_small" stretch onclick={handleOrderNow}></lightning-button>
+        </div>
+    </div>
+</template>

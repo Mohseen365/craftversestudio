@@ -1,0 +1,57 @@
+<template>
+    <div class="slds-p-around_medium">
+        <template if:true={orders}>
+            <section class="slds-m-bottom_large">
+                <h2 class="slds-text-heading_medium slds-m-bottom_medium">Active Orders</h2>
+                <template if:true={activeOrders.length}>
+                    <template for:each={activeOrders} for:item="order">
+                        <div key={order.Id} class="order-card slds-box slds-m-bottom_small slds-grid slds-grid_vertical-align-center" onclick={handleViewDetails} data-id={order.Id} style="cursor: pointer;">
+                            <div class="slds-col slds-grow">
+                                <p class="slds-text-heading_small">{order.itemName}</p>
+                                <p class="slds-text-color_weak">#{order.Order_Number__c}</p>
+                                <p if:true={order.Occasion_Date__c} class="slds-m-top_x-small">Delivery: {order.Occasion_Date__c}</p>
+                            </div>
+                            <div class="slds-col slds-no-flex slds-text-align_right">
+                                <span class="slds-badge slds-theme_success">{order.Status__c}</span>
+                                <p class="slds-text-link slds-m-top_x-small">View Details &rarr;</p>
+                            </div>
+                        </div>
+                    </template>
+                </template>
+                <template if:false={activeOrders.length}>
+                    <p class="slds-text-color_weak">No active orders.</p>
+                </template>
+            </section>
+
+            <section>
+                <h2 class="slds-text-heading_medium slds-m-bottom_medium">Previous Orders</h2>
+                <template if:true={pastOrders.length}>
+                    <template for:each={pastOrders} for:item="order">
+                        <div key={order.Id} class="order-card slds-box slds-m-bottom_small slds-grid slds-grid_vertical-align-center" onclick={handleViewDetails} data-id={order.Id} style="cursor: pointer;">
+                            <div class="slds-col slds-grow">
+                                <p class="slds-text-heading_small">{order.itemName}</p>
+                                <p class="slds-text-color_weak">#{order.Order_Number__c}</p>
+                            </div>
+                            <div class="slds-col slds-no-flex">
+                                <p class="slds-text-link">View Details &rarr;</p>
+                            </div>
+                        </div>
+                    </template>
+                </template>
+                <template if:false={pastOrders.length}>
+                    <p class="slds-text-color_weak">No previous orders.</p>
+                </template>
+            </section>
+        </template>
+
+        <template if:false={orders}>
+            <div class="slds-align_absolute-center slds-m-top_xx-large">
+                <div class="slds-text-align_center">
+                    <h2 class="slds-text-heading_large">No Orders Yet</h2>
+                    <p class="slds-m-top_small slds-text-color_weak">Explore our bouquet collection and place your first order.</p>
+                    <lightning-button label="Browse Bouquets" variant="brand" onclick={navigateToCatalog} class="slds-m-top_medium"></lightning-button>
+                </div>
+            </div>
+        </template>
+    </div>
+</template>

@@ -1,0 +1,25 @@
+<template>
+    <lightning-card title="My Profile" icon-name="standard:user">
+        <div class="slds-p-around_medium">
+            <template if:true={profile}>
+                <div class="slds-form slds-form_stacked">
+                    <lightning-input label="First Name" name="firstName" value={profile.contact.FirstName}></lightning-input>
+                    <lightning-input label="Last Name" name="lastName" value={profile.contact.LastName}></lightning-input>
+                    <lightning-input label="Email" value={profile.contact.Email} disabled></lightning-input>
+                    <lightning-input label="Phone" name="phone" value={profile.contact.Phone}></lightning-input>
+
+                    <lightning-button label="Update Profile" variant="brand" onclick={handleUpdate} class="slds-m-top_medium"></lightning-button>
+                </div>
+
+                <h3 class="slds-text-heading_small slds-m-top_large slds-m-bottom_small">My Addresses</h3>
+                <template for:each={profile.addresses} for:item="addr">
+                    <div key={addr.Id} class="slds-box slds-m-bottom_small">
+                        <p><strong>{addr.Name}</strong></p>
+                        <p>{addr.Address__c}</p>
+                        <p>{addr.City__c}, {addr.Pincode__c}</p>
+                    </div>
+                </template>
+            </template>
+        </div>
+    </lightning-card>
+</template>

@@ -1,0 +1,112 @@
+<template>
+    <lightning-card title={labels.trackOrder} icon-name="standard:orders">
+        <div class="slds-p-around_medium">
+            <template if:false={hasOrder}>
+                <div class="slds-form slds-form_stacked">
+                    <lightning-input
+                        label="Order Number"
+                        name="orderNumber"
+                        value={orderNumber}
+                        onchange={handleInputChange}
+                        placeholder="e.g. ORD-1001"
+                        required>
+                    </lightning-input>
+                    <lightning-input
+                        label="Mobile Number"
+                        name="mobileNo"
+                        type="tel"
+                        value={mobileNo}
+                        onchange={handleInputChange}
+                        placeholder="e.g. 9876543210"
+                        required>
+                    </lightning-input>
+                    <div class="slds-m-top_medium">
+                        <lightning-button
+                            variant="brand"
+                            label="Track Order"
+                            onclick={handleTrack}
+                            is-loading={isLoading}>
+                        </lightning-button>
+                    </div>
+                </div>
+            </template>
+
+            <template if:true={hasOrder}>
+                <div class="slds-grid slds-wrap slds-grid_pull-padded">
+                    <div class="slds-p-horizontal_small slds-size_1-of-1 slds-m-bottom_medium">
+                        <lightning-button label="Back to Search" icon-name="utility:back" onclick={handleBack}></lightning-button>
+                    </div>
+
+                    <div class="slds-p-horizontal_small slds-size_1-of-1 slds-medium-size_1-of-2">
+                        <h3 class="slds-text-heading_small slds-m-bottom_small">Order Info</h3>
+                        <p><strong>Order #:</strong> {orderData.Order_Number__c}</p>
+                        <p><strong>Status:</strong> <span class="slds-badge">{orderData.Status__c}</span></p>
+                        <p><strong>Occasion Date:</strong> {orderData.Occasion_Date__c}</p>
+                        <p><strong>Total:</strong> ₹{orderData.Total_Amount__c}</p>
+                    </div>
+
+                    <div class="slds-p-horizontal_small slds-size_1-of-1 slds-medium-size_1-of-2">
+                        <h3 class="slds-text-heading_small slds-m-bottom_small">Shipping & Production</h3>
+                        <p><strong>Production Deadline:</strong> {orderData.Production_Deadline__c}</p>
+                        <p><strong>Shipping Date:</strong> {orderData.Shipping_Date__c}</p>
+                        <p><strong>Tracking #:</strong> {orderData.Tracking_Number__c}</p>
+                    </div>
+
+                    <div class="slds-p-horizontal_small slds-size_1-of-1 slds-m-top_large">
+                        <h3 class="slds-text-heading_small slds-m-bottom_small">Items</h3>
+                        <table class="slds-table slds-table_bordered slds-table_cell-buffer">
+                            <thead>
+                                <tr class="slds-line-height_reset">
+                                    <th scope="col">Product</th>
+                                    <th scope="col">Quantity</th>
+                                    <th scope="col">Price</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template for:each={orderItems} for:item="item">
+                                    <tr key={item.Id}>
+                                        <td>{item.Product__r.Name}</td>
+                                        <td>{item.Quantity__c}</td>
+                                        <td>₹{item.Price__c}</td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="slds-p-horizontal_small slds-size_1-of-1 slds-m-top_large">
+                        <h3 class="slds-text-heading_small slds-m-bottom_small">Payment Verification</h3>
+                        <template if:true={orderFiles.length}>
+                            <div class="slds-grid slds-wrap">
+                                <template for:each={orderFiles} for:item="file">
+                                    <div key={file.id} class="slds-p-around_x-small">
+                                        <lightning-button
+                                            label={file.title}
+                                            icon-name="utility:file"
+                                            data-id={file.id}
+                                            onclick={openFile}>
+                                        </lightning-button>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                        <template if:false={orderFiles.length}>
+                            <p class="slds-text-color_weak">No payment proof uploaded yet.</p>
+                        </template>
+
+                        <div class="slds-m-top_medium">
+                            <lightning-file-upload
+                                label="Upload Payment Screenshot"
+                                name="fileUploader"
+                                accept=".png,.jpg,.jpeg"
+                                record-id={orderId}
+                                onuploadfinished={handleUploadFinished}
+                                multiple="false">
+                            </lightning-file-upload>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </lightning-card>
+</template>

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Required_Hours__c</fullName>
+    <label>Required Hours</label>
+    <summarizedField>Bouquet_Order_Item__c.Hours_Required__c</summarizedField>
+    <summaryForeignKey>Bouquet_Order_Item__c.Bouquet_Order__c</summaryForeignKey>
+    <summaryOperation>sum</summaryOperation>
+    <type>Summary</type>
+</CustomField>
